@@ -1,0 +1,7 @@
+exclude:
+  directories:
+    - git
+    - "*.egg-info"
+  files:
+    - "*.pyc"
+    - "**/*.log"
