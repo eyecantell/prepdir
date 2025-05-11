@@ -24,6 +24,7 @@ exclude:
     - .coverage
     - coverage.xml
     - .pdm-python
+    - pdm.lock
     - "*.pyc"
     - "*.pyo"
     - "*.log"

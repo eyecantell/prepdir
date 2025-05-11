@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install PDM
+      run: pip install pdm
+
+    - name: Cache PDM dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.pdm
+        key: ${{ runner.os }}-pdm-${{ hashFiles('pyproject.toml', 'pdm.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-pdm-
+
+    - name: Install dependencies
+      run: pdm install
+
+    - name: Run tests
+      run: pdm run pytest
