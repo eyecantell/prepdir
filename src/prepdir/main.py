@@ -100,10 +100,12 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
     for root, dirs, files in os.walk(directory):
         # Remove excluded directories in-place, unless include_all is True
         if not include_all:
-            dirs[:] = [d for d in dirs if not is_excluded_dir(d, root, directory, excluded_dirs)]
+            # Identify excluded directories for logging
+            skipped_dirs = [d for d in dirs if is_excluded_dir(d, root, directory, excluded_dirs)]
             if verbose:
-                for d in [d for d in dirs if is_excluded_dir(d, root, directory, excluded_dirs)]:
-                    print(f"Skipping directory: {os.path.join(root, d)}", file=sys.stderr)
+                for d in skipped_dirs:
+                    print(f"Skipping directory: {os.path.join(root, d)} (excluded in config)", file=sys.stderr)
+            dirs[:] = [d for d in dirs if not is_excluded_dir(d, root, directory, excluded_dirs)]
         
         for file in files:
             # Check if file is excluded
