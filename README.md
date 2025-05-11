@@ -10,7 +10,7 @@ Automatically excludes the output file (e.g., prepped_dir.txt)
 Filters files by extension
 Outputs to a file (default: prepped_dir.txt)
 Option to include all files and directories, ignoring exclusions
-Customizable configuration file path
+Customizable configuration file path (supports ~/.prepdir/config.yaml or user-specified path)
 Verbose mode to log skipped files and directories
 Easy-to-use command-line interface
 Perfect for sending code to AI assistants for review
@@ -74,7 +74,14 @@ pdm install
 pdm run pytest
 
 Configuration
-Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config) using .gitignore-style glob patterns. The output file (e.g., prepped_dir.txt) is automatically excluded.
+Exclusions for directories and files are defined in config.yaml, which can be located in:
+
+The user's home directory at ~/.prepdir/config.yaml (highest precedence).
+A custom path specified with --config (e.g., --config custom_config.yaml).
+The default config.yaml included with the package (lowest precedence).
+
+The output file (e.g., prepped_dir.txt) is automatically excluded. The configuration uses .gitignore-style glob patterns.
+Example config.yaml:
 exclude:
   directories:
     - .git
@@ -107,6 +114,10 @@ exclude:
     - "*.bak"
     - "*.swp"
     - "**/*.log"
+
+To use a global configuration, create ~/.prepdir/config.yaml:
+mkdir -p ~/.prepdir
+echo "exclude:\n  directories:\n    - .git\n  files:\n    - *.pyc" > ~/.prepdir/config.yaml
 
 Use Cases
 

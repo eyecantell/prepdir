@@ -18,6 +18,21 @@ from importlib.metadata import version
 
 def load_config(config_path="config.yaml"):
     """Load exclusion configuration from YAML file."""
+    # Check home directory first (~/.prepdir/config.yaml)
+    home_config = Path.home() / ".prepdir" / "config.yaml"
+    if home_config.exists():
+        try:
+            with home_config.open('r', encoding='utf-8') as f:
+                config = yaml.safe_load(f) or {}
+            return (
+                config.get('exclude', {}).get('directories', []),
+                config.get('exclude', {}).get('files', [])
+            )
+        except yaml.YAMLError as e:
+            print(f"Error: Invalid YAML in '{home_config}': {str(e)}", file=sys.stderr)
+            sys.exit(1)
+    
+    # Fall back to user-specified or default config path
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f) or {}

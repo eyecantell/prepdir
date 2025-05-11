@@ -106,6 +106,52 @@ pdm install
 # Run tests
 pdm run pytest
 
+Configuration
+Exclusions for directories and files are defined in config.yaml, which can be located in:
+
+The user's home directory at ~/.prepdir/config.yaml (highest precedence).
+A custom path specified with --config (e.g., --config custom_config.yaml).
+The default config.yaml included with the package (lowest precedence).
+
+The output file (e.g., prepped_dir.txt) is automatically excluded. The configuration uses .gitignore-style glob patterns.
+Example config.yaml:
+exclude:
+  directories:
+    - .git
+    - __pycache__
+    - .pdm-build
+    - .venv
+    - venv
+    - .idea
+    - node_modules
+    - dist
+    - build
+    - .pytest_cache
+    - .mypy_cache
+    - .cache
+    - .eggs
+    - .tox
+    - "*.egg-info"
+  files:
+    - .gitignore
+    - LICENSE
+    - .DS_Store
+    - Thumbs.db
+    - .env
+    - .coverage
+    - coverage.xml
+    - .pdm-python
+    - "*.pyc"
+    - "*.pyo"
+    - "*.log"
+    - "*.bak"
+    - "*.swp"
+    - "**/*.log"
+
+To use a global configuration, create ~/.prepdir/config.yaml:
+mkdir -p ~/.prepdir
+echo "exclude:\n  directories:\n    - .git\n  files:\n    - *.pyc" > ~/.prepdir/config.yaml
+
 Development Setup
 For development:
 # Clone the repository
