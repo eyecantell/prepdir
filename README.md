@@ -1,21 +1,17 @@
-# prepdir
-
+prepdir
 A utility to traverse directories and prepare file contents, designed specifically for sharing code projects with AI assistants for review and analysis.
+Features
 
-## Features
+Recursively walks through directories
+Displays relative paths and file contents
+Skips specified directories and files (configured via config.yaml)
+Filters files by extension
+Outputs to a file (default: prepped_dir.txt)
+Easy-to-use command-line interface
+Perfect for sending code to AI assistants for review
 
-- Recursively walks through directories
-- Displays relative paths and file contents
-- Skips `.git` and `__pycache__` directories
-- Filters files by extension
-- Easy-to-use command-line interface
-- Perfect for sending code to AI assistants for review
-
-## Installation
-
-### Using PDM (recommended)
-
-```bash
+Installation
+Using PDM (recommended)
 # Install PDM if you don't already have it
 pip install pdm
 
@@ -25,49 +21,53 @@ pdm install
 # Install for system-wide use
 pdm build
 pip install dist/*.whl
-```
 
-### Using pip
-
-```bash
+Using pip
 # Install from PyPI (once published)
 pip install prepdir
 
 # Install from GitHub
 pip install git+https://github.com/eyecantell/prepdir.git
-```
 
-## Usage
-
-```bash
-# Show all files in current directory
+Usage
+# Output all files in current directory to prepped_dir.txt
 prepdir
 
-# Show all files in specified directory
+# Output to a custom file
+prepdir -o output.txt
+
+# Output all files in specified directory
 prepdir /path/to/directory
 
-# Only show Python files
+# Only output Python files
 prepdir -e py
 
-# Show Python and Markdown files
-prepdir -e py md
+# Output Python and Markdown files to custom file
+prepdir -o project_files.txt -e py md
 
 # Specific directory and extensions
 prepdir /path/to/directory -e py md
-```
 
-## Use Cases
+Configuration
+Exclusions for directories and files are defined in config.yaml:
+exclude:
+  directories:
+    - .git
+    - __pycache__
+    - .pdm-build
+  files:
+    - .gitignore
+    - LICENSE
 
-1. **AI Code Review**: Easily prepare your entire codebase for AI assistants
-2. **Project Analysis**: Get a comprehensive view of project structure and content
-3. **Knowledge Transfer**: Help AI understand your project context quickly
-4. **Bug Hunting**: Provide full context when asking for debugging help
+Use Cases
 
-## Development
+AI Code Review: Easily prepare your entire codebase for AI assistants
+Project Analysis: Get a comprehensive view of project structure and content
+Knowledge Transfer: Help AI understand your project context quickly
+Bug Hunting: Provide full context when asking for debugging help
 
-This project uses [PDM](https://pdm.fming.dev/) for dependency management and packaging.
-
-```bash
+Development
+This project uses PDM for dependency management and packaging.
 # Clone the repository
 git clone https://github.com/eyecantell/prepdir.git
 cd prepdir
@@ -77,8 +77,6 @@ pdm install
 
 # Run in development mode
 pdm run prepdir
-```
 
-## License
-
+License
 MIT

@@ -1,0 +1,8 @@
+exclude:
+  directories:
+    - .git
+    - __pycache__
+    - .pdm-build
+  files:
+    - .gitignore
+    - LICENSE

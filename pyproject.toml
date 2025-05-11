@@ -13,6 +13,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.7"
+dependencies = [
+    "pyyaml>=6.0",
+]
 
 [project.scripts]
 prepdir = "prepdir.main:main"
@@ -20,7 +23,6 @@ prepdir = "prepdir.main:main"
 [tool.ruff]
 # Allow lines to be as long as 120.
 line-length = 120
-
 
 [build-system]
 requires = ["pdm-backend"]
