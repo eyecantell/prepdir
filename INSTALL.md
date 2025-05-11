@@ -74,8 +74,14 @@ prepdir /path/to/directory -e py
 # Include all files and directories, ignoring exclusions
 prepdir --all
 
+# Use a custom config file
+prepdir --config custom_config.yaml
+
+# Enable verbose output
+prepdir -v
+
 Configuration
-Exclusions for directories and files are defined in config.yaml:
+Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config):
 exclude:
   directories:
     - .git

@@ -8,6 +8,8 @@ Skips specified directories and files (configured via config.yaml)
 Filters files by extension
 Outputs to a file (default: prepped_dir.txt)
 Option to include all files and directories, ignoring exclusions
+Customizable configuration file path
+Verbose mode to log skipped files and directories
 Easy-to-use command-line interface
 Perfect for sending code to AI assistants for review
 
@@ -49,11 +51,17 @@ prepdir -o project_files.txt -e py md
 # Include all files and directories, ignoring exclusions
 prepdir --all
 
-# Specific directory and extensions, ignoring exclusions
-prepdir /path/to/directory --all -e py md
+# Use a custom config file
+prepdir --config custom_config.yaml
+
+# Enable verbose output
+prepdir -v
+
+# Combine options
+prepdir /path/to/directory --all -e py -o output.txt -v --config custom_config.yaml
 
 Configuration
-Exclusions for directories and files are defined in config.yaml:
+Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config):
 exclude:
   directories:
     - .git

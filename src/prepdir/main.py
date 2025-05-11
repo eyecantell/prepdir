@@ -24,10 +24,10 @@ def load_config(config_path="config.yaml"):
             config.get('exclude', {}).get('files', [])
         )
     except FileNotFoundError:
-        print(f"Warning: Config file '{config_path}' not found. Using defaults.")
+        print(f"Warning: Config file '{config_path}' not found. Using defaults.", file=sys.stderr)
         return ['.git', '__pycache__', '.pdm-build'], ['.gitignore', 'LICENSE']
     except yaml.YAMLError as e:
-        print(f"Error: Invalid YAML in '{config_path}': {str(e)}")
+        print(f"Error: Invalid YAML in '{config_path}': {str(e)}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -61,7 +61,7 @@ def display_file_content(file_full_path: str, directory: str):
     print(f"{dashes} End File: '{relative_path}' {dashes}")
 
 
-def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_files=None, include_all=False):
+def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_files=None, include_all=False, verbose=False):
     """
     Traverse the directory and display file contents.
     
@@ -71,6 +71,7 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
         excluded_dirs (list): Directories to exclude
         excluded_files (list): Files to exclude
         include_all (bool): If True, ignore exclusion lists
+        verbose (bool): If True, print additional information about skipped files
     """
     # Convert directory to absolute path
     directory = os.path.abspath(directory)
@@ -82,15 +83,23 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
         # Remove excluded directories in-place, unless include_all is True
         if not include_all:
             dirs[:] = [d for d in dirs if not is_excluded_dir(d, excluded_dirs)]
+            if verbose:
+                for d in [d for d in dirs if is_excluded_dir(d, excluded_dirs)]:
+                    print(f"Skipping directory: {os.path.join(root, d)}", file=sys.stderr)
         
         for file in files:
+            # Check if file is excluded
             if not include_all and is_excluded_file(file, excluded_files):
+                if verbose:
+                    print(f"Skipping file: {os.path.join(root, file)} (excluded in config)", file=sys.stderr)
                 continue 
             
             # Check extension if filter is provided
             if extensions:
                 file_ext = os.path.splitext(file)[1].lstrip('.')
                 if file_ext not in extensions:
+                    if verbose:
+                        print(f"Skipping file: {os.path.join(root, file)} (extension not in {extensions})", file=sys.stderr)
                     continue
             
             # At this point we have a file to display
@@ -133,19 +142,29 @@ def main():
         action='store_true',
         help='Include all files and directories, ignoring exclusions in config.yaml'
     )
+    parser.add_argument(
+        '--config',
+        default='config.yaml',
+        help='Path to configuration YAML file (default: config.yaml)'
+    )
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Print verbose output about skipped files and directories'
+    )
     
     args = parser.parse_args()
     
     if not os.path.exists(args.directory):
-        print(f"Error: Directory '{args.directory}' does not exist.")
+        print(f"Error: Directory '{args.directory}' does not exist.", file=sys.stderr)
         sys.exit(1)
     
     if not os.path.isdir(args.directory):
-        print(f"Error: '{args.directory}' is not a directory.")
+        print(f"Error: '{args.directory}' is not a directory.", file=sys.stderr)
         sys.exit(1)
     
     # Load exclusions from config, unless --all is specified
-    excluded_dirs, excluded_files = ([], []) if args.all else load_config()
+    excluded_dirs, excluded_files = ([], []) if args.all else load_config(args.config)
     
     # Prepare output
     output_path = Path(args.output)
@@ -154,7 +173,9 @@ def main():
     print(f"Traversing directory: {os.path.abspath(args.directory)}")
     print(f"Extensions filter: {args.extensions if args.extensions else 'None'}")
     print(f"Output file: {output_path}")
+    print(f"Config file: {args.config}")
     print(f"Ignoring exclusions: {args.all}")
+    print(f"Verbose mode: {args.verbose}")
     print("-" * 60)
     
     # Redirect output to file
@@ -165,7 +186,8 @@ def main():
                 args.extensions,
                 excluded_dirs,
                 excluded_files,
-                args.all
+                args.all,
+                args.verbose
             )
 
 

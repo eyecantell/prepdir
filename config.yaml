@@ -22,3 +22,4 @@ exclude:
     - .env
     - .coverage
     - coverage.xml
+    - .pdm-python
