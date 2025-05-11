@@ -71,6 +71,9 @@ prepdir -e py md
 # Specify a different directory
 prepdir /path/to/directory -e py
 
+# Include all files and directories, ignoring exclusions
+prepdir --all
+
 Configuration
 Exclusions for directories and files are defined in config.yaml:
 exclude:
@@ -78,9 +81,25 @@ exclude:
     - .git
     - __pycache__
     - .pdm-build
+    - .venv
+    - venv
+    - .idea
+    - node_modules
+    - dist
+    - build
+    - .pytest_cache
+    - .mypy_cache
+    - .cache
+    - .eggs
+    - .tox
   files:
     - .gitignore
     - LICENSE
+    - .DS_Store
+    - Thumbs.db
+    - .env
+    - .coverage
+    - coverage.xml
 
 Development Setup
 For development:

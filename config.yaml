@@ -3,6 +3,22 @@ exclude:
     - .git
     - __pycache__
     - .pdm-build
+    - .venv
+    - venv
+    - .idea
+    - node_modules
+    - dist
+    - build
+    - .pytest_cache
+    - .mypy_cache
+    - .cache
+    - .eggs
+    - .tox
   files:
     - .gitignore
     - LICENSE
+    - .DS_Store
+    - Thumbs.db
+    - .env
+    - .coverage
+    - coverage.xml

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Directory traversal utility to prepare project contents for review"
 readme = "README.md"
 authors = [
-    {name = "Paul", email = "paul@pneuma.solutions"},
+    {name = "eyecantell", email = "paul@pneuma.solutions"},
 ]
 license = {text = "MIT"}
 classifiers = [
@@ -31,6 +31,7 @@ build-backend = "pdm.backend"
 [tool.pdm]
 distribution = true
 package-dir = "src"
+includes = ["src/prepdir", "config.yaml"]
 
 [project.urls]
 Repository = "https://github.com/eyecantell/prepdir"

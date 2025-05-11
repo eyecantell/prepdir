@@ -7,6 +7,7 @@ Displays relative paths and file contents
 Skips specified directories and files (configured via config.yaml)
 Filters files by extension
 Outputs to a file (default: prepped_dir.txt)
+Option to include all files and directories, ignoring exclusions
 Easy-to-use command-line interface
 Perfect for sending code to AI assistants for review
 
@@ -45,8 +46,11 @@ prepdir -e py
 # Output Python and Markdown files to custom file
 prepdir -o project_files.txt -e py md
 
-# Specific directory and extensions
-prepdir /path/to/directory -e py md
+# Include all files and directories, ignoring exclusions
+prepdir --all
+
+# Specific directory and extensions, ignoring exclusions
+prepdir /path/to/directory --all -e py md
 
 Configuration
 Exclusions for directories and files are defined in config.yaml:
@@ -55,9 +59,25 @@ exclude:
     - .git
     - __pycache__
     - .pdm-build
+    - .venv
+    - venv
+    - .idea
+    - node_modules
+    - dist
+    - build
+    - .pytest_cache
+    - .mypy_cache
+    - .cache
+    - .eggs
+    - .tox
   files:
     - .gitignore
     - LICENSE
+    - .DS_Store
+    - Thumbs.db
+    - .env
+    - .coverage
+    - coverage.xml
 
 Use Cases
 

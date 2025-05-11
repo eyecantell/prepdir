@@ -61,7 +61,7 @@ def display_file_content(file_full_path: str, directory: str):
     print(f"{dashes} End File: '{relative_path}' {dashes}")
 
 
-def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_files=None):
+def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_files=None, include_all=False):
     """
     Traverse the directory and display file contents.
     
@@ -70,6 +70,7 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
         extensions (list): List of file extensions to include (without the dot)
         excluded_dirs (list): Directories to exclude
         excluded_files (list): Files to exclude
+        include_all (bool): If True, ignore exclusion lists
     """
     # Convert directory to absolute path
     directory = os.path.abspath(directory)
@@ -78,11 +79,12 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
     files_found = False
     
     for root, dirs, files in os.walk(directory):
-        # Remove excluded directories in-place
-        dirs[:] = [d for d in dirs if not is_excluded_dir(d, excluded_dirs)]
+        # Remove excluded directories in-place, unless include_all is True
+        if not include_all:
+            dirs[:] = [d for d in dirs if not is_excluded_dir(d, excluded_dirs)]
         
         for file in files:
-            if is_excluded_file(file, excluded_files):
+            if not include_all and is_excluded_file(file, excluded_files):
                 continue 
             
             # Check extension if filter is provided
@@ -126,6 +128,11 @@ def main():
         default='prepped_dir.txt',
         help='Output file for results (default: prepped_dir.txt)'
     )
+    parser.add_argument(
+        '--all',
+        action='store_true',
+        help='Include all files and directories, ignoring exclusions in config.yaml'
+    )
     
     args = parser.parse_args()
     
@@ -137,8 +144,8 @@ def main():
         print(f"Error: '{args.directory}' is not a directory.")
         sys.exit(1)
     
-    # Load exclusions from config
-    excluded_dirs, excluded_files = load_config()
+    # Load exclusions from config, unless --all is specified
+    excluded_dirs, excluded_files = ([], []) if args.all else load_config()
     
     # Prepare output
     output_path = Path(args.output)
@@ -147,6 +154,7 @@ def main():
     print(f"Traversing directory: {os.path.abspath(args.directory)}")
     print(f"Extensions filter: {args.extensions if args.extensions else 'None'}")
     print(f"Output file: {output_path}")
+    print(f"Ignoring exclusions: {args.all}")
     print("-" * 60)
     
     # Redirect output to file
@@ -156,7 +164,8 @@ def main():
                 args.directory,
                 args.extensions,
                 excluded_dirs,
-                excluded_files
+                excluded_files,
+                args.all
             )
 
 
