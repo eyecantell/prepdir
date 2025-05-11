@@ -13,6 +13,7 @@ import yaml
 import fnmatch
 from contextlib import redirect_stdout
 from pathlib import Path
+from importlib.metadata import version
 
 
 def load_config(config_path="config.yaml"):
@@ -172,6 +173,12 @@ def main():
         '-v', '--verbose',
         action='store_true',
         help='Print verbose output about skipped files and directories'
+    )
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=f'%(prog)s {version("prepdir")}',
+        help='Show the version number and exit'
     )
     
     args = parser.parse_args()

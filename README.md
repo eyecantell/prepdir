@@ -58,6 +58,9 @@ prepdir --config custom_config.yaml
 # Enable verbose output
 prepdir -v
 
+# Show the version number
+prepdir --version
+
 # Combine options
 prepdir /path/to/directory --all -e py -o output.txt -v --config custom_config.yaml
 
