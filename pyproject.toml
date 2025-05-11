@@ -1,0 +1,35 @@
+[project]
+name = "prepdir"
+version = "0.1.0"
+description = "Directory traversal utility to prepare project contents for review"
+readme = "README.md"
+authors = [
+    {name = "Paul", email = "paul@pneuma.solutions"},
+]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.7"
+
+[project.scripts]
+prepdir = "prepdir.main:main"
+
+[tool.ruff]
+# Allow lines to be as long as 120.
+line-length = 120
+
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm]
+distribution = true
+package-dir = "src"
+
+[project.urls]
+Repository = "https://github.com/eyecantell/prepdir"
+Issues = "https://github.com/eyecantell/prepdir/issues"
