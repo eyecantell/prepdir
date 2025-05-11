@@ -2,10 +2,25 @@ Installation Guide for prepdir
 Project Structure
 After setting up, your project directory should look like this:
 prepdir/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── pyproject.toml
 ├── README.md
 ├── INSTALL.md
 ├── config.yaml
+├── tests/
+│   ├── test_main.py
+│   └── test_data/
+│       ├── sample_project/
+│       │   ├── file1.py
+│       │   ├── file2.txt
+│       │   ├── ignored.pyc
+│       │   ├── logs/
+│       │   │   ├── app.log
+│       │   └── git/
+│       │       ├── config
+│       └── custom_config.yaml
 └── src/
     └── prepdir/
         ├── __init__.py
@@ -83,40 +98,13 @@ prepdir -v
 # Show the version number
 prepdir --version
 
-Configuration
-Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config) using .gitignore-style glob patterns. The output file (e.g., prepped_dir.txt) is automatically excluded.
-exclude:
-  directories:
-    - .git
-    - __pycache__
-    - .pdm-build
-    - .venv
-    - venv
-    - .idea
-    - node_modules
-    - dist
-    - build
-    - .pytest_cache
-    - .mypy_cache
-    - .cache
-    - .eggs
-    - .tox
-    - "*.egg-info"
-  files:
-    - .gitignore
-    - LICENSE
-    - .DS_Store
-    - Thumbs.db
-    - .env
-    - .coverage
-    - coverage.xml
-    - .pdm-python
-    - "*.pyc"
-    - "*.pyo"
-    - "*.log"
-    - "*.bak"
-    - "*.swp"
-    - "**/*.log"
+Testing
+To run the test suite, ensure pytest is installed (included in development dependencies):
+# Install development dependencies
+pdm install
+
+# Run tests
+pdm run pytest
 
 Development Setup
 For development:
@@ -136,3 +124,7 @@ pdm add some-package
 # Add development dependencies
 pdm add -d pytest
 
+Continuous Integration
+This project uses GitHub Actions for continuous integration. The CI workflow runs the test suite on every push and pull request to the main branch, testing across multiple Python versions (3.7, 3.8, 3.9, 3.10, 3.11). The workflow is defined in .github/workflows/ci.yml.
+License
+MIT

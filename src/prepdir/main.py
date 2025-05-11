@@ -109,11 +109,17 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
             dirs[:] = [d for d in dirs if not is_excluded_dir(d, root, directory, excluded_dirs)]
         
         for file in files:
-            # Check if file is excluded
-            if not include_all and is_excluded_file(file, root, directory, excluded_files, output_file):
+            # Always check if the file is the output file
+            full_path = os.path.abspath(os.path.join(root, file))
+            if output_file and full_path == os.path.abspath(output_file):
                 if verbose:
-                    reason = "output file" if os.path.abspath(os.path.join(root, file)) == os.path.abspath(output_file) else "excluded in config"
-                    print(f"Skipping file: {os.path.join(root, file)} ({reason})", file=sys.stderr)
+                    print(f"Skipping file: {full_path} (output file)", file=sys.stderr)
+                continue
+            
+            # Check if file is excluded (unless include_all is True)
+            if not include_all and is_excluded_file(file, root, directory, excluded_files, output_file=None):
+                if verbose:
+                    print(f"Skipping file: {os.path.join(root, file)} (excluded in config)", file=sys.stderr)
                 continue 
             
             # Check extension if filter is provided

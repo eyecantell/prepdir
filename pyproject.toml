@@ -1,6 +1,6 @@
 [project]
 name = "prepdir"
-version = "0.2.0"
+version = "0.3.0"
 description = "Directory traversal utility to prepare project contents for review"
 readme = "README.md"
 authors = [
@@ -33,6 +33,15 @@ distribution = true
 package-dir = "src"
 includes = ["src/prepdir", "config.yaml"]
 
+[tool.pdm.dev-dependencies]
+test = [
+    "pytest>=7.0",
+]
+
 [project.urls]
 Repository = "https://github.com/eyecantell/prepdir"
 Issues = "https://github.com/eyecantell/prepdir/issues"
+
+[tool.pytest.ini_options]
+addopts = "-v"
+testpaths = ["tests"]

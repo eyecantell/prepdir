@@ -1,4 +1,5 @@
 prepdir
+
 A utility to traverse directories and prepare file contents, designed specifically for sharing code projects with AI assistants for review and analysis.
 Features
 
@@ -63,6 +64,14 @@ prepdir --version
 
 # Combine options
 prepdir /path/to/directory --all -e py -o output.txt -v --config custom_config.yaml
+
+Testing
+To run the test suite, ensure pytest is installed (included in development dependencies):
+# Install development dependencies
+pdm install
+
+# Run tests
+pdm run pytest
 
 Configuration
 Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config) using .gitignore-style glob patterns. The output file (e.g., prepped_dir.txt) is automatically excluded.
