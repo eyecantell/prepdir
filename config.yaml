@@ -14,6 +14,7 @@ exclude:
     - .cache
     - .eggs
     - .tox
+    - "*.egg-info"
   files:
     - .gitignore
     - LICENSE
@@ -23,3 +24,9 @@ exclude:
     - .coverage
     - coverage.xml
     - .pdm-python
+    - "*.pyc"
+    - "*.pyo"
+    - "*.log"
+    - "*.bak"
+    - "*.swp"
+    - "**/*.log"

@@ -10,6 +10,7 @@ import os
 import argparse
 import sys
 import yaml
+import fnmatch
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -31,14 +32,24 @@ def load_config(config_path="config.yaml"):
         sys.exit(1)
 
 
-def is_excluded_dir(dirname, excluded_dirs):
-    """Check if directory should be excluded from traversal."""
-    return dirname in excluded_dirs
+def is_excluded_dir(dirname, root, directory, excluded_dirs):
+    """Check if directory should be excluded from traversal using glob patterns."""
+    relative_path = os.path.relpath(os.path.join(root, dirname), directory)
+    for pattern in excluded_dirs:
+        # Handle directory patterns (e.g., node_modules/, *.egg-info/)
+        pattern = pattern.rstrip('/')
+        if fnmatch.fnmatch(dirname, pattern) or fnmatch.fnmatch(relative_path, pattern):
+            return True
+    return False
 
 
-def is_excluded_file(filename, excluded_files):
-    """Check if file should be excluded from traversal."""
-    return filename in excluded_files
+def is_excluded_file(filename, root, directory, excluded_files):
+    """Check if file should be excluded from traversal using glob patterns."""
+    relative_path = os.path.relpath(os.path.join(root, filename), directory)
+    for pattern in excluded_files:
+        if fnmatch.fnmatch(filename, pattern) or fnmatch.fnmatch(relative_path, pattern):
+            return True
+    return False
 
 
 def display_file_content(file_full_path: str, directory: str):
@@ -68,8 +79,8 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
     Args:
         directory (str): Starting directory path
         extensions (list): List of file extensions to include (without the dot)
-        excluded_dirs (list): Directories to exclude
-        excluded_files (list): Files to exclude
+        excluded_dirs (list): Directory glob patterns to exclude
+        excluded_files (list): File glob patterns to exclude
         include_all (bool): If True, ignore exclusion lists
         verbose (bool): If True, print additional information about skipped files
     """
@@ -82,14 +93,14 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
     for root, dirs, files in os.walk(directory):
         # Remove excluded directories in-place, unless include_all is True
         if not include_all:
-            dirs[:] = [d for d in dirs if not is_excluded_dir(d, excluded_dirs)]
+            dirs[:] = [d for d in dirs if not is_excluded_dir(d, root, directory, excluded_dirs)]
             if verbose:
-                for d in [d for d in dirs if is_excluded_dir(d, excluded_dirs)]:
+                for d in [d for d in dirs if is_excluded_dir(d, root, directory, excluded_dirs)]:
                     print(f"Skipping directory: {os.path.join(root, d)}", file=sys.stderr)
         
         for file in files:
             # Check if file is excluded
-            if not include_all and is_excluded_file(file, excluded_files):
+            if not include_all and is_excluded_file(file, root, directory, excluded_files):
                 if verbose:
                     print(f"Skipping file: {os.path.join(root, file)} (excluded in config)", file=sys.stderr)
                 continue 

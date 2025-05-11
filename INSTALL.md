@@ -81,7 +81,7 @@ prepdir --config custom_config.yaml
 prepdir -v
 
 Configuration
-Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config):
+Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config) using .gitignore-style glob patterns:
 exclude:
   directories:
     - .git
@@ -98,6 +98,7 @@ exclude:
     - .cache
     - .eggs
     - .tox
+    - *.egg-info
   files:
     - .gitignore
     - LICENSE
@@ -106,6 +107,13 @@ exclude:
     - .env
     - .coverage
     - coverage.xml
+    - .pdm-python
+    - *.pyc
+    - *.pyo
+    - *.log
+    - *.bak
+    - *.swp
+    - **/*.log
 
 Development Setup
 For development:

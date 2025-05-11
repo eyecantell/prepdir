@@ -4,7 +4,7 @@ Features
 
 Recursively walks through directories
 Displays relative paths and file contents
-Skips specified directories and files (configured via config.yaml)
+Skips specified directories and files using .gitignore-style glob patterns (configured via config.yaml)
 Filters files by extension
 Outputs to a file (default: prepped_dir.txt)
 Option to include all files and directories, ignoring exclusions
@@ -61,7 +61,7 @@ prepdir -v
 prepdir /path/to/directory --all -e py -o output.txt -v --config custom_config.yaml
 
 Configuration
-Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config):
+Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config) using .gitignore-style glob patterns:
 exclude:
   directories:
     - .git
@@ -78,6 +78,7 @@ exclude:
     - .cache
     - .eggs
     - .tox
+    - *.egg-info
   files:
     - .gitignore
     - LICENSE
@@ -86,6 +87,13 @@ exclude:
     - .env
     - .coverage
     - coverage.xml
+    - .pdm-python
+    - *.pyc
+    - *.pyo
+    - *.log
+    - *.bak
+    - *.swp
+    - **/*.log
 
 Use Cases
 
