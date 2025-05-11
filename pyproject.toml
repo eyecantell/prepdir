@@ -1,6 +1,6 @@
 [project]
 name = "prepdir"
-version = "0.1.0"
+version = "0.2.0"
 description = "Directory traversal utility to prepare project contents for review"
 readme = "README.md"
 authors = [
