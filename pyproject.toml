@@ -1,6 +1,6 @@
 [project]
 name = "prepdir"
-version = "0.5.0"
+version = "0.6.0"
 description = "Directory traversal utility to prepare project contents for review"
 readme = "README.md"
 authors = [
@@ -8,9 +8,33 @@ authors = [
 ]
 license = {text = "MIT"}
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Topic :: Text Processing :: Markup",
+    "Development Status :: 4 - Beta",
+]
+keywords = [
+    "ai", 
+    "artificial intelligence", 
+    "code review", 
+    "directory traversal", 
+    "file content", 
+    "project documentation", 
+    "code sharing", 
+    "developer tools", 
+    "large language models",
+    "llm",
+    "project structure"
 ]
 requires-python = ">=3.7"
 dependencies = [
@@ -41,7 +65,4 @@ test = [
 [project.urls]
 Repository = "https://github.com/eyecantell/prepdir"
 Issues = "https://github.com/eyecantell/prepdir/issues"
-
-[tool.pytest.ini_options]
-addopts = "-v"
-testpaths = ["tests"]
+Documentation = "https://github.com/eyecantell/prepdir#readme"
