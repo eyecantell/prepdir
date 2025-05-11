@@ -43,9 +43,15 @@ def is_excluded_dir(dirname, root, directory, excluded_dirs):
     return False
 
 
-def is_excluded_file(filename, root, directory, excluded_files):
-    """Check if file should be excluded from traversal using glob patterns."""
-    relative_path = os.path.relpath(os.path.join(root, filename), directory)
+def is_excluded_file(filename, root, directory, excluded_files, output_file):
+    """Check if file should be excluded from traversal using glob patterns or if it's the output file."""
+    # Check if the file is the output file
+    full_path = os.path.abspath(os.path.join(root, filename))
+    if output_file and full_path == os.path.abspath(output_file):
+        return True
+    
+    # Check against glob patterns
+    relative_path = os.path.relpath(full_path, directory)
     for pattern in excluded_files:
         if fnmatch.fnmatch(filename, pattern) or fnmatch.fnmatch(relative_path, pattern):
             return True
@@ -72,7 +78,7 @@ def display_file_content(file_full_path: str, directory: str):
     print(f"{dashes} End File: '{relative_path}' {dashes}")
 
 
-def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_files=None, include_all=False, verbose=False):
+def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_files=None, include_all=False, verbose=False, output_file=None):
     """
     Traverse the directory and display file contents.
     
@@ -83,6 +89,7 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
         excluded_files (list): File glob patterns to exclude
         include_all (bool): If True, ignore exclusion lists
         verbose (bool): If True, print additional information about skipped files
+        output_file (str): Path to the output file to exclude from traversal
     """
     # Convert directory to absolute path
     directory = os.path.abspath(directory)
@@ -100,9 +107,10 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
         
         for file in files:
             # Check if file is excluded
-            if not include_all and is_excluded_file(file, root, directory, excluded_files):
+            if not include_all and is_excluded_file(file, root, directory, excluded_files, output_file):
                 if verbose:
-                    print(f"Skipping file: {os.path.join(root, file)} (excluded in config)", file=sys.stderr)
+                    reason = "output file" if os.path.abspath(os.path.join(root, file)) == os.path.abspath(output_file) else "excluded in config"
+                    print(f"Skipping file: {os.path.join(root, file)} ({reason})", file=sys.stderr)
                 continue 
             
             # Check extension if filter is provided
@@ -198,7 +206,8 @@ def main():
                 excluded_dirs,
                 excluded_files,
                 args.all,
-                args.verbose
+                args.verbose,
+                output_file=str(output_path)
             )
 
 

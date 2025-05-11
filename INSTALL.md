@@ -1,75 +1,53 @@
-Installation Guide for prepdir
-Project Structure
-After setting up, your project directory should look like this:
-prepdir/
-├── pyproject.toml
-├── README.md
-├── INSTALL.md
-├── config.yaml
-└── src/
-    └── prepdir/
-        ├── __init__.py
-        └── main.py
+prepdir
+A utility to traverse directories and prepare file contents, designed specifically for sharing code projects with AI assistants for review and analysis.
+Features
 
-This structure follows PDM's best practices with the package inside the src directory.
-Installation Methods
-Method 1: Install with PDM (Recommended)
-PDM is a modern Python package manager that this project uses.
-# Install PDM if you don't have it
+Recursively walks through directories
+Displays relative paths and file contents
+Skips specified directories and files using .gitignore-style glob patterns (configured via config.yaml)
+Automatically excludes the output file (e.g., prepped_dir.txt)
+Filters files by extension
+Outputs to a file (default: prepped_dir.txt)
+Option to include all files and directories, ignoring exclusions
+Customizable configuration file path
+Verbose mode to log skipped files and directories
+Easy-to-use command-line interface
+Perfect for sending code to AI assistants for review
+
+Installation
+Using PDM (recommended)
+# Install PDM if you don't already have it
 pip install pdm
 
-# Navigate to the directory containing pyproject.toml
-cd /path/to/prepdir
-
-# Install in development mode (editable)
+# Install in development mode
 pdm install
 
-# Run the tool directly
-pdm run prepdir
-
-Method 2: Build and Install
-To create a distributable package and install it:
-# Build the package
+# Install for system-wide use
 pdm build
-
-# Install the wheel
 pip install dist/*.whl
 
-Method 3: Install from GitHub
-pip install git+https://github.com/eyecantell/prepdir.git
-
-Method 4: Install from PyPI (once published)
+Using pip
+# Install from PyPI (once published)
 pip install prepdir
 
-Publishing to PyPI
-If you want to share your tool with others, you can publish it to PyPI:
+# Install from GitHub
+pip install git+https://github.com/eyecantell/prepdir.git
 
-Make sure PDM is installed:
-pip install pdm
-
-
-Build the package:
-pdm build
-
-
-Upload to PyPI (requires PyPI credentials):
-pdm publish
-
-
-
-Usage after Installation
-After installation, you can use the tool from anywhere:
+Usage
 # Output all files in current directory to prepped_dir.txt
 prepdir
 
 # Output to a custom file
 prepdir -o output.txt
 
-# Filter files by extension
-prepdir -e py md
+# Output all files in specified directory
+prepdir /path/to/directory
 
-# Specify a different directory
-prepdir /path/to/directory -e py
+# Only output Python files
+prepdir -e py
+
+# Output Python and Markdown files to custom file
+prepdir -o project_files.txt -e py md
 
 # Include all files and directories, ignoring exclusions
 prepdir --all
@@ -80,8 +58,11 @@ prepdir --config custom_config.yaml
 # Enable verbose output
 prepdir -v
 
+# Combine options
+prepdir /path/to/directory --all -e py -o output.txt -v --config custom_config.yaml
+
 Configuration
-Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config) using .gitignore-style glob patterns:
+Exclusions for directories and files are defined in config.yaml (or a custom file specified with --config) using .gitignore-style glob patterns. The output file (e.g., prepped_dir.txt) is automatically excluded.
 exclude:
   directories:
     - .git
@@ -98,7 +79,7 @@ exclude:
     - .cache
     - .eggs
     - .tox
-    - *.egg-info
+    - "*.egg-info"
   files:
     - .gitignore
     - LICENSE
@@ -108,28 +89,31 @@ exclude:
     - .coverage
     - coverage.xml
     - .pdm-python
-    - *.pyc
-    - *.pyo
-    - *.log
-    - *.bak
-    - *.swp
-    - **/*.log
+    - "*.pyc"
+    - "*.pyo"
+    - "*.log"
+    - "*.bak"
+    - "*.swp"
+    - "**/*.log"
 
-Development Setup
-For development:
+Use Cases
+
+AI Code Review: Easily prepare your entire codebase for AI assistants
+Project Analysis: Get a comprehensive view of project structure and content
+Knowledge Transfer: Help AI understand your project context quickly
+Bug Hunting: Provide full context when asking for debugging help
+
+Development
+This project uses PDM for dependency management and packaging.
 # Clone the repository
 git clone https://github.com/eyecantell/prepdir.git
 cd prepdir
 
-# Install with PDM in development mode
+# Install development dependencies
 pdm install
 
-# Run the development version
+# Run in development mode
 pdm run prepdir
 
-# Add dependencies if needed
-pdm add some-package
-
-# Add development dependencies
-pdm add -d pytest
-
+License
+MIT
