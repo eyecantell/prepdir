@@ -165,7 +165,7 @@ exclude:
 # Generate a file with just Python source files
 prepdir -e py -o code_review.txt
 
-# Ask AI: "Please review this Python project for best practices"
+# Upload file and Ask AI: "Please review this Python project for best practices"
 ```
 
 ### 2. Project Analysis
@@ -174,7 +174,7 @@ prepdir -e py -o code_review.txt
 # Include all project files
 prepdir --all -o full_project.txt
 
-# Ask AI: "Help me understand the architecture of this project"
+# Upload file and Ask AI: "Help me understand the architecture of this project"
 ```
 
 ### 3. Bug Hunting
@@ -183,7 +183,7 @@ prepdir --all -o full_project.txt
 # Focus on a specific area of code
 prepdir ./src/problematic_module -e py -o debug.txt
 
-# Ask AI: "Help me find the bug causing this error message..."
+# Upload file and Ask AI: "Help me find the bug causing this error message..."
 ```
 
 ### 4. Documentation Generation
@@ -192,7 +192,7 @@ prepdir ./src/problematic_module -e py -o debug.txt
 # Collect Python files and docs
 prepdir -e py md rst -o docs_context.txt
 
-# Ask AI: "Generate detailed documentation for this project"
+# Upload file and Ask AI: "Generate detailed documentation for this project"
 ```
 
 ## 👨‍💻 For Developers

@@ -353,8 +353,9 @@ exclude:
     - "*.py"
 """)
     config_path = tmp_path / ".prepdir" / "config.yaml"
-    # Mock importlib.resources to fail, forcing source fallback
-    with patch('importlib.resources.files', side_effect=FileNotFoundError):
+    # Mock importlib.resources or importlib_resources based on Python version
+    mock_module = 'importlib_resources' if sys.version_info < (3, 9) else 'importlib.resources'
+    with patch(f'{mock_module}.files', side_effect=FileNotFoundError):
         # Mock __file__ to point to tmp_path/src/prepdir/main.py
         with patch('prepdir.main.__file__', str(tmp_path / "src" / "prepdir" / "main.py")):
             init_config(str(config_path), force=False)

@@ -16,6 +16,11 @@ from pathlib import Path
 from importlib.metadata import version
 from importlib import resources
 
+# Add conditional import for compatibility
+if sys.version_info < (3, 9):
+    import importlib_resources as resources
+else:
+    from importlib import resources
 
 def get_package_config():
     """Read the default config.yaml from the package or source directory."""
