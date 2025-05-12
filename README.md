@@ -72,7 +72,7 @@ By default, prepdir skips common files and directories you wouldn't want to shar
 You can customize these exclusions in three ways:
 
 1. **Global config**: Create `~/.prepdir/config.yaml`
-2. **Project config**: Add `config.yaml` in your project directory
+2. **Project config**: Add `.prepdir/config.yaml` in your local directory
 3. **Custom config**: Use `--config custom_config.yaml`
 
 Example config.yaml:

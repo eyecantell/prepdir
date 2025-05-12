@@ -34,7 +34,9 @@ def temp_project(tmp_path):
 @pytest.fixture
 def custom_config(tmp_path):
     """Create a custom config.yaml for testing."""
-    config_path = tmp_path / "custom_config.yaml"
+    config_dir = tmp_path / ".prepdir"
+    config_dir.mkdir()
+    config_path = config_dir / "config.yaml"
     config_path.write_text("""
 exclude:
   directories:
@@ -166,12 +168,25 @@ def test_traverse_directory_include_all(temp_project, tmp_path):
     assert "Begin File: 'git/config'" in content
     assert "output.txt" not in content
 
-def test_load_config_missing_file(tmp_path):
-    """Test loading config when file is missing."""
-    config_path = tmp_path / "nonexistent.yaml"
-    excluded_dirs, excluded_files = load_config(str(config_path))
-    assert excluded_dirs == ['.git', '__pycache__', '.pdm-build']
-    assert excluded_files == ['.gitignore', 'LICENSE']
+def test_load_config_missing_file(tmp_path, capsys):
+    """Test loading config when file is missing, should use package config.yaml or defaults."""
+    config_path = tmp_path / ".prepdir" / "nonexistent.yaml"
+    # Mock home directory to ensure no ~/.prepdir/config.yaml
+    with patch('pathlib.Path.home', return_value=tmp_path):
+        excluded_dirs, excluded_files = load_config(str(config_path))
+    captured = capsys.readouterr()
+    # If package config fails, it falls back to defaults
+    if "Failed to load package config.yaml" in captured.err:
+        assert excluded_dirs == ['.git', '__pycache__', '.pdm-build']
+        assert excluded_files == ['.gitignore', 'LICENSE']
+    else:
+        # If package config loads, check its exclusions
+        assert '.git' in excluded_dirs
+        assert '__pycache__' in excluded_dirs
+        assert '.pdm-build' in excluded_dirs
+        assert '.gitignore' in excluded_files
+        assert 'LICENSE' in excluded_files
+        assert '*.pyc' in excluded_files
 
 def test_load_config_custom_file(custom_config, tmp_path):
     """Test loading a custom config file."""
@@ -183,7 +198,7 @@ def test_load_config_home_directory(home_config, tmp_path):
     """Test loading config from ~/.prepdir/config.yaml."""
     home_dir, config_path = home_config
     with patch('pathlib.Path.home', return_value=home_dir):
-        excluded_dirs, excluded_files = load_config(str(tmp_path / "nonexistent.yaml"))
+        excluded_dirs, excluded_files = load_config(str(tmp_path / ".prepdir" / "nonexistent.yaml"))
     assert excluded_dirs == ['git', 'node_modules']
     assert excluded_files == ['*.pyc', '*.bak']
 
