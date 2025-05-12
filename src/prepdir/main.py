@@ -14,6 +14,7 @@ import fnmatch
 from contextlib import redirect_stdout
 from pathlib import Path
 from importlib.metadata import version
+from importlib import resources
 
 
 def load_config(config_path="config.yaml"):
@@ -32,7 +33,7 @@ def load_config(config_path="config.yaml"):
             print(f"Error: Invalid YAML in '{home_config}': {str(e)}", file=sys.stderr)
             sys.exit(1)
     
-    # Fall back to user-specified or default config path
+    # Fall back to user-specified config path
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f) or {}
@@ -41,8 +42,17 @@ def load_config(config_path="config.yaml"):
             config.get('exclude', {}).get('files', [])
         )
     except FileNotFoundError:
-        print(f"Warning: Config file '{config_path}' not found. Using defaults.", file=sys.stderr)
-        return ['.git', '__pycache__', '.pdm-build'], ['.gitignore', 'LICENSE']
+        # Load default config.yaml from package
+        try:
+            with resources.open_text('prepdir', 'config.yaml') as f:
+                config = yaml.safe_load(f) or {}
+            return (
+                config.get('exclude', {}).get('directories', []),
+                config.get('exclude', {}).get('files', [])
+            )
+        except Exception as e:
+            print(f"Error: Failed to load package config.yaml: {str(e)}", file=sys.stderr)
+            sys.exit(1)
     except yaml.YAMLError as e:
         print(f"Error: Invalid YAML in '{config_path}': {str(e)}", file=sys.stderr)
         sys.exit(1)

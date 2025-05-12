@@ -21,6 +21,7 @@ exclude:
     - .DS_Store
     - Thumbs.db
     - .env
+    - .env.production
     - .coverage
     - coverage.xml
     - .pdm-python

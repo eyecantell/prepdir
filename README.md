@@ -24,7 +24,7 @@ When asking AI assistants for help with your code, providing proper context is c
 * Adds clear separators between files
 * Shows relative file paths
 * Skips irrelevant files (like `.git` directories)
-* Makes it easy to copy-paste into AI chats
+* Makes it easy to upload or copy-paste into AI chats
 
 ## Basic Usage
 
