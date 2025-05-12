@@ -73,8 +73,7 @@ def load_config(config_path=".prepdir/config.yaml"):
                 config.get('exclude', {}).get('files', [])
             )
         except FileNotFoundError:
-            print(f"Error: Config file '{config_path}' not found.", file=sys.stderr)
-            sys.exit(1)
+            print(f"Warning: Config file '{config_path}' not found, falling back to other configs.", file=sys.stderr)
         except yaml.YAMLError as e:
             print(f"Error: Invalid YAML in '{config_path}': {str(e)}", file=sys.stderr)
             sys.exit(1)

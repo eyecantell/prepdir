@@ -60,6 +60,7 @@ includes = ["src/prepdir", "config.yaml"]
 [tool.pdm.dev-dependencies]
 test = [
     "pytest>=7.0",
+    "pytest-cov>=4.0",
 ]
 
 [project.urls]

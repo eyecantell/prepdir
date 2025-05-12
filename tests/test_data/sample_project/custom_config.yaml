@@ -1,7 +1,7 @@
 exclude:
   directories:
-    - git
-    - "*.egg-info"
+    - custom_config_dir
+    - "*.custom_config_dir_regex"
   files:
-    - "*.pyc"
-    - "**/*.log"
+    - "*.custom_config_file_regex_single_star"
+    - "**/*.custom_config_file_regex_double_star"
