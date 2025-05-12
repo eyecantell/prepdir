@@ -1,12 +1,13 @@
 import pytest
 import os
 import sys
+import yaml
 from io import StringIO
 from pathlib import Path
 from contextlib import redirect_stdout, redirect_stderr
 from importlib.metadata import version
-from unittest.mock import patch
-from prepdir.main import traverse_directory, load_config, main
+from unittest.mock import patch, mock_open
+from prepdir.main import traverse_directory, load_config, init_config, main
 
 @pytest.fixture
 def temp_project(tmp_path):
@@ -66,6 +67,20 @@ exclude:
     - "*.bak"
 """)
     return home_dir, config_path
+
+@pytest.fixture
+def mock_package_config():
+    """Mock the package config.yaml content."""
+    config_content = """
+exclude:
+  directories:
+    - .git
+    - __pycache__
+  files:
+    - "*.pyc"
+    - "*.log"
+"""
+    return config_content
 
 def test_traverse_directory_basic(temp_project, tmp_path):
     """Test basic directory traversal and output format."""
@@ -168,25 +183,31 @@ def test_traverse_directory_include_all(temp_project, tmp_path):
     assert "Begin File: 'git/config'" in content
     assert "output.txt" not in content
 
-def test_load_config_missing_file(tmp_path, capsys):
+def test_load_config_missing_file(tmp_path, capsys, mock_package_config):
     """Test loading config when file is missing, should use package config.yaml or defaults."""
     config_path = tmp_path / ".prepdir" / "nonexistent.yaml"
     # Mock home directory to ensure no ~/.prepdir/config.yaml
     with patch('pathlib.Path.home', return_value=tmp_path):
-        excluded_dirs, excluded_files = load_config(str(config_path))
+        with patch('prepdir.main.get_package_config', return_value=mock_package_config):
+            excluded_dirs, excluded_files = load_config(str(config_path))
+    assert '.git' in excluded_dirs
+    assert '__pycache__' in excluded_dirs
+    assert '*.pyc' in excluded_files
+    assert '*.log' in excluded_files
+
+def test_load_config_missing_file_fallback(tmp_path, capsys):
+    """Test loading config when package config fails, should use defaults."""
+    config_path = tmp_path / ".prepdir" / "nonexistent.yaml"
+    with patch('pathlib.Path.home', return_value=tmp_path):
+        with patch('prepdir.main.get_package_config', side_effect=Exception("Resource error")):
+            excluded_dirs, excluded_files = load_config(str(config_path))
     captured = capsys.readouterr()
-    # If package config fails, it falls back to defaults
-    if "Failed to load package config.yaml" in captured.err:
-        assert excluded_dirs == ['.git', '__pycache__', '.pdm-build']
-        assert excluded_files == ['.gitignore', 'LICENSE']
-    else:
-        # If package config loads, check its exclusions
-        assert '.git' in excluded_dirs
-        assert '__pycache__' in excluded_dirs
-        assert '.pdm-build' in excluded_dirs
-        assert '.gitignore' in excluded_files
-        assert 'LICENSE' in excluded_files
-        assert '*.pyc' in excluded_files
+    assert "Warning: Failed to load package config.yaml: Resource error" in captured.err
+    assert '.git' in excluded_dirs
+    assert '__pycache__' in excluded_dirs
+    assert '.pdm-build' in excluded_dirs
+    assert '.gitignore' in excluded_files
+    assert 'LICENSE' in excluded_files
 
 def test_load_config_custom_file(custom_config, tmp_path):
     """Test loading a custom config file."""
@@ -201,6 +222,82 @@ def test_load_config_home_directory(home_config, tmp_path):
         excluded_dirs, excluded_files = load_config(str(tmp_path / ".prepdir" / "nonexistent.yaml"))
     assert excluded_dirs == ['git', 'node_modules']
     assert excluded_files == ['*.pyc', '*.bak']
+
+def test_init_config_success(tmp_path, capsys, mock_package_config):
+    """Test initializing a new config.yaml."""
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    with patch('prepdir.main.get_package_config', return_value=mock_package_config):
+        init_config(str(config_path), force=False)
+    captured = capsys.readouterr()
+    assert f"Created '{config_path}' with default configuration." in captured.out
+    assert config_path.exists()
+    with config_path.open('r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    assert '.git' in config['exclude']['directories']
+    assert '*.pyc' in config['exclude']['files']
+
+def test_init_config_already_exists(tmp_path, capsys):
+    """Test initializing when config.yaml already exists."""
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("existing content")
+    with pytest.raises(SystemExit):
+        init_config(str(config_path), force=False)
+    captured = capsys.readouterr()
+    assert f"Error: '{config_path}' already exists. Use --force to overwrite." in captured.err
+    with config_path.open('r', encoding='utf-8') as f:
+        assert f.read() == "existing content"
+
+def test_init_config_force_overwrite(tmp_path, capsys, mock_package_config):
+    """Test initializing with --force when config.yaml exists."""
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("existing content")
+    with patch('prepdir.main.get_package_config', return_value=mock_package_config):
+        init_config(str(config_path), force=True)
+    captured = capsys.readouterr()
+    assert f"Created '{config_path}' with default configuration." in captured.out
+    with config_path.open('r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    assert '.git' in config['exclude']['directories']
+    assert '*.pyc' in config['exclude']['files']
+
+def test_init_config_package_config_failure(tmp_path, capsys):
+    """Test initializing when package config.yaml cannot be read."""
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    with patch('prepdir.main.get_package_config', side_effect=FileNotFoundError("Resource error")):
+        with pytest.raises(SystemExit):
+            init_config(str(config_path), force=False)
+    captured = capsys.readouterr()
+    assert f"Error: Failed to create '{config_path}': Resource error" in captured.err
+    assert not config_path.exists()
+
+def test_init_config_source_fallback(tmp_path, capsys):
+    """Test initializing with config.yaml from source directory."""
+    # Create a source config.yaml
+    source_config = tmp_path / "config.yaml"
+    source_config.write_text("""
+exclude:
+  directories:
+    - .git
+    - src
+  files:
+    - "*.py"
+""")
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    # Mock importlib.resources to fail, forcing source fallback
+    with patch('importlib.resources.files', side_effect=FileNotFoundError):
+        # Mock __file__ to point to tmp_path/src/prepdir/main.py
+        with patch('prepdir.main.__file__', str(tmp_path / "src" / "prepdir" / "main.py")):
+            init_config(str(config_path), force=False)
+    captured = capsys.readouterr()
+    assert f"Created '{config_path}' with default configuration." in captured.out
+    assert config_path.exists()
+    with config_path.open('r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    assert '.git' in config['exclude']['directories']
+    assert 'src' in config['exclude']['directories']
+    assert '*.py' in config['exclude']['files']
 
 def test_main_version(monkeypatch, capsys):
     """Test the --version option."""
@@ -239,3 +336,32 @@ def test_main_custom_config(temp_project, custom_config, tmp_path, monkeypatch):
     assert "ignored.pyc" not in content
     assert "app.log" not in content
     assert "git/config" not in content
+
+def test_main_init_config(tmp_path, monkeypatch, capsys):
+    """Test main with --init option."""
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    monkeypatch.setattr(sys, 'argv', ['prepdir', '--init', '--config', str(config_path)])
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    captured = capsys.readouterr()
+    assert f"Created '{config_path}' with default configuration." in captured.out
+    assert exc_info.value.code == 0
+    assert config_path.exists()
+    with config_path.open('r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    assert '.git' in config['exclude']['directories']
+    assert '*.pyc' in config['exclude']['files']
+
+def test_main_init_config_already_exists(tmp_path, monkeypatch, capsys):
+    """Test main with --init when config already exists."""
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("existing content")
+    monkeypatch.setattr(sys, 'argv', ['prepdir', '--init', '--config', str(config_path)])
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    captured = capsys.readouterr()
+    assert f"Error: '{config_path}' already exists. Use --force to overwrite." in captured.err
+    assert exc_info.value.code != 0
+    with config_path.open('r', encoding='utf-8') as f:
+        assert f.read() == "existing content"

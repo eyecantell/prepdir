@@ -17,6 +17,45 @@ from importlib.metadata import version
 from importlib import resources
 
 
+def get_package_config():
+    """Read the default config.yaml from the package or source directory."""
+    try:
+        # Try accessing config.yaml as a package resource (prepdir/config.yaml)
+        with resources.files('prepdir').joinpath('config.yaml').open('r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        # Fallback for development: try reading from source directory
+        source_config = Path(__file__).parent.parent.parent / 'config.yaml'
+        if source_config.exists():
+            with source_config.open('r', encoding='utf-8') as f:
+                return f.read()
+        print(f"Error: Could not find config.yaml in package or source directory.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Failed to read package config.yaml: {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+
+def init_config(config_path=".prepdir/config.yaml", force=False):
+    """Initialize a local config.yaml with the package's default config."""
+    config_path = Path(config_path)
+    config_dir = config_path.parent
+    config_dir.mkdir(parents=True, exist_ok=True)
+    
+    if config_path.exists() and not force:
+        print(f"Error: '{config_path}' already exists. Use --force to overwrite.", file=sys.stderr)
+        sys.exit(1)
+    
+    try:
+        default_config = get_package_config()
+        with config_path.open('w', encoding='utf-8') as f:
+            f.write(default_config)
+        print(f"Created '{config_path}' with default configuration.")
+    except Exception as e:
+        print(f"Error: Failed to create '{config_path}': {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+
 def load_config(config_path=".prepdir/config.yaml"):
     """Load exclusion configuration from YAML file."""
     # Check home directory first (~/.prepdir/config.yaml)
@@ -42,10 +81,10 @@ def load_config(config_path=".prepdir/config.yaml"):
             config.get('exclude', {}).get('files', [])
         )
     except FileNotFoundError:
-        # Load default config.yaml from package
+        # Load default config.yaml from package or source
         try:
-            with resources.files('prepdir').joinpath('config.yaml').open('r', encoding='utf-8') as f:
-                config = yaml.safe_load(f) or {}
+            config_content = get_package_config()
+            config = yaml.safe_load(config_content) or {}
             return (
                 config.get('exclude', {}).get('directories', []),
                 config.get('exclude', {}).get('files', [])
@@ -53,8 +92,8 @@ def load_config(config_path=".prepdir/config.yaml"):
         except Exception as e:
             print(f"Warning: Failed to load package config.yaml: {str(e)}. Using default exclusions.", file=sys.stderr)
             return (
-                ['.git', '__pycache__', '.pdm-build'],
-                ['.gitignore', 'LICENSE']
+                ['.git', '__pycache__', '.pdm-build', '.venv', 'venv', '.idea', 'node_modules', 'dist', 'build', '.pytest_cache', '.mypy_cache', '.cache', '.eggs', '.tox', '*.egg-info'],
+                ['.gitignore', 'LICENSE', '.DS_Store', 'Thumbs.db', '.env', '.env.production', '.coverage', 'coverage.xml', '.pdm-python', 'pdm.lock', '*.pyc', '*.pyo', '*.log', '*.bak', '*.swp', '**/*.log']
             )
     except yaml.YAMLError as e:
         print(f"Error: Invalid YAML in '{config_path}': {str(e)}", file=sys.stderr)
@@ -209,6 +248,16 @@ def main():
         help='Print verbose output about skipped files and directories'
     )
     parser.add_argument(
+        '--init',
+        action='store_true',
+        help='Initialize a local .prepdir/config.yaml with default configuration'
+    )
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help='Force overwrite of existing config file when using --init'
+    )
+    parser.add_argument(
         '--version',
         action='version',
         version=f'%(prog)s {version("prepdir")}',
@@ -217,6 +266,12 @@ def main():
     
     args = parser.parse_args()
     
+    # Handle --init
+    if args.init:
+        init_config(args.config, args.force)
+        sys.exit(0)
+    
+    # Validate directory for traversal
     if not os.path.exists(args.directory):
         print(f"Error: Directory '{args.directory}' does not exist.", file=sys.stderr)
         sys.exit(1)

@@ -12,6 +12,7 @@ pip install prepdir
 prepdir
 
 # View the generated prepped_dir.txt file
+```
 
 That's it! The tool creates a prepped_dir.txt file containing all your project files, neatly formatted for sharing.
 Why Use prepdir?
@@ -47,6 +48,8 @@ Options:
   -o, --output FILE      Output file name (default: prepped_dir.txt)
   --all                  Include all files (ignore exclusion rules)
   --config FILE          Use a custom config file (default: .prepdir/config.yaml)
+  --init                 Initialize a local .prepdir/config.yaml with default configuration
+  --force                Force overwrite of existing config file when using --init
   -v, --verbose          Show detailed logs of skipped files
   --version              Show version number
   --help                 Show this help message
@@ -61,6 +64,7 @@ Automatically excludes the output file (e.g., prepped_dir.txt)
 Filters files by extension
 Outputs to a customizable file (default: prepped_dir.txt)
 Option to include all files, ignoring exclusions
+Initialize a local config with default exclusions using --init
 Verbose mode to log skipped files and directories
 Perfect for sharing code with AI assistants for review
 
@@ -76,10 +80,16 @@ Log and temporary files (*.log, *.pyc)
 You can customize these exclusions in three ways (in order of precedence):
 
 Global config: Create ~/.prepdir/config.yaml
-Project config: Add .prepdir/config.yaml in your local directory
+Project config: Add .prepdir/config.yaml in your local directory or initialize it with prepdir --init
 Custom config: Use --config custom_config.yaml
 
 If no config is found, prepdir uses the default config.yaml included with the package.
+To initialize a project-level config with the default exclusions:
+prepdir --init
+
+If .prepdir/config.yaml already exists, use --force to overwrite:
+prepdir --init --force
+
 Example config.yaml:
 exclude:
   directories:
@@ -104,6 +114,9 @@ prepdir /path/to/directory --all
 
 # Use a custom config with verbose logging
 prepdir --config custom_config.yaml -v
+
+# Initialize a local config
+prepdir --init
 
 Upgrading
 If you previously used config.yaml in your project directory (versions <0.6.0), move it to .prepdir/config.yaml:

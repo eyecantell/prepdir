@@ -77,6 +77,9 @@ prepdir --all
 # Use a custom config file
 prepdir --config custom_config.yaml
 
+# Initialize a local config
+prepdir --init
+
 # Enable verbose output
 prepdir -v
 
@@ -99,6 +102,12 @@ The project directory at .prepdir/config.yaml or a custom path specified with --
 The default config.yaml included with the prepdir package (lowest precedence).
 
 The output file (e.g., prepped_dir.txt) is automatically excluded. The configuration uses .gitignore-style glob patterns.
+To initialize a project-level config with the default exclusions:
+prepdir --init
+
+If .prepdir/config.yaml already exists, use --force to overwrite:
+prepdir --init --force
+
 Example config.yaml:
 exclude:
   directories:
@@ -134,8 +143,7 @@ exclude:
     - "**/*.log"
 
 To use a project-level configuration, create .prepdir/config.yaml in your project directory:
-mkdir -p .prepdir
-echo "exclude:\n  directories:\n    - .git\n  files:\n    - *.pyc" > .prepdir/config.yaml
+prepdir --init
 
 To use a global configuration, create ~/.prepdir/config.yaml:
 mkdir -p ~/.prepdir
