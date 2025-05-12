@@ -12,23 +12,18 @@ pip install prepdir
 prepdir
 
 # View the generated prepped_dir.txt file
-```
 
-That's it! The tool creates a `prepped_dir.txt` file containing all your project files, neatly formatted for sharing.
-
-## Why Use prepdir?
-
+That's it! The tool creates a prepped_dir.txt file containing all your project files, neatly formatted for sharing.
+Why Use prepdir?
 When asking AI assistants for help with your code, providing proper context is crucial. prepdir automatically:
 
-* Creates a single text file with all your project's code
-* Adds clear separators between files
-* Shows relative file paths
-* Skips irrelevant files (like `.git` directories)
-* Makes it easy to upload or copy-paste into AI chats
+Creates a single text file with all your project's code
+Adds clear separators between files
+Shows relative file paths
+Skips irrelevant files (like .git directories)
+Makes it easy to upload or copy-paste into AI chats
 
-## Basic Usage
-
-```bash
+Basic Usage
 # Generate a file with all project files
 prepdir
 
@@ -40,11 +35,8 @@ prepdir /path/to/your/project
 
 # Custom output file name
 prepdir -o my_project_files.txt
-```
 
-## Options
-
-```
+Options
 prepdir [DIRECTORY] [OPTIONS]
 
 Arguments:
@@ -54,29 +46,41 @@ Options:
   -e, --extensions       Filter by file extensions (e.g., py js md)
   -o, --output FILE      Output file name (default: prepped_dir.txt)
   --all                  Include all files (ignore exclusion rules)
-  --config FILE          Use a custom config file
+  --config FILE          Use a custom config file (default: .prepdir/config.yaml)
   -v, --verbose          Show detailed logs of skipped files
   --version              Show version number
   --help                 Show this help message
-```
 
-## Configuration
+Features
 
+Recursively walks through directories
+Displays relative paths and file contents
+Skips specified directories and files using .gitignore-style glob patterns
+Supports global (~/.prepdir/config.yaml), project-level (.prepdir/config.yaml), and custom config files
+Automatically excludes the output file (e.g., prepped_dir.txt)
+Filters files by extension
+Outputs to a customizable file (default: prepped_dir.txt)
+Option to include all files, ignoring exclusions
+Verbose mode to log skipped files and directories
+Perfect for sharing code with AI assistants for review
+
+Configuration
 By default, prepdir skips common files and directories you wouldn't want to share, like:
-- Version control directories (`.git`)
-- Cache directories (`__pycache__`, `.pytest_cache`)
-- Build artifacts (`dist`, `build`)
-- Environment directories (`.venv`, `venv`)
-- Log and temporary files (`*.log`, `*.pyc`)
 
-You can customize these exclusions in three ways:
+Version control directories (.git)
+Cache directories (__pycache__, .pytest_cache)
+Build artifacts (dist, build)
+Environment directories (.venv, venv)
+Log and temporary files (*.log, *.pyc)
 
-1. **Global config**: Create `~/.prepdir/config.yaml`
-2. **Project config**: Add `.prepdir/config.yaml` in your local directory
-3. **Custom config**: Use `--config custom_config.yaml`
+You can customize these exclusions in three ways (in order of precedence):
 
+Global config: Create ~/.prepdir/config.yaml
+Project config: Add .prepdir/config.yaml in your local directory
+Custom config: Use --config custom_config.yaml
+
+If no config is found, prepdir uses the default config.yaml included with the package.
 Example config.yaml:
-```yaml
 exclude:
   directories:
     - .git
@@ -90,11 +94,8 @@ exclude:
     - .DS_Store
     - "*.pyc"
     - "*.log"
-```
 
-## Examples
-
-```bash
+Examples
 # Create project_files.txt with only Python files
 prepdir -o project_files.txt -e py
 
@@ -103,32 +104,30 @@ prepdir /path/to/directory --all
 
 # Use a custom config with verbose logging
 prepdir --config custom_config.yaml -v
-```
 
-## Use Cases
+Upgrading
+If you previously used config.yaml in your project directory (versions <0.6.0), move it to .prepdir/config.yaml:
+mkdir -p .prepdir
+mv config.yaml .prepdir/config.yaml
 
-- **AI Code Review**: Easily share your codebase with AI assistants
-- **Project Analysis**: Get comprehensive views of your project structure
-- **Bug Hunting**: Provide full context when asking for debugging help
-- **Knowledge Transfer**: Help AI understand your project quickly
+Alternatively, specify the old path with --config config.yaml.
+Use Cases
 
-## Installation
+AI Code Review: Easily share your codebase with AI assistants
+Project Analysis: Get comprehensive views of your project structure
+Bug Hunting: Provide full context when asking for debugging help
+Knowledge Transfer: Help AI understand your project quickly
 
-```bash
+Installation
 # Install from PyPI
 pip install prepdir
 
 # Or install from GitHub
 pip install git+https://github.com/eyecantell/prepdir.git
-```
 
-## For Developers
-
-### Development Setup
-
+For Developers
+Development Setup
 This project uses PDM for dependency management and packaging:
-
-```bash
 # Clone the repository
 git clone https://github.com/eyecantell/prepdir.git
 cd prepdir
@@ -141,11 +140,8 @@ pdm run prepdir
 
 # Run tests
 pdm run pytest
-```
 
-### Building and Publishing
-
-```bash
+Building and Publishing
 # Build the package
 pdm build
 
@@ -154,15 +150,10 @@ pip install dist/*.whl
 
 # Publish to PyPI (requires credentials)
 pdm publish
-```
 
-### Testing
-
-```bash
+Testing
 # Run the test suite
 pdm run pytest
-```
 
-## License
-
-MIT
+License
+MIT```

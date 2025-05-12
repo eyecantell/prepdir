@@ -141,6 +141,12 @@ To use a global configuration, create ~/.prepdir/config.yaml:
 mkdir -p ~/.prepdir
 echo "exclude:\n  directories:\n    - .git\n  files:\n    - *.pyc" > ~/.prepdir/config.yaml
 
+Upgrading
+If you previously used config.yaml in your project directory (versions <0.6.0), move it to .prepdir/config.yaml:
+mkdir -p .prepdir
+mv config.yaml .prepdir/config.yaml
+
+Alternatively, specify the old path with --config config.yaml.
 Development Setup
 For development:
 # Clone the repository
