@@ -6,7 +6,7 @@ from io import StringIO
 from pathlib import Path
 from contextlib import redirect_stdout, redirect_stderr
 from importlib.metadata import version
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 from prepdir.main import traverse_directory, load_config, init_config, main
 
 @pytest.fixture
@@ -333,40 +333,12 @@ def test_init_config_force_overwrite(tmp_path, capsys, mock_package_config):
 def test_init_config_package_config_failure(tmp_path, capsys):
     """Test initializing when package config.yaml cannot be read."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
-    with patch('prepdir.main.get_package_config', side_effect=FileNotFoundError("Resource error")):
+    with patch('prepdir.main.get_package_config', side_effect=Exception("Resource error")):
         with pytest.raises(SystemExit):
             init_config(str(config_path), force=False)
     captured = capsys.readouterr()
     assert f"Error: Failed to create '{config_path}': Resource error" in captured.err
     assert not config_path.exists()
-
-def test_init_config_source_fallback(tmp_path, capsys):
-    """Test initializing with config.yaml from source directory."""
-    # Create a source config.yaml
-    source_config = tmp_path / "config.yaml"
-    source_config.write_text("""
-exclude:
-  directories:
-    - .git
-    - src
-  files:
-    - "*.py"
-""")
-    config_path = tmp_path / ".prepdir" / "config.yaml"
-    # Mock importlib.resources or importlib_resources based on Python version
-    mock_module = 'importlib_resources' if sys.version_info < (3, 9) else 'importlib.resources'
-    with patch(f'{mock_module}.files', side_effect=FileNotFoundError):
-        # Mock __file__ to point to tmp_path/src/prepdir/main.py
-        with patch('prepdir.main.__file__', str(tmp_path / "src" / "prepdir" / "main.py")):
-            init_config(str(config_path), force=False)
-    captured = capsys.readouterr()
-    assert f"Created '{config_path}' with default configuration." in captured.out
-    assert config_path.exists()
-    with config_path.open('r', encoding='utf-8') as f:
-        config = yaml.safe_load(f)
-    assert '.git' in config['exclude']['directories']
-    assert 'src' in config['exclude']['directories']
-    assert '*.py' in config['exclude']['files']
 
 def test_main_version(monkeypatch, capsys):
     """Test the --version option."""

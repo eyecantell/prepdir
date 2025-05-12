@@ -1,6 +1,6 @@
 [project]
 name = "prepdir"
-version = "0.8.0"
+version = "0.8.1"
 description = "Directory traversal utility to prepare project contents for review"
 readme = "README.md"
 authors = [
@@ -54,7 +54,6 @@ test = [
 prepdir = "prepdir.main:main"
 
 [tool.ruff]
-# Allow lines to be as long as 120.
 line-length = 120
 
 [build-system]
@@ -64,7 +63,7 @@ build-backend = "pdm.backend"
 [tool.pdm]
 distribution = true
 package-dir = "src"
-includes = ["src/prepdir", "config.yaml"]
+includes = ["src/prepdir", "src/prepdir/config.yaml"]
 
 [tool.pdm.dev-dependencies]
 test = [

@@ -23,23 +23,13 @@ else:
     from importlib import resources
 
 def get_package_config():
-    """Read the default config.yaml from the package or source directory."""
+    """Read the default config.yaml from the package."""
     try:
-        # Try accessing config.yaml as a package resource (prepdir/config.yaml)
         with resources.files('prepdir').joinpath('config.yaml').open('r', encoding='utf-8') as f:
             return f.read()
-    except FileNotFoundError:
-        # Fallback for development: try reading from source directory
-        source_config = Path(__file__).parent.parent.parent / 'config.yaml'
-        if source_config.exists():
-            with source_config.open('r', encoding='utf-8') as f:
-                return f.read()
-        print(f"Error: Could not find config.yaml in package or source directory.", file=sys.stderr)
-        sys.exit(1)
     except Exception as e:
         print(f"Error: Failed to read package config.yaml: {str(e)}", file=sys.stderr)
         sys.exit(1)
-
 
 def init_config(config_path=".prepdir/config.yaml", force=False):
     """Initialize a local config.yaml with the package's default config."""
@@ -59,7 +49,6 @@ def init_config(config_path=".prepdir/config.yaml", force=False):
     except Exception as e:
         print(f"Error: Failed to create '{config_path}': {str(e)}", file=sys.stderr)
         sys.exit(1)
-
 
 def load_config(config_path=".prepdir/config.yaml"):
     """Load exclusion configuration from YAML file with precedence:
@@ -111,7 +100,7 @@ def load_config(config_path=".prepdir/config.yaml"):
             print(f"Error: Invalid YAML in '{home_config}': {str(e)}", file=sys.stderr)
             sys.exit(1)
 
-    # 4. Fall back to default config.yaml from package or source
+    # 4. Fall back to default config.yaml from package
     try:
         config_content = get_package_config()
         config = yaml.safe_load(config_content) or {}
@@ -126,7 +115,6 @@ def load_config(config_path=".prepdir/config.yaml"):
             ['.gitignore', 'LICENSE', '.DS_Store', 'Thumbs.db', '.env', '.env.production', '.coverage', 'coverage.xml', '.pdm-python', 'pdm.lock', '*.pyc', '*.pyo', '*.log', '*.bak', '*.swp', '**/*.log']
         )
 
-
 def is_excluded_dir(dirname, root, directory, excluded_dirs):
     """Check if directory should be excluded from traversal using glob patterns."""
     relative_path = os.path.relpath(os.path.join(root, dirname), directory)
@@ -136,7 +124,6 @@ def is_excluded_dir(dirname, root, directory, excluded_dirs):
         if fnmatch.fnmatch(dirname, pattern) or fnmatch.fnmatch(relative_path, pattern):
             return True
     return False
-
 
 def is_excluded_file(filename, root, directory, excluded_files, output_file):
     """Check if file should be excluded from traversal using glob patterns or if it's the output file."""
@@ -151,7 +138,6 @@ def is_excluded_file(filename, root, directory, excluded_files, output_file):
         if fnmatch.fnmatch(filename, pattern) or fnmatch.fnmatch(relative_path, pattern):
             return True
     return False
-
 
 def display_file_content(file_full_path: str, directory: str):
     """Display the content of a file with appropriate header."""
@@ -171,7 +157,6 @@ def display_file_content(file_full_path: str, directory: str):
         print(f"[Error reading file: {str(e)}]")
 
     print(f"{dashes} End File: '{relative_path}' {dashes}")
-
 
 def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_files=None, include_all=False, verbose=False, output_file=None):
     """
@@ -236,7 +221,6 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
             print(f"No files with extension(s) {', '.join(extensions)} found.")
         else:
             print("No files found.")
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -334,7 +318,6 @@ def main():
                 args.verbose,
                 output_file=str(output_path)
             )
-
 
 if __name__ == "__main__":
     main()

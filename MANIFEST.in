@@ -1,1 +1,1 @@
-include config.yaml
+include src/prepdir/config.yaml
