@@ -111,9 +111,9 @@ prepdir -v
 
 ### Configuration Precedence
 
-1. **Global config**: `~/.prepdir/config.yaml` (highest precedence)
-2. **Project config**: `.prepdir/config.yaml` in your project 
-3. **Custom config**: Specified via `--config` option
+1. **Custom config**: Specified via `--config` option (highest precedence)
+2. **Project config**: `.prepdir/config.yaml` in your local directory 
+3. **Global config**: `~/.prepdir/config.yaml`
 4. **Default config**: Built into the package (lowest precedence)
 
 ### Default Exclusions

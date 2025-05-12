@@ -57,8 +57,43 @@ def init_config(config_path=".prepdir/config.yaml", force=False):
 
 
 def load_config(config_path=".prepdir/config.yaml"):
-    """Load exclusion configuration from YAML file."""
-    # Check home directory first (~/.prepdir/config.yaml)
+    """Load exclusion configuration from YAML file with precedence:
+    1. Custom config specified by config_path
+    2. Local .prepdir/config.yaml
+    3. Global ~/.prepdir/config.yaml
+    4. Default package config
+    """
+    # 1. Try custom config specified by config_path (if not the default)
+    if config_path != ".prepdir/config.yaml":
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f) or {}
+            return (
+                config.get('exclude', {}).get('directories', []),
+                config.get('exclude', {}).get('files', [])
+            )
+        except FileNotFoundError:
+            print(f"Error: Config file '{config_path}' not found.", file=sys.stderr)
+            sys.exit(1)
+        except yaml.YAMLError as e:
+            print(f"Error: Invalid YAML in '{config_path}': {str(e)}", file=sys.stderr)
+            sys.exit(1)
+
+    # 2. Try local .prepdir/config.yaml
+    local_config = Path(".prepdir/config.yaml")
+    if local_config.exists():
+        try:
+            with local_config.open('r', encoding='utf-8') as f:
+                config = yaml.safe_load(f) or {}
+            return (
+                config.get('exclude', {}).get('directories', []),
+                config.get('exclude', {}).get('files', [])
+            )
+        except yaml.YAMLError as e:
+            print(f"Error: Invalid YAML in '{local_config}': {str(e)}", file=sys.stderr)
+            sys.exit(1)
+
+    # 3. Try global ~/.prepdir/config.yaml
     home_config = Path.home() / ".prepdir" / "config.yaml"
     if home_config.exists():
         try:
@@ -71,33 +106,21 @@ def load_config(config_path=".prepdir/config.yaml"):
         except yaml.YAMLError as e:
             print(f"Error: Invalid YAML in '{home_config}': {str(e)}", file=sys.stderr)
             sys.exit(1)
-    
-    # Fall back to user-specified or default config path (.prepdir/config.yaml)
+
+    # 4. Fall back to default config.yaml from package or source
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f) or {}
+        config_content = get_package_config()
+        config = yaml.safe_load(config_content) or {}
         return (
             config.get('exclude', {}).get('directories', []),
             config.get('exclude', {}).get('files', [])
         )
-    except FileNotFoundError:
-        # Load default config.yaml from package or source
-        try:
-            config_content = get_package_config()
-            config = yaml.safe_load(config_content) or {}
-            return (
-                config.get('exclude', {}).get('directories', []),
-                config.get('exclude', {}).get('files', [])
-            )
-        except Exception as e:
-            print(f"Warning: Failed to load package config.yaml: {str(e)}. Using default exclusions.", file=sys.stderr)
-            return (
-                ['.git', '__pycache__', '.pdm-build', '.venv', 'venv', '.idea', 'node_modules', 'dist', 'build', '.pytest_cache', '.mypy_cache', '.cache', '.eggs', '.tox', '*.egg-info'],
-                ['.gitignore', 'LICENSE', '.DS_Store', 'Thumbs.db', '.env', '.env.production', '.coverage', 'coverage.xml', '.pdm-python', 'pdm.lock', '*.pyc', '*.pyo', '*.log', '*.bak', '*.swp', '**/*.log']
-            )
-    except yaml.YAMLError as e:
-        print(f"Error: Invalid YAML in '{config_path}': {str(e)}", file=sys.stderr)
-        sys.exit(1)
+    except Exception as e:
+        print(f"Warning: Failed to load package config.yaml: {str(e)}. Using default exclusions.", file=sys.stderr)
+        return (
+            ['.git', '__pycache__', '.pdm-build', '.venv', 'venv', '.idea', 'node_modules', 'dist', 'build', '.pytest_cache', '.mypy_cache', '.cache', '.eggs', '.tox', '*.egg-info'],
+            ['.gitignore', 'LICENSE', '.DS_Store', 'Thumbs.db', '.env', '.env.production', '.coverage', 'coverage.xml', '.pdm-python', 'pdm.lock', '*.pyc', '*.pyo', '*.log', '*.bak', '*.swp', '**/*.log']
+        )
 
 
 def is_excluded_dir(dirname, root, directory, excluded_dirs):

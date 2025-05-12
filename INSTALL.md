@@ -1,20 +1,11 @@
-# Installation Guide for prepdir
-
-## Project Structure
-
+Installation Guide for prepdir
+Project Structure
 After setting up, your project directory should look like this:
-
 prepdir/├── .github/│   └── workflows/│       └── ci.yml├── pyproject.toml├── README.md├── INSTALL.md├── config.yaml├── tests/│   ├── test_main.py│   └── test_data/│       ├── sample_project/│       │   ├── file1.py│       │   ├── file2.txt│       │   ├── ignored.pyc│       │   ├── logs/│       │   │   ├── app.log│       │   └── git/│       │       ├── config│       └── custom_config.yaml└── src/    └── prepdir/        ├── init.py        └── main.py
-
-This structure follows PDM's best practices with the package inside the `src` directory.
-
-## Installation Methods
-
-### Method 1: Install with PDM (Recommended)
-
-[PDM](https://pdm.fming.dev/) is a modern Python package manager that this project uses.
-
-```bash
+This structure follows PDM's best practices with the package inside the src directory.
+Installation Methods
+Method 1: Install with PDM (Recommended)
+PDM is a modern Python package manager that this project uses.
 # Install PDM if you don't have it
 pip install pdm
 
@@ -43,19 +34,14 @@ pip install prepdir
 
 Publishing to PyPI
 If you want to share your tool with others, you can publish it to PyPI:
-
 Make sure PDM is installed:
 pip install pdm
-
 
 Build the package:
 pdm build
 
-
 Upload to PyPI (requires PyPI credentials):
 pdm publish
-
-
 
 Usage after Installation
 After installation, you can use the tool from anywhere:
@@ -97,12 +83,12 @@ pdm run pytest
 Configuration
 Exclusions for directories and files are defined in config.yaml, with the following precedence:
 
-The user's home directory at ~/.prepdir/config.yaml (highest precedence).
-The project directory at .prepdir/config.yaml or a custom path specified with --config (e.g., --config custom_config.yaml).
-The default config.yaml included with the prepdir package (lowest precedence).
+Custom config specified via --config (highest precedence)
+Project config at .prepdir/config.yaml in your project
+Global config at ~/.prepdir/config.yaml
+Default config.yaml included with the prepdir package (lowest precedence)
 
-The output file (e.g., prepped_dir.txt) is automatically excluded. The configuration uses .gitignore-style glob patterns.
-To initialize a project-level config with the default exclusions:
+The output file (e.g., prepped_dir.txt) is automatically excluded. The configuration uses .gitignore-style glob patterns.To initialize a project-level config with the default exclusions:
 prepdir --init
 
 If .prepdir/config.yaml already exists, use --force to overwrite:
@@ -176,4 +162,4 @@ pdm add -d pytest
 Continuous Integration
 This project uses GitHub Actions for continuous integration. The CI workflow runs the test suite on every push and pull request to the main branch, testing across multiple Python versions (3.8, 3.9, 3.10, 3.11). The workflow is defined in .github/workflows/ci.yml.
 License
-MIT```
+MIT
