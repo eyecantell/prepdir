@@ -11,6 +11,7 @@ import argparse
 import sys
 import yaml
 import fnmatch
+from datetime import datetime
 from contextlib import redirect_stdout
 from pathlib import Path
 from importlib.metadata import version
@@ -177,6 +178,8 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
     # Track if any files were found
     files_found = False
     
+    print(f"File listing generated {datetime.now()} by prepdir (pip install prepdir)")
+    print(f"Base directory is '{Path.cwd()}'")
     for root, dirs, files in os.walk(directory):
         # Remove excluded directories in-place, unless include_all is True
         if not include_all:
@@ -298,6 +301,7 @@ def main():
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
+    print(f"Generated {datetime.now()}")
     print(f"Traversing directory: {os.path.abspath(args.directory)}")
     print(f"Extensions filter: {args.extensions if args.extensions else 'None'}")
     print(f"Output file: {output_path}")
