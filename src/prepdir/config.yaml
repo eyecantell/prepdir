@@ -1,5 +1,5 @@
-exclude:
-  directories:
+EXCLUDE:
+  DIRECTORIES:
     - .git
     - __pycache__
     - .pdm-build
@@ -15,7 +15,7 @@ exclude:
     - .eggs
     - .tox
     - "*.egg-info"
-  files:
+  FILES:
     - .gitignore
     - LICENSE
     - .DS_Store

@@ -23,7 +23,7 @@ prepdir -e py md -o ai_review.txt
 - [Troubleshooting](#-troubleshooting)
 - [FAQ](#-faq)
 
-## 🤔 Why Use prepdir?
+## 🧐 Why Use prepdir?
 
 When sharing code with AI assistants for review or analysis, context is crucial. **prepdir** solves common problems:
 
@@ -109,12 +109,14 @@ prepdir -v
 
 ## ⚙️ Configuration
 
+`prepdir` uses [Dynaconf](https://dynaconf.com) for configuration management, providing a robust and flexible way to manage settings across projects.
+
 ### Configuration Precedence
 
 1. **Custom config**: Specified via `--config` option (highest precedence)
-2. **Project config**: `.prepdir/config.yaml` in your local directory 
-3. **Global config**: `~/.prepdir/config.yaml`
-4. **Default config**: Built into the package (lowest precedence)
+2. **Local config**: `.prepdir/config.yaml` in your project directory 
+3. **Global config**: `~/.prepdir/config.yaml` in your home directory
+4. **Default config**: Built into the package at `src/prepdir/config.yaml` (lowest precedence)
 
 ### Default Exclusions
 
@@ -214,6 +216,10 @@ pdm run prepdir
 pdm run pytest
 ```
 
+### Configuration Management
+
+`prepdir` provides a reusable `load_config` function in `prepdir.config` for shared configuration management across tools like `vibedir` and `applydir`. It uses Dynaconf to load YAML configs with the precedence described above.
+
 ### Building and Publishing
 
 ```bash
@@ -232,9 +238,9 @@ pdm publish
 ### Common Issues
 
 - **No files found**: Check your directory path and file extensions
-- **Missing expected files**: Verify they're not being excluded in config
-- **Error loading config.yaml**: Ensure YAML syntax is valid
-- **Package not found after install**: Verify your Python environment/PATH
+- **Missing expected files**: Verify they're not excluded in config (use `-v` to debug)
+- **Config not loading**: Ensure YAML syntax is valid and paths are accessible
+- **Package not found after install**: Verify your Python environment/command path
 
 ### Verbose Mode
 

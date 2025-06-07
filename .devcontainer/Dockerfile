@@ -49,3 +49,4 @@ USER root
 
 # Switch back to developer user
 USER developer
+RUN git config --global --add safe.directory /mounted/dev/prepdir

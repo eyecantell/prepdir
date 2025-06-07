@@ -15,22 +15,10 @@ from datetime import datetime
 from contextlib import redirect_stdout
 from pathlib import Path
 from importlib.metadata import version
-from importlib import resources
+from prepdir.config import load_config
+import logging
 
-# Add conditional import for compatibility
-if sys.version_info < (3, 9):
-    import importlib_resources as resources
-else:
-    from importlib import resources
-
-def get_package_config():
-    """Read the default config.yaml from the package."""
-    try:
-        with resources.files('prepdir').joinpath('config.yaml').open('r', encoding='utf-8') as f:
-            return f.read()
-    except Exception as e:
-        print(f"Error: Failed to read package config.yaml: {str(e)}", file=sys.stderr)
-        sys.exit(1)
+logger = logging.getLogger(__name__)
 
 def init_config(config_path=".prepdir/config.yaml", force=False):
     """Initialize a local config.yaml with the package's default config."""
@@ -43,84 +31,19 @@ def init_config(config_path=".prepdir/config.yaml", force=False):
         sys.exit(1)
     
     try:
-        default_config = get_package_config()
+        # Load default config (will use bundled config as fallback)
+        config = load_config("prepdir")
         with config_path.open('w', encoding='utf-8') as f:
-            f.write(default_config)
+            yaml.safe_dump(config.as_dict(), f)
         print(f"Created '{config_path}' with default configuration.")
     except Exception as e:
         print(f"Error: Failed to create '{config_path}': {str(e)}", file=sys.stderr)
         sys.exit(1)
 
-def load_config(config_path=".prepdir/config.yaml"):
-    """Load exclusion configuration from YAML file with precedence:
-    1. Custom config specified by config_path
-    2. Local .prepdir/config.yaml
-    3. Global ~/.prepdir/config.yaml
-    4. Default package config
-    """
-    # 1. Try custom config specified by config_path (if not the default)
-    if config_path != ".prepdir/config.yaml":
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f) or {}
-            return (
-                config.get('exclude', {}).get('directories', []),
-                config.get('exclude', {}).get('files', [])
-            )
-        except FileNotFoundError:
-            print(f"Warning: Config file '{config_path}' not found, falling back to other configs.", file=sys.stderr)
-        except yaml.YAMLError as e:
-            print(f"Error: Invalid YAML in '{config_path}': {str(e)}", file=sys.stderr)
-            sys.exit(1)
-
-    # 2. Try local .prepdir/config.yaml
-    local_config = Path(".prepdir/config.yaml")
-    if local_config.exists():
-        try:
-            with local_config.open('r', encoding='utf-8') as f:
-                config = yaml.safe_load(f) or {}
-            return (
-                config.get('exclude', {}).get('directories', []),
-                config.get('exclude', {}).get('files', [])
-            )
-        except yaml.YAMLError as e:
-            print(f"Error: Invalid YAML in '{local_config}': {str(e)}", file=sys.stderr)
-            sys.exit(1)
-
-    # 3. Try global ~/.prepdir/config.yaml
-    home_config = Path.home() / ".prepdir" / "config.yaml"
-    if home_config.exists():
-        try:
-            with home_config.open('r', encoding='utf-8') as f:
-                config = yaml.safe_load(f) or {}
-            return (
-                config.get('exclude', {}).get('directories', []),
-                config.get('exclude', {}).get('files', [])
-            )
-        except yaml.YAMLError as e:
-            print(f"Error: Invalid YAML in '{home_config}': {str(e)}", file=sys.stderr)
-            sys.exit(1)
-
-    # 4. Fall back to default config.yaml from package
-    try:
-        config_content = get_package_config()
-        config = yaml.safe_load(config_content) or {}
-        return (
-            config.get('exclude', {}).get('directories', []),
-            config.get('exclude', {}).get('files', [])
-        )
-    except Exception as e:
-        print(f"Warning: Failed to load package config.yaml: {str(e)}. Using default exclusions.", file=sys.stderr)
-        return (
-            ['.git', '__pycache__', '.pdm-build', '.venv', 'venv', '.idea', 'node_modules', 'dist', 'build', '.pytest_cache', '.mypy_cache', '.cache', '.eggs', '.tox', '*.egg-info'],
-            ['.gitignore', 'LICENSE', '.DS_Store', 'Thumbs.db', '.env', '.env.production', '.coverage', 'coverage.xml', '.pdm-python', 'pdm.lock', '*.pyc', '*.pyo', '*.log', '*.bak', '*.swp', '**/*.log']
-        )
-
 def is_excluded_dir(dirname, root, directory, excluded_dirs):
     """Check if directory should be excluded from traversal using glob patterns."""
     relative_path = os.path.relpath(os.path.join(root, dirname), directory)
     for pattern in excluded_dirs:
-        # Handle directory patterns (e.g., node_modules/, *.egg-info/)
         pattern = pattern.rstrip('/')
         if fnmatch.fnmatch(dirname, pattern) or fnmatch.fnmatch(relative_path, pattern):
             return True
@@ -128,12 +51,10 @@ def is_excluded_dir(dirname, root, directory, excluded_dirs):
 
 def is_excluded_file(filename, root, directory, excluded_files, output_file):
     """Check if file should be excluded from traversal using glob patterns or if it's the output file."""
-    # Check if the file is the output file
     full_path = os.path.abspath(os.path.join(root, filename))
     if output_file and full_path == os.path.abspath(output_file):
         return True
     
-    # Check against glob patterns
     relative_path = os.path.relpath(full_path, directory)
     for pattern in excluded_files:
         if fnmatch.fnmatch(filename, pattern) or fnmatch.fnmatch(relative_path, pattern):
@@ -143,9 +64,8 @@ def is_excluded_file(filename, root, directory, excluded_files, output_file):
 def display_file_content(file_full_path: str, directory: str):
     """Display the content of a file with appropriate header."""
     dashes = '=-' * 15 + "="
-
     relative_path = os.path.relpath(file_full_path, directory)
-
+    
     print(f"{dashes} Begin File: '{relative_path}' {dashes}")
     
     try:
@@ -156,7 +76,7 @@ def display_file_content(file_full_path: str, directory: str):
         print("[Binary file or encoding not supported]")
     except Exception as e:
         print(f"[Error reading file: {str(e)}]")
-
+    
     print(f"{dashes} End File: '{relative_path}' {dashes}")
 
 def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_files=None, include_all=False, verbose=False, output_file=None):
@@ -172,18 +92,13 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
         verbose (bool): If True, print additional information about skipped files
         output_file (str): Path to the output file to exclude from traversal
     """
-    # Convert directory to absolute path
     directory = os.path.abspath(directory)
-    
-    # Track if any files were found
     files_found = False
     
     print(f"File listing generated {datetime.now()} by prepdir (pip install prepdir)")
     print(f"Base directory is '{Path.cwd()}'")
     for root, dirs, files in os.walk(directory):
-        # Remove excluded directories in-place, unless include_all is True
         if not include_all:
-            # Identify excluded directories for logging
             skipped_dirs = [d for d in dirs if is_excluded_dir(d, root, directory, excluded_dirs)]
             if verbose:
                 for d in skipped_dirs:
@@ -191,20 +106,17 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
             dirs[:] = [d for d in dirs if not is_excluded_dir(d, root, directory, excluded_dirs)]
         
         for file in files:
-            # Always check if the file is the output file
             full_path = os.path.abspath(os.path.join(root, file))
             if output_file and full_path == os.path.abspath(output_file):
                 if verbose:
                     print(f"Skipping file: {full_path} (output file)", file=sys.stderr)
                 continue
             
-            # Check if file is excluded (unless include_all is True)
             if not include_all and is_excluded_file(file, root, directory, excluded_files, output_file=None):
                 if verbose:
                     print(f"Skipping file: {os.path.join(root, file)} (excluded in config)", file=sys.stderr)
                 continue 
             
-            # Check extension if filter is provided
             if extensions:
                 file_ext = os.path.splitext(file)[1].lstrip('.')
                 if file_ext not in extensions:
@@ -212,10 +124,7 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
                         print(f"Skipping file: {os.path.join(root, file)} (extension not in {extensions})", file=sys.stderr)
                     continue
             
-            # At this point we have a file to display
             files_found = True
-            
-            # Display file content
             full_path = os.path.join(root, file)
             display_file_content(full_path, directory)
     
@@ -253,8 +162,7 @@ def main():
     )
     parser.add_argument(
         '--config',
-        default='.prepdir/config.yaml',
-        help='Path to configuration YAML file (default: .prepdir/config.yaml in current directory)'
+        help='Path to configuration YAML file'
     )
     parser.add_argument(
         '-v', '--verbose',
@@ -280,12 +188,15 @@ def main():
     
     args = parser.parse_args()
     
+    # Configure logging
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format='%(levelname)s: %(message)s')
+    
     # Handle --init
     if args.init:
-        init_config(args.config, args.force)
+        init_config(args.config or ".prepdir/config.yaml", args.force)
         sys.exit(0)
     
-    # Validate directory for traversal
+    # Validate directory
     if not os.path.exists(args.directory):
         print(f"Error: Directory '{args.directory}' does not exist.", file=sys.stderr)
         sys.exit(1)
@@ -294,8 +205,10 @@ def main():
         print(f"Error: '{args.directory}' is not a directory.", file=sys.stderr)
         sys.exit(1)
     
-    # Load exclusions from config, unless --all is specified
-    excluded_dirs, excluded_files = ([], []) if args.all else load_config(args.config)
+    # Load configuration
+    config = load_config("prepdir", args.config)
+    excluded_dirs = [] if args.all else config.get('exclude.directories', [])
+    excluded_files = [] if args.all else config.get('exclude.files', [])
     
     # Prepare output
     output_path = Path(args.output)
@@ -305,7 +218,7 @@ def main():
     print(f"Traversing directory: {os.path.abspath(args.directory)}")
     print(f"Extensions filter: {args.extensions if args.extensions else 'None'}")
     print(f"Output file: {output_path}")
-    print(f"Config file: {args.config}")
+    print(f"Config file: {args.config if args.config else 'default'}")
     print(f"Ignoring exclusions: {args.all}")
     print(f"Verbose mode: {args.verbose}")
     print("-" * 60)

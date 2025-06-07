@@ -5,7 +5,7 @@
 groups = ["default", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:ebae7196e6fb488c93558ba1dbae024890c00eb420dc6d16ae4b9b62c667245a"
+content_hash = "sha256:19f1c7edc2c44dc41708b3833d30ae0d38280826dc2192e552f57a0cbe83605e"
 
 [[metadata.targets]]
 requires_python = ">=3.8"
@@ -187,6 +187,17 @@ files = [
     {file = "coverage-7.6.1-cp39-cp39-win_amd64.whl", hash = "sha256:06a737c882bd26d0d6ee7269b20b12f14a8704807a01056c80bb881a4b2ce6ca"},
     {file = "coverage-7.6.1-pp38.pp39.pp310-none-any.whl", hash = "sha256:e9a6e0eb86070e8ccaedfbd9d38fec54864f3125ab95419970575b42af7541df"},
     {file = "coverage-7.6.1.tar.gz", hash = "sha256:953510dfb7b12ab69d20135a0662397f077c59b1e6379a768e97c59d852ee51d"},
+]
+
+[[package]]
+name = "dynaconf"
+version = "3.2.11"
+requires_python = ">=3.8"
+summary = "The dynamic configurator for your Python Project"
+groups = ["default"]
+files = [
+    {file = "dynaconf-3.2.11-py2.py3-none-any.whl", hash = "sha256:660de90879d4da236f79195692a7d197957224d7acf922bcc6899187dc7b4a27"},
+    {file = "dynaconf-3.2.11.tar.gz", hash = "sha256:4cfc6a730c533bf1a1d0bf266ae202133a22236bb3227d23eff4b8542d4034a5"},
 ]
 
 [[package]]

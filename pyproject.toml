@@ -1,6 +1,6 @@
 [project]
 name = "prepdir"
-version = "0.9.0"
+version = "0.10.0"
 description = "Directory traversal utility to prepare project contents for review"
 readme = "README.md"
 authors = [
@@ -41,6 +41,7 @@ dependencies = [
     "typing-extensions>=4.7.1; python_version < '3.11'",
     "importlib-resources>=5.0; python_version < '3.9'",
     "pyyaml>=6.0",
+    "dynaconf>=3.2.6",
 ]
 
 [project.optional-dependencies]
