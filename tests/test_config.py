@@ -1,4 +1,5 @@
 import pytest
+import sys
 from unittest.mock import patch
 from pathlib import Path
 import logging
@@ -105,7 +106,9 @@ EXCLUDE:
     mock_cm.__exit__.return_value = None
     # Configure files().joinpath to return the context manager
     mock_files.joinpath.return_value = mock_cm
-    with patch("importlib.resources.files", return_value=mock_files):
+    # Patch the correct module based on Python version
+    patch_target = "importlib_resources.files" if sys.version_info < (3, 9) else "importlib.resources.files"
+    with patch(patch_target, return_value=mock_files):
         config = load_config("prepdir")
     
     assert config.EXCLUDE.DIRECTORIES == ["bundled_dir"]
@@ -116,9 +119,11 @@ EXCLUDE:
 
 def test_load_config_bundled_missing(capture_log):
     """Test handling missing bundled config."""
-    with patch("importlib.resources.files", side_effect=Exception("Resource error")):
+    # Patch the correct module based on Python version
+    patch_target = "importlib_resources.files" if sys.version_info < (3, 9) else "importlib.resources.files"
+    with patch(patch_target, side_effect=Exception("Resource error")):
         config = load_config("prepdir")
-        
+    
     assert isinstance(config, Dynaconf)
     assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == []  # Empty config
     log_output = capture_log.getvalue()
