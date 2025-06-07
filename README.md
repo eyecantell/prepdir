@@ -3,7 +3,6 @@
 [![CI](https://github.com/eyecantell/prepdir/actions/workflows/ci.yml/badge.svg)](https://github.com/eyecantell/prepdir/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/prepdir.svg)](https://badge.fury.io/py/prepdir)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Coverage](https://codecov.io/gh/eyecantell/prepdir/branch/main/graph/badge.svg)](https://codecov.io/gh/eyecantell/prepdir)
 [![Downloads](https://pepy.tech/badge/prepdir)](https://pepy.tech/project/prepdir)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -31,9 +30,9 @@ prepdir -e py md -o ai_review.txt
 
 ## 📰 What's New in 0.10.0
 
-- Adopted [Dynaconf](https://dynaconf.com) for robust and flexible configuration management.
-- Enhanced test suite for improved reliability across Python 3.8–3.11.
-- See [release notes](https://github.com/eyecantell/prepdir/releases/tag/v0.10.0) for details.
+- Adopted [Dynaconf](https://dynaconf.com) for robust configuration management.
+- Enhanced test suite for Python 3.8–3.11 compatibility.
+- See [CHANGELOG.md](docs/CHANGELOG.md) for details.
 
 ## 🚀 Quick Start
 
