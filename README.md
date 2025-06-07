@@ -256,6 +256,9 @@ A: For versions <0.6.0, move `config.yaml` to `.prepdir/config.yaml` or use `--c
 **Q: Are glob patterns supported?**  
 A: Yes, use .gitignore-style patterns like `*.pyc` or `**/*.log` in configs.
 
+**Q: Why am I getting an error about lowercase configuration keys?**  
+A: Starting with version 0.10.0, `prepdir` uses Dynaconf, which requires configuration keys like `EXCLUDE`, `DIRECTORIES`, and `FILES` to be uppercase. Please update your `config.yaml` to use uppercase keys. See the [Configuration section](#configuration) for details.
+
 ## 🤝 Contributing
 
 We welcome contributions! Check out our [GitHub Issues](https://github.com/eyecantell/prepdir/issues) or submit a pull request. See [CONTRIBUTING.md](https://github.com/eyecantell/prepdir/blob/main/CONTRIBUTING.md) for guidelines.

@@ -25,6 +25,9 @@ def load_config(tool_name: str, config_path: str = None) -> Dynaconf:
 
     Returns:
         Dynaconf instance containing the configuration
+
+    Raises:
+        ValueError: If lowercase configuration keys are detected, with guidance to update to uppercase
     """
     settings_files = []
     
@@ -54,6 +57,40 @@ def load_config(tool_name: str, config_path: str = None) -> Dynaconf:
         root_path=Path.cwd(),
         lowercase_read=True,  # Allow lowercase key access
     )
+    
+    # Validate configuration keys for uppercase requirement
+    for file_path in settings_files:
+        file_path = Path(file_path)
+        if file_path.exists():
+            try:
+                with file_path.open('r', encoding='utf-8') as f:
+                    import yaml
+                    config_data = yaml.safe_load(f)
+                    if config_data:
+                        # Check for lowercase keys
+                        lowercase_keys = [key for key in config_data.keys() if key.islower()]
+                        if lowercase_keys:
+                            raise ValueError(
+                                f"Lowercase configuration keys {lowercase_keys} found in {file_path}. "
+                                "Starting with version 0.10.0, prepdir requires uppercase keys (e.g., 'EXCLUDE' instead of 'exclude', "
+                                "'DIRECTORIES' instead of 'directories', 'FILES' instead of 'files'). "
+                                "Please update your configuration file to use uppercase keys. "
+                                "See https://github.com/eyecantell/prepdir#configuration for details."
+                            )
+                        # Check nested keys under EXCLUDE
+                        exclude_data = config_data.get('EXCLUDE') or config_data.get('exclude', {})
+                        nested_lowercase_keys = [key for key in exclude_data.keys() if key.islower()]
+                        if nested_lowercase_keys:
+                            raise ValueError(
+                                f"Lowercase configuration keys {nested_lowercase_keys} found under 'EXCLUDE' in {file_path}. "
+                                "Starting with version 0.10.0, prepdir requires uppercase keys (e.g., 'DIRECTORIES' instead of 'directories', "
+                                "'FILES' instead of 'files'). "
+                                "Please update your configuration file to use uppercase keys. "
+                                "See https://github.com/eyecantell/prepdir#configuration for details."
+                            )
+            except yaml.YAMLError as e:
+                logger.error(f"Invalid YAML in {file_path}: {e}")
+                raise
     
     logger.debug(f"Attempted config files for {tool_name}: {settings_files}")
     return config

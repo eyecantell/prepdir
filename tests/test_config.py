@@ -128,3 +128,20 @@ def test_load_config_bundled_missing(capture_log):
     assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == []  # Empty config
     log_output = capture_log.getvalue()
     assert "Failed to load bundled config for prepdir: Resource error" in log_output
+
+def test_load_config_lowercase_keys(sample_config_content, capture_log, tmp_path):
+    """Test loading configuration with lowercase keys raises ValueError."""
+    config_path = tmp_path / "custom.yaml"
+    config_path.write_text("""
+exclude:
+  directories:
+    - custom_dir
+  files:
+    - "*.custom"
+""")
+    with pytest.raises(ValueError) as exc_info:
+        load_config("prepdir", str(config_path))
+    
+    assert "Lowercase configuration keys ['exclude'] found in" in str(exc_info.value)
+    assert "Starting with version 0.10.0, prepdir requires uppercase keys" in str(exc_info.value)
+    assert "See https://github.com/eyecantell/prepdir#configuration for details" in str(exc_info.value)
