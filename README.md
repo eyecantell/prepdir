@@ -3,9 +3,11 @@
 [![CI](https://github.com/eyecantell/prepdir/actions/workflows/ci.yml/badge.svg)](https://github.com/eyecantell/prepdir/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/prepdir.svg)](https://badge.fury.io/py/prepdir)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Coverage](https://codecov.io/gh/eyecantell/prepdir/branch/main/graph/badge.svg)](https://codecov.io/gh/eyecantell/prepdir)
+[![Downloads](https://pepy.tech/badge/prepdir)](https://pepy.tech/project/prepdir)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A lightweight CLI utility that prepares your code project for sharing with AI assistants by automatically formatting file contents with clear separation between files.
+A lightweight CLI utility to prepare your code project for AI assistants, formatting file contents with clear separators for easy sharing. **Get Started**: [Quick Start](#-quick-start)
 
 ```
 prepdir -e py md -o ai_review.txt
@@ -13,41 +15,58 @@ prepdir -e py md -o ai_review.txt
 
 ## 📋 Contents
 
-- [Why Use prepdir?](#-why-use-prepdir)
-- [Installation](#-installation)
+- [What's New](#-whats-new-in-0100)
 - [Quick Start](#-quick-start)
+- [Installation](#-installation)
 - [Usage Examples](#-usage-examples)
 - [Configuration](#-configuration)
+- [Why Use prepdir?](#-why-use-prepdir)
 - [Common Use Cases](#-common-use-cases)
+- [Advanced Options](#-advanced-options)
 - [For Developers](#-for-developers)
 - [Troubleshooting](#-troubleshooting)
 - [FAQ](#-faq)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-## 🧐 Why Use prepdir?
+## 📰 What's New in 0.10.0
 
-When sharing code with AI assistants for review or analysis, context is crucial. **prepdir** solves common problems:
+- Adopted [Dynaconf](https://dynaconf.com) for robust and flexible configuration management.
+- Enhanced test suite for improved reliability across Python 3.8–3.11.
+- See [release notes](https://github.com/eyecantell/prepdir/releases/tag/v0.10.0) for details.
 
-- **Complete Context**: Creates a single file containing all relevant project files
-- **Clear Structure**: Adds distinct separators between files with relative paths
-- **Smart Filtering**: Automatically excludes irrelevant files like `.git` and `node_modules`
-- **Time Saving**: Eliminates manual copying/formatting of individual files
-- **AI-Optimized**: Formatted specifically for AI assistants to understand project structure
+## 🚀 Quick Start
+
+Get up and running with `prepdir` in minutes:
+
+```bash
+# Install prepdir
+pip install prepdir
+
+# Navigate to your project
+cd /path/to/your/project
+
+# Generate prepped_dir.txt with all project files
+prepdir
+
+# Share prepped_dir.txt with an AI assistant
+```
 
 ## 📦 Installation
 
-### Using pip (recommended)
+### **Using pip (Recommended)**
 
 ```bash
 pip install prepdir
 ```
 
-### From GitHub
+### **From GitHub**
 
 ```bash
 pip install git+https://github.com/eyecantell/prepdir.git
 ```
 
-### For Development
+### **For Development**
 
 ```bash
 git clone https://github.com/eyecantell/prepdir.git
@@ -55,72 +74,42 @@ cd prepdir
 pip install -e .
 ```
 
-## 🚀 Quick Start
-
-```bash
-# Install
-pip install prepdir
-
-# Navigate to your project
-cd /path/to/your/project
-
-# Create prepped_dir.txt with all project files
-prepdir
-
-# Share prepped_dir.txt with an AI assistant
-```
-
 ## 💡 Usage Examples
 
-### Basic Usage
+### **Basic Usage**
 
 ```bash
-# Process current directory, output to prepped_dir.txt
+# Output all files to prepped_dir.txt
 prepdir
 
-# Only include Python files
+# Include only Python files
 prepdir -e py
 
-# Only include Python and Markdown files
+# Include Python and Markdown files
 prepdir -e py md
 
-# Custom output filename
+# Use a custom output file
 prepdir -o my_project.txt
 
 # Process a specific directory
 prepdir /path/to/directory
 ```
 
-### Advanced Options
-
-```bash
-# Include all files (ignore exclusion rules)
-prepdir --all
-
-# Use a custom config file
-prepdir --config custom_config.yaml
-
-# Initialize a local .prepdir/config.yaml
-prepdir --init
-
-# Verbose mode to see what's being skipped
-prepdir -v
-```
-
 ## ⚙️ Configuration
 
-`prepdir` uses [Dynaconf](https://dynaconf.com) for configuration management, providing a robust and flexible way to manage settings across projects.
+`prepdir` uses [Dynaconf](https://dynaconf.com) for flexible and robust configuration management, allowing seamless handling of settings across projects.
 
-### Configuration Precedence
+### **Configuration Precedence**
 
-1. **Custom config**: Specified via `--config` option (highest precedence)
-2. **Local config**: `.prepdir/config.yaml` in your project directory 
+1. **Custom config**: Specified with `--config` (highest precedence)
+2. **Local config**: `.prepdir/config.yaml` in your project directory
 3. **Global config**: `~/.prepdir/config.yaml` in your home directory
-4. **Default config**: Built into the package at `src/prepdir/config.yaml` (lowest precedence)
+4. **Default config**: Built-in at `src/prepdir/config.yaml` (lowest precedence)
 
-### Default Exclusions
+### **Default Exclusions**
 
-By default, prepdir skips:
+`prepdir` skips common irrelevant files and directories, such as:
+
 - Version control: `.git`
 - Build artifacts: `dist`, `build`
 - Cache directories: `__pycache__`, `.pytest_cache`
@@ -129,122 +118,126 @@ By default, prepdir skips:
 - Dependencies: `node_modules`
 - Temporary files: `*.pyc`, `*.log`
 
-### Creating/Customizing Configuration
+### **Creating a Config**
 
-#### Initialize a project config:
+Initialize a project-level config with default settings:
 
 ```bash
-# Create .prepdir/config.yaml with default settings
+# Create .prepdir/config.yaml
 prepdir --init
 
 # Overwrite existing config
 prepdir --init --force
 ```
 
-#### Example config.yaml:
+### **Example config.yaml**
 
 ```yaml
-exclude:
-  directories:
+EXCLUDE:
+  DIRECTORIES:
     - .git
     - __pycache__
     - .venv
     - node_modules
     - dist
     - "*.egg-info"
-  files:
+  FILES:
     - .gitignore
     - .DS_Store
     - "*.pyc"
     - "*.log"
 ```
 
+## 🧐 Why Use prepdir?
+
+`prepdir` simplifies sharing code with AI assistants by:
+
+- **Saving Time**: Automates collecting and formatting project files.
+- **Providing Context**: Combines all relevant files into one structured file.
+- **Filtering Smartly**: Excludes irrelevant files like caches and binaries.
+- **Enhancing Clarity**: Uses clear separators and relative paths for AI compatibility.
+- **Streamlining Workflow**: Optimizes code review, analysis, and documentation tasks.
+
 ## 🔍 Common Use Cases
 
-### 1. Code Review by AI Assistants
+### **1. AI Code Review**
 
 ```bash
-# Generate a file with just Python source files
 prepdir -e py -o code_review.txt
-
-# Upload file and Ask AI: "Please review this Python project for best practices"
+# Ask AI: "Review this Python project for best practices"
 ```
 
-### 2. Project Analysis
+### **2. Project Analysis**
 
 ```bash
-# Include all project files
 prepdir --all -o full_project.txt
-
-# Upload file and Ask AI: "Help me understand the architecture of this project"
+# Ask AI: "Explain this project's architecture"
 ```
 
-### 3. Bug Hunting
+### **3. Bug Hunting**
 
 ```bash
-# Focus on a specific area of code
 prepdir ./src/problematic_module -e py -o debug.txt
-
-# Upload file and Ask AI: "Help me find the bug causing this error message..."
+# Ask AI: "Find the bug causing this error..."
 ```
 
-### 4. Documentation Generation
+### **4. Documentation Generation**
 
 ```bash
-# Collect Python files and docs
 prepdir -e py md rst -o docs_context.txt
+# Ask AI: "Generate detailed documentation for this project"
+```
 
-# Upload file and Ask AI: "Generate detailed documentation for this project"
+## 🔧 Advanced Options
+
+```bash
+# Include all files, ignoring exclusions
+prepdir --all
+
+# Use a custom config file
+prepdir --config custom_config.yaml
+
+# Enable verbose mode to debug exclusions
+prepdir -v
+
+# Show version
+prepdir --version
 ```
 
 ## 👨‍💻 For Developers
 
-### Development Setup
+### **Development Setup**
 
 ```bash
-# Clone the repository
 git clone https://github.com/eyecantell/prepdir.git
 cd prepdir
-
-# Install with PDM in development mode
 pdm install
-
-# Run the development version
-pdm run prepdir
-
-# Run tests
-pdm run pytest
+pdm run prepdir  # Run development version
+pdm run pytest   # Run tests
 ```
 
-### Configuration Management
+### **Configuration Management**
 
-`prepdir` provides a reusable `load_config` function in `prepdir.config` for shared configuration management across tools like `vibedir` and `applydir`. It uses Dynaconf to load YAML configs with the precedence described above.
+The `load_config` function in `prepdir.config` uses Dynaconf for shared configuration across tools like `vibedir` and `applydir`, with the precedence described above.
 
-### Building and Publishing
+### **Building and Publishing**
 
 ```bash
-# Build the package
-pdm build
-
-# Install locally from build
-pip install dist/*.whl
-
-# Publish to PyPI (with credentials)
-pdm publish
+pdm build              # Build package
+pip install dist/*.whl # Install locally
+pdm publish            # Publish to PyPI (requires credentials)
 ```
 
 ## ❓ Troubleshooting
 
-### Common Issues
+### **Common Issues**
 
-- **No files found**: Check your directory path and file extensions
-- **Missing expected files**: Verify they're not excluded in config (use `-v` to debug)
-- **Config not loading**: Ensure YAML syntax is valid and paths are accessible
-- **Package not found after install**: Verify your Python environment/command path
+- **No files found**: Verify directory path and file extensions (`-e`).
+- **Files missing**: Check exclusions in config with `-v`.
+- **Config errors**: Ensure valid YAML syntax in `config.yaml`.
+- **Command not found**: Confirm Python environment and PATH.
 
-### Verbose Mode
-
-Run with `-v` to see what files are being skipped and why:
+### **Verbose Mode**
 
 ```bash
 prepdir -v
@@ -252,17 +245,21 @@ prepdir -v
 
 ## 📝 FAQ
 
-**Q: How large a project can prepdir handle?**  
-A: prepdir works well with projects up to moderate size (thousands of files). For very large projects, consider using file extensions filters (`-e`) to focus on relevant files.
+**Q: What project sizes can prepdir handle?**  
+A: Effective for moderate projects (thousands of files). Use `-e` to filter large projects.
 
-**Q: Can I use prepdir with non-code files?**  
-A: Yes! While designed for code, prepdir works with any text file. Use `-e` to include specific file types.
+**Q: Can prepdir handle non-code files?**  
+A: Yes, it supports any text file. Specify types with `-e` (e.g., `prepdir -e txt md`).
 
-**Q: How do I upgrade from a previous version?**  
-A: If you previously used `config.yaml` in your project directory (versions <0.6.0), move it to `.prepdir/config.yaml` or specify it with `--config config.yaml`.
+**Q: How do I upgrade from older versions?**  
+A: For versions <0.6.0, move `config.yaml` to `.prepdir/config.yaml` or use `--config config.yaml`.
 
-**Q: Can I use glob patterns in configuration?**  
-A: Yes, the configuration accepts standard .gitignore-style glob patterns like `*.pyc` or `**/*.log`.
+**Q: Are glob patterns supported?**  
+A: Yes, use .gitignore-style patterns like `*.pyc` or `**/*.log` in configs.
+
+## 🤝 Contributing
+
+We welcome contributions! Check out our [GitHub Issues](https://github.com/eyecantell/prepdir/issues) or submit a pull request. See [CONTRIBUTING.md](https://github.com/eyecantell/prepdir/blob/main/CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
 
