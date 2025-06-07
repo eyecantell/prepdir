@@ -107,11 +107,12 @@ EXCLUDE:
     mock_files.joinpath.return_value = mock_cm
     with patch("importlib.resources.files", return_value=mock_files):
         config = load_config("prepdir")
-        
+    
     assert config.EXCLUDE.DIRECTORIES == ["bundled_dir"]
     assert config.EXCLUDE.FILES == ["*.py"]
     log_output = capture_log.getvalue()
-    assert f"Attempted config files for prepdir: ['.prepdir/config.yaml', '/home/developer/.prepdir/config.yaml', '{bundled_path}']" in log_output
+    expected_home = Path.home() / ".prepdir" / "config.yaml"
+    assert f"Attempted config files for prepdir: ['.prepdir/config.yaml', '{expected_home}', '{bundled_path}']" in log_output
 
 def test_load_config_bundled_missing(capture_log):
     """Test handling missing bundled config."""
