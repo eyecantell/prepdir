@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from pathlib import Path
 import yaml
-from prepdir.main import init_config, main
+from prepdir.main import init_config, main, is_prepdir_generated
 
 def test_init_config_success(tmp_path, capsys):
     """Test initializing a new config.yaml."""
@@ -68,3 +68,17 @@ def test_main_init_config(tmp_path, monkeypatch, capsys):
         config = yaml.safe_load(f)
     assert '.git' in config['EXCLUDE']['DIRECTORIES']
     assert '*.pyc' in config['EXCLUDE']['FILES']
+
+def test_is_prepdir_generated(tmp_path):
+    """Test detection of prepdir-generated files."""
+    prepdir_file = tmp_path / "prepped_dir.txt"
+    prepdir_file.write_text("File listing generated 2025-06-07 15:04:54.188485 by prepdir (pip install prepdir)\n")
+    assert is_prepdir_generated(str(prepdir_file)) is True
+    
+    non_prepdir_file = tmp_path / "normal.txt"
+    non_prepdir_file.write_text("Just some text\n")
+    assert is_prepdir_generated(str(non_prepdir_file)) is False
+    
+    binary_file = tmp_path / "binary.bin"
+    binary_file.write_bytes(b'\x00\x01\x02')
+    assert is_prepdir_generated(str(binary_file)) is False

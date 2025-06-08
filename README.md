@@ -14,7 +14,7 @@ prepdir -e py md -o ai_review.txt
 
 ## 📋 Contents
 
-- [What's New](#-whats-new-in-0100)
+- [What's New](#-whats-new)
 - [Quick Start](#-quick-start)
 - [Installation](#-installation)
 - [Usage Examples](#-usage-examples)
@@ -28,11 +28,15 @@ prepdir -e py md -o ai_review.txt
 - [Contributing](#-contributing)
 - [License](#-license)
 
-## 📰 What's New in 0.10.0
+## 📰 What's New
 
-- Adopted [Dynaconf](https://dynaconf.com) for robust configuration management.
-- Enhanced test suite for Python 3.8–3.11 compatibility.
-- See [CHANGELOG.md](docs/CHANGELOG.md) for details.
+### 0.11.0
+- Added automatic exclusion of `prepdir`-generated files (e.g., `prepped_dir.txt`) by default, with new `--include-prepdir-files` option to include them.
+
+### 0.10.1
+- Added validation for uppercase configuration keys (`EXCLUDE`, `DIRECTORIES`, `FILES`) with guidance for users upgrading from older versions.
+
+See [CHANGELOG.md](docs/CHANGELOG.md) for the complete version history.
 
 ## 🚀 Quick Start
 
@@ -90,6 +94,9 @@ prepdir -e py md
 # Use a custom output file
 prepdir -o my_project.txt
 
+# Include prepdir-generated files
+prepdir --include-prepdir-files -o project_with_outputs.txt
+
 # Process a specific directory
 prepdir /path/to/directory
 ```
@@ -116,6 +123,7 @@ prepdir /path/to/directory
 - IDE files: `.idea`
 - Dependencies: `node_modules`
 - Temporary files: `*.pyc`, `*.log`
+- `prepdir`-generated files: Files like `prepped_dir.txt` (unless `--include-prepdir-files` is used)
 
 ### **Creating a Config**
 
@@ -151,19 +159,19 @@ EXCLUDE:
 
 `prepdir` simplifies sharing code with AI assistants by:
 
-- **Saving Time**: Automates collecting and formatting project files.
-- **Providing Context**: Combines all relevant files into one structured file.
-- **Filtering Smartly**: Excludes irrelevant files like caches and binaries.
-- **Enhancing Clarity**: Uses clear separators and relative paths for AI compatibility.
-- **Streamlining Workflow**: Optimizes code review, analysis, and documentation tasks.
+- **Save Time**: Automates collecting and formatting project files.
+- **Provide Context**: Combines all relevant files into one structured file.
+- **Filter Automatically**: Excludes irrelevant files like caches, binaries, and `prepdir`-generated files.
+- **Enhance Clarity**: Uses clear separators and relative paths for AI compatibility.
+- **Streamline Workflow**: Optimizes code review, analysis, and documentation tasks.
 
 ## 🔍 Common Use Cases
 
 ### **1. AI Code Review**
 
 ```bash
-prepdir -e py -o code_review.txt
-# Ask AI: "Review this Python project for best practices"
+prepdir
+# Ask AI: "Review Python project described in file prepped_dir.txt for best practices"
 ```
 
 ### **2. Project Analysis**
@@ -192,6 +200,9 @@ prepdir -e py md rst -o docs_context.txt
 ```bash
 # Include all files, ignoring exclusions
 prepdir --all
+
+# Include prepdir-generated files
+prepdir --include-prepdir-files
 
 # Use a custom config file
 prepdir --config custom_config.yaml
@@ -232,8 +243,8 @@ pdm publish            # Publish to PyPI (requires credentials)
 ### **Common Issues**
 
 - **No files found**: Verify directory path and file extensions (`-e`).
-- **Files missing**: Check exclusions in config with `-v`.
-- **Config errors**: Ensure valid YAML syntax in `config.yaml`.
+- **Files missing**: Check exclusions in config with `-v`. Note that `prepdir`-generated files are excluded by default unless `--include-prepdir-files` is used. Use `-v` to see specific reasons for skipped files (e.g., "prepdir-generated file").
+- **Config errors**: Ensure valid YAML syntax in `config.yaml` and uppercase keys (`EXCLUDE`, `DIRECTORIES`, `FILES`).
 - **Command not found**: Confirm Python environment and PATH.
 
 ### **Verbose Mode**
@@ -250,14 +261,20 @@ A: Effective for moderate projects (thousands of files). Use `-e` to filter larg
 **Q: Can prepdir handle non-code files?**  
 A: Yes, it supports any text file. Specify types with `-e` (e.g., `prepdir -e txt md`).
 
+**Q: Why are my prepdir output files missing from the new output?**  
+A: Starting with version 0.11.0, `prepdir` excludes its own generated files (e.g., `prepped_dir.txt`) by default. Use `--include-prepdir-files` to include them.
+
+**Q: When should I use `--include-prepdir-files`?**  
+A: Use `--include-prepdir-files` if you need to include previously generated output files (e.g., `prepped_dir.txt`) in a new output, such as when reviewing past `prepdir` runs or combining multiple outputs from disparate directories.
+
+**Q: Why am I getting an error about lowercase configuration keys?**  
+A: Starting with version 0.10.0, `prepdir` uses Dynaconf, which requires configuration keys like `EXCLUDE`, `DIRECTORIES`, and `FILES` to be uppercase. Please update any custom `config.yaml` to use uppercase keys. See the [Configuration section](#configuration) for details.
+
 **Q: How do I upgrade from older versions?**  
 A: For versions <0.6.0, move `config.yaml` to `.prepdir/config.yaml` or use `--config config.yaml`.
 
 **Q: Are glob patterns supported?**  
 A: Yes, use .gitignore-style patterns like `*.pyc` or `**/*.log` in configs.
-
-**Q: Why am I getting an error about lowercase configuration keys?**  
-A: Starting with version 0.10.0, `prepdir` uses Dynaconf, which requires configuration keys like `EXCLUDE`, `DIRECTORIES`, and `FILES` to be uppercase. Please update your `config.yaml` to use uppercase keys. See the [Configuration section](#configuration) for details.
 
 ## 🤝 Contributing
 
