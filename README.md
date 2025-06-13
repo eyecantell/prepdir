@@ -190,7 +190,7 @@ REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
 
 ## 🧐 Why Use prepdir?
 
-`prepdir` simplifies sharing code with AI assistants by:
+`prepdir` simplifies sharing code with AI assistants:
 
 - **Save Time**: Automates collecting and formatting project files.
 - **Provide Context**: Combines all relevant files into one structured file.
