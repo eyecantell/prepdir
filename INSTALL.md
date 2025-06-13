@@ -102,7 +102,7 @@ If you want to share your tool with others, you can publish it to PyPI:
 
 After installation, you can use the tool from anywhere:
 
-- Output all files in current directory to prepped_dir.txt
+- Output all files in current directory to prepped_dir.txt (UUIDs scrubbed by default)
   ```
   prepdir
   ```
@@ -125,6 +125,14 @@ After installation, you can use the tool from anywhere:
 - Include prepdir-generated files (excluded by default)
   ```
   prepdir --include-prepdir-files
+  ```
+- Disable UUID scrubbing
+  ```
+  prepdir --no-scrub-uuids
+  ```
+- Use a custom replacement UUID
+  ```
+  prepdir --replacement-uuid 11111111-2222-3333-4444-555555555555
   ```
 - Use a custom config file
   ```
@@ -158,22 +166,22 @@ To run the test suite, ensure pytest is installed (included in development depen
 
 ## Configuration
 
-Exclusions for directories and files are defined in config.yaml, with the following precedence:
+Exclusions for directories and files, as well as UUID scrubbing settings, are defined in `config.yaml`, with the following precedence:
 
-1. Custom config specified via --config (highest precedence)
-2. Project config at .prepdir/config.yaml in your project
-3. Global config at ~/.prepdir/config.yaml
-4. Default config.yaml included with the prepdir package (lowest precedence)
+1. Custom config specified via `--config` (highest precedence)
+2. Project config at `.prepdir/config.yaml` in your project
+3. Global config at `~/.prepdir/config.yaml`
+4. Default `config.yaml` included with the prepdir package (lowest precedence)
 
-The output file (e.g., prepped_dir.txt) and `prepdir`-generated files are automatically excluded by default. Use `--include-prepdir-files` to include them. The configuration uses .gitignore-style glob patterns.
+The output file (e.g., `prepped_dir.txt`) and `prepdir`-generated files are automatically excluded by default. Use `--include-prepdir-files` to include them. UUIDs are scrubbed by default as standalone tokens (surrounded by word boundaries, e.g., whitespace or punctuation); use `--no-scrub-uuids` or set `SCRUB_UUIDS: false` to disable. The configuration uses .gitignore-style glob patterns for exclusions.
 
-To initialize a project-level config with the default exclusions:
+To initialize a project-level config with the default exclusions and UUID settings:
 
 ```
 prepdir --init
 ```
 
-If .prepdir/config.yaml already exists, use --force to overwrite:
+If `.prepdir/config.yaml` already exists, use `--force` to overwrite:
 
 ```
 prepdir --init --force
@@ -214,33 +222,37 @@ EXCLUDE:
     - "*.bak"
     - "*.swp"
     - "**/*.log"
+SCRUB_UUIDS: true
+REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
 ```
 
-To use a project-level configuration, create .prepdir/config.yaml in your project directory:
+To use a project-level configuration, create `.prepdir/config.yaml` in your project directory:
 
 ```
 prepdir --init
 ```
 
-To use a global configuration, create ~/.prepdir/config.yaml:
+To use a global configuration, create `~/.prepdir/config.yaml`:
 
 ```
 mkdir -p ~/.prepdir
-echo "EXCLUDE:\n  DIRECTORIES:\n    - .git\n  FILES:\n    - *.pyc" > ~/.prepdir/config.yaml
+echo "EXCLUDE:\n  DIRECTORIES:\n    - .git\n  FILES:\n    - *.pyc\nSCRUB_UUIDS: false\nREPLACEMENT_UUID: \"11111111-2222-3333-4444-555555555555\"" > ~/.prepdir/config.yaml
 ```
 
 ## Upgrading
 
-If you previously used config.yaml in your project directory (versions <0.6.0), move it to .prepdir/config.yaml:
+If you previously used `config.yaml` in your project directory (versions <0.6.0), move it to `.prepdir/config.yaml`:
 
 ```
 mkdir -p .prepdir
 mv config.yaml .prepdir/config.yaml
 ```
 
-Alternatively, specify the old path with --config config.yaml.
+Alternatively, specify the old path with `--config config.yaml`.
 
-For versions <0.10.0, update configuration keys to uppercase (`EXCLUDE`, `DIRECTORIES`, `FILES`) to comply with Dynaconf requirements.
+For versions <0.10.0, update configuration keys to uppercase (`EXCLUDE`, `DIRECTORIES`, `FILES`, `SCRUB_UUIDS`, `REPLACEMENT_UUID`) to comply with Dynaconf requirements.
+
+For versions <0.12.0, add `SCRUB_UUIDS` and `REPLACEMENT_UUID` to your `config.yaml` if you wish to customize UUID scrubbing behavior. Note that UUID scrubbing now matches standalone UUIDs (with word boundaries).
 
 ## Development Setup
 
@@ -270,7 +282,7 @@ For development:
 
 ## Continuous Integration
 
-This project uses GitHub Actions for continuous integration. The CI workflow runs the test suite on every push and pull request to the main branch, testing across multiple Python versions (3.8, 3.9, 3.10, 3.11). The workflow is defined in .github/workflows/ci.yml.
+This project uses GitHub Actions for continuous integration. The CI workflow runs the test suite on every push and pull request to the main branch, testing across multiple Python versions (3.8, 3.9, 3.10, 3.11). The workflow is defined in `.github/workflows/ci.yml`.
 
 ## License
 

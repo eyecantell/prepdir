@@ -30,6 +30,9 @@ prepdir -e py md -o ai_review.txt
 
 ## 📰 What's New
 
+### 0.12.0
+- Added automatic scrubbing of UUIDs in file contents, replacing them with the nil UUID (`00000000-0000-0000-0000-000000000000`) by default. UUIDs are matched as standalone tokens (using word boundaries) to avoid false positives. Use `--no-scrub-uuids` to disable or `--replacement-uuid` to specify a custom UUID. Configure via `SCRUB_UUIDS` and `REPLACEMENT_UUID` in `config.yaml`.
+
 ### 0.11.0
 - Added automatic exclusion of `prepdir`-generated files (e.g., `prepped_dir.txt`) by default, with new `--include-prepdir-files` option to include them.
 
@@ -49,7 +52,7 @@ pip install prepdir
 # Navigate to your project
 cd /path/to/your/project
 
-# Generate prepped_dir.txt with all project files
+# Generate prepped_dir.txt with all project files (UUIDs scrubbed by default)
 prepdir
 
 # Share prepped_dir.txt with an AI assistant
@@ -82,7 +85,7 @@ pip install -e .
 ### **Basic Usage**
 
 ```bash
-# Output all files to prepped_dir.txt
+# Output all files to prepped_dir.txt (UUIDs scrubbed)
 prepdir
 
 # Include only Python files
@@ -96,6 +99,12 @@ prepdir -o my_project.txt
 
 # Include prepdir-generated files
 prepdir --include-prepdir-files -o project_with_outputs.txt
+
+# Disable UUID scrubbing
+prepdir --no-scrub-uuids -o unscrubbed.txt
+
+# Use a custom replacement UUID
+prepdir --replacement-uuid 11111111-2222-3333-4444-555555555555 -o custom_uuid.txt
 
 # Process a specific directory
 prepdir /path/to/directory
@@ -125,6 +134,13 @@ prepdir /path/to/directory
 - Temporary files: `*.pyc`, `*.log`
 - `prepdir`-generated files: Files like `prepped_dir.txt` (unless `--include-prepdir-files` is used)
 
+### **UUID Scrubbing**
+
+By default, `prepdir` scrubs UUIDs in file contents, replacing them with `00000000-0000-0000-0000-000000000000`. UUIDs are matched as standalone tokens (surrounded by word boundaries, e.g., whitespace or punctuation) to avoid replacing embedded strings. Configure via:
+
+- `SCRUB_UUIDS`: Set to `false` to disable UUID scrubbing.
+- `REPLACEMENT_UUID`: Specify a custom UUID for replacement.
+
 ### **Creating a Config**
 
 Initialize a project-level config with default settings:
@@ -153,6 +169,8 @@ EXCLUDE:
     - .DS_Store
     - "*.pyc"
     - "*.log"
+SCRUB_UUIDS: true
+REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
 ```
 
 ## 🧐 Why Use prepdir?
@@ -162,6 +180,7 @@ EXCLUDE:
 - **Save Time**: Automates collecting and formatting project files.
 - **Provide Context**: Combines all relevant files into one structured file.
 - **Filter Automatically**: Excludes irrelevant files like caches, binaries, and `prepdir`-generated files.
+- **Protect Privacy**: Scrubs UUIDs by default to anonymize sensitive identifiers.
 - **Enhance Clarity**: Uses clear separators and relative paths for AI compatibility.
 - **Streamline Workflow**: Optimizes code review, analysis, and documentation tasks.
 
@@ -204,6 +223,12 @@ prepdir --all
 # Include prepdir-generated files
 prepdir --include-prepdir-files
 
+# Disable UUID scrubbing
+prepdir --no-scrub-uuids
+
+# Use a custom replacement UUID
+prepdir --replacement-uuid 11111111-2222-3333-4444-555555555555
+
 # Use a custom config file
 prepdir --config custom_config.yaml
 
@@ -244,7 +269,9 @@ pdm publish            # Publish to PyPI (requires credentials)
 
 - **No files found**: Verify directory path and file extensions (`-e`).
 - **Files missing**: Check exclusions in config with `-v`. Note that `prepdir`-generated files are excluded by default unless `--include-prepdir-files` is used. Use `-v` to see specific reasons for skipped files (e.g., "prepdir-generated file").
-- **Config errors**: Ensure valid YAML syntax in `config.yaml` and uppercase keys (`EXCLUDE`, `DIRECTORIES`, `FILES`).
+- **UUIDs not scrubbed**: Ensure `--no-scrub-uuids` is not used and `SCRUB_UUIDS` is not set to `false` in the config. Verify the UUID is a standalone token (surrounded by whitespace or punctuation).
+- **Invalid replacement UUID**: Check that `--replacement-uuid` or `REPLACEMENT_UUID` in the config is a valid UUID. Invalid UUIDs default to the nil UUID.
+- **Config errors**: Ensure valid YAML syntax in `config.yaml` and uppercase keys (`EXCLUDE`, `DIRECTORIES`, `FILES`, `SCRUB_UUIDS`, `REPLACEMENT_UUID`).
 - **Command not found**: Confirm Python environment and PATH.
 
 ### **Verbose Mode**
@@ -267,11 +294,17 @@ A: Starting with version 0.11.0, `prepdir` excludes its own generated files (e.g
 **Q: When should I use `--include-prepdir-files`?**  
 A: Use `--include-prepdir-files` if you need to include previously generated output files (e.g., `prepped_dir.txt`) in a new output, such as when reviewing past `prepdir` runs or combining multiple outputs from disparate directories.
 
+**Q: Why are UUIDs replaced in my output?**  
+A: Starting with version 0.12.0, `prepdir` scrubs UUIDs by default to protect sensitive identifiers. Only standalone UUIDs (surrounded by word boundaries) are replaced. Use `--no-scrub-uuids` to disable this or configure `SCRUB_UUIDS: false` in `config.yaml`.
+
+**Q: Can I customize the replacement UUID?**  
+A: Yes, use `--replacement-uuid <uuid>` on the command line or set `REPLACEMENT_UUID` in `config.yaml`. The UUID must be valid (e.g., `11111111-2222-3333-4444-555555555555`).
+
 **Q: Why am I getting an error about lowercase configuration keys?**  
-A: Starting with version 0.10.0, `prepdir` uses Dynaconf, which requires configuration keys like `EXCLUDE`, `DIRECTORIES`, and `FILES` to be uppercase. Please update any custom `config.yaml` to use uppercase keys. See the [Configuration section](#configuration) for details.
+A: Starting with version 0.10.0, `prepdir` uses Dynaconf, which requires configuration keys like `EXCLUDE`, `DIRECTORIES`, `FILES`, `SCRUB_UUIDS`, and `REPLACEMENT_UUID` to be uppercase. Update your `config.yaml` to use uppercase keys. See the [Configuration section](#configuration) for details.
 
 **Q: How do I upgrade from older versions?**  
-A: For versions <0.6.0, move `config.yaml` to `.prepdir/config.yaml` or use `--config config.yaml`.
+A: For versions <0.6.0, move `config.yaml` to `.prepdir/config.yaml` or use `--config config.yaml`. For versions <0.10.0, update configuration keys to uppercase.
 
 **Q: Are glob patterns supported?**  
 A: Yes, use .gitignore-style patterns like `*.pyc` or `**/*.log` in configs.
