@@ -94,7 +94,7 @@ def is_excluded_file(filename, root, directory, excluded_files, output_file, inc
 
 def display_file_content(file_full_path: str, directory: str, scrub_uuids_enabled: bool, replacement_uuid: str):
     """Display the content of a file with appropriate header, optionally scrubbing UUIDs."""
-    dashes = '=-' * 15 + "="
+    dashes = '=-' * 7 + "="
     relative_path = os.path.relpath(file_full_path, directory)
     
     print(f"{dashes} Begin File: '{relative_path}' {dashes}")
