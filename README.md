@@ -32,6 +32,7 @@ prepdir -e py md -o ai_review.txt
 
 ### 0.12.0
 - Added automatic scrubbing of UUIDs in file contents, replacing them with the nil UUID (`00000000-0000-0000-0000-000000000000`) by default. UUIDs are matched as standalone tokens (using word boundaries) to avoid false positives. Use `--no-scrub-uuids` to disable or `--replacement-uuid` to specify a custom UUID. Configure via `SCRUB_UUIDS` and `REPLACEMENT_UUID` in `config.yaml`.
+- Shortened file delimiter from 31 to 15 characters to reduce token usage in AI model inputs.
 
 ### 0.11.0
 - Added automatic exclusion of `prepdir`-generated files (e.g., `prepped_dir.txt`) by default, with new `--include-prepdir-files` option to include them.
@@ -108,6 +109,20 @@ prepdir --replacement-uuid 11111111-2222-3333-4444-555555555555 -o custom_uuid.t
 
 # Process a specific directory
 prepdir /path/to/directory
+```
+
+### **Sample Output**
+
+```plaintext
+File listing generated 2025-06-13 09:28:00.123456 by prepdir (pip install prepdir)
+Base directory is '/path/to/project'
+=-=-=-=-=-=-=-= Begin File: 'src/main.py' =-=-=-=-=-=-=-=
+print("Hello, World!")
+=-=-=-=-=-=-=-= End File: 'src/main.py' =-=-=-=-=-=-=-=
+=-=-=-=-=-=-=-= Begin File: 'README.md' =-=-=-=-=-=-=-=
+# My Project
+This is a sample project.
+=-=-=-=-=-=-=-= End File: 'README.md' =-=-=-=-=-=-=-=
 ```
 
 ## ⚙️ Configuration

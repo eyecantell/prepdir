@@ -1,75 +1,71 @@
-Changelog
-All notable changes to prepdir are documented in this file.
-The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
-[0.12.0] - 2025-06-12
-Added
+# Changelog
 
-Automatic scrubbing of UUIDs in file contents, replacing them with the nil UUID (00000000-0000-0000-0000-000000000000) by default. UUIDs are matched as standalone tokens (using word boundaries) to avoid false positives. Configurable via:
-Command line: --no-scrub-uuids to disable, --replacement-uuid <uuid> for custom UUID.
-config.yaml: SCRUB_UUIDS (boolean, default: true), REPLACEMENT_UUID (string, default: "00000000-0000-0000-0000-000000000000").
+All notable changes to `prepdir` are documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Validation for replacement UUIDs, defaulting to nil UUID if invalid.
+## [0.12.0] - 2025-06-13
 
-Upgrade Notes
+### Added
+- Automatic scrubbing of UUIDs in file contents, replacing them with the nil UUID (`00000000-0000-0000-0000-000000000000`) by default. UUIDs are matched as standalone tokens (using word boundaries) to avoid false positives. Configurable via:
+  - Command line: `--no-scrub-uuids` to disable, `--replacement-uuid <uuid>` for custom UUID.
+  - `config.yaml`: `SCRUB_UUIDS` (boolean, default: `true`), `REPLACEMENT_UUID` (string, default: `"00000000-0000-0000-0000-000000000000"`).
+- Validation for replacement UUIDs, defaulting to nil UUID if invalid.
 
-For versions <0.12.0, add SCRUB_UUIDS and REPLACEMENT_UUID to your config.yaml to customize UUID scrubbing. Existing configs without these keys will use the default behavior (scrubbing enabled with nil UUID).
-UUID scrubbing now uses word boundaries, so only standalone UUIDs are replaced. Command line options --no-scrub-uuids and --replacement-uuid override config settings.
+### Changed
+- Shortened file delimiter from 31 characters (`=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=`) to 15 characters (`=-=-=-=-=-=-=-=`) to reduce token usage in AI model inputs.
 
-Links
+### Upgrade Notes
+- For versions <0.12.0, add `SCRUB_UUIDS` and `REPLACEMENT_UUID` to your `config.yaml` to customize UUID scrubbing. Existing configs without these keys will use the default behavior (scrubbing enabled with nil UUID).
+- UUID scrubbing now uses word boundaries, so only standalone UUIDs are replaced. File delimiters are now 15 characters long. Command line options `--no-scrub-uuids` and `--replacement-uuid` override config settings.
 
-README
-GitHub Repository
-PyPI
-Dynaconf Documentation
+### Links
+- [README](https://github.com/eyecantell/prepdir/blob/main/README.md)
+- [GitHub Repository](https://github.com/eyecantell/prepdir)
+- [PyPI](https://pypi.org/project/prepdir/)
+- [Dynaconf Documentation](https://dynaconf.com)
 
-[0.11.0] - 2025-06-07
-Added
+## [0.11.0] - 2025-06-07
 
-Automatic exclusion of prepdir-generated files (e.g., prepped_dir.txt) by default, with new --include-prepdir-files option to include them.
+### Added
+- Automatic exclusion of `prepdir`-generated files (e.g., `prepped_dir.txt`) by default, with new `--include-prepdir-files` option to include them.
 
-[0.10.1] - 2025-06-07
-Added
+## [0.10.1] - 2025-06-07
 
-Validation in load_config to detect lowercase configuration keys (exclude, directories, files) and provide guidance to update to uppercase (EXCLUDE, DIRECTORIES, FILES) for compatibility with version 0.10.0's Dynaconf integration.
+### Added
+- Validation in `load_config` to detect lowercase configuration keys (`exclude`, `directories`, `files`) and provide guidance to update to uppercase (`EXCLUDE`, `DIRECTORIES`, `FILES`) for compatibility with version 0.10.0's Dynaconf integration.
 
-Fixed
+### Fixed
+- Improved user experience for upgrading users by adding clear error messages for deprecated lowercase configuration keys.
 
-Improved user experience for upgrading users by adding clear error messages for deprecated lowercase configuration keys.
+### Links
+- [README](https://github.com/eyecantell/prepdir/blob/main/README.md)
+- [GitHub Repository](https://github.com/eyecantell/prepdir)
+- [PyPI](https://pypi.org/project/prepdir/)
+- [Dynaconf Documentation](https://dynaconf.com)
 
-Links
+## [0.10.0] - 2025-06-07
 
-README
-GitHub Repository
-PyPI
-Dynaconf Documentation
+### Added
+- Integrated [Dynaconf](https://dynaconf.com) for robust configuration management, supporting custom, local, global, and default config files with clear precedence. See the [Configuration section](https://github.com/eyecantell/prepdir#configuration) in the README.
 
-[0.10.0] - 2025-06-07
-Added
+### Changed
+- Enhanced test suite for improved coverage and reliability across Python 3.8–3.11.
+- Reorganized README with a prioritized Quick Start, added badges for PyPI downloads, and included a "What's New" section linking to this changelog.
 
-Integrated Dynaconf for robust configuration management, supporting custom, local, global, and default config files with clear precedence. See the Configuration section in the README.
+### Fixed
+- Resolved `test_load_config_bundled` failure in `tests/test_config.py` by correctly mocking the `importlib.resources.files` context manager, ensuring bundled config loading.
 
-Changed
+### Upgrade Notes
+- **Configuration Locations**: If upgrading from versions <0.6.0, move `config.yaml` to `.prepdir/config.yaml` or use `--config config.yaml`. See the [FAQ](https://github.com/eyecantell/prepdir#faq).
+- **Dynaconf**: Configurations now use uppercase keys (e.g., `EXCLUDE`, `DIRECTORIES`, `FILES`) to match `src/prepdir/config.yaml`. Update custom configs accordingly.
+- **Dependencies**: Requires Python 3.8 or higher; older versions are unsupported.
 
-Enhanced test suite for improved coverage and reliability across Python 3.8–3.11.
-Reorganized README with a prioritized Quick Start, added badges for PyPI downloads, and included a "What's New" section linking to this changelog.
+### Acknowledgments
+Thanks to the community for feedback and support. Report issues or suggest improvements on [GitHub Issues](https://github.com/eyecantell/prepdir/issues).
 
-Fixed
-
-Resolved test_load_config_bundled failure in tests/test_config.py by correctly mocking the importlib.resources.files context manager, ensuring bundled config loading.
-
-Upgrade Notes
-
-Configuration Locations: If upgrading from versions <0.6.0, move config.yaml to .prepdir/config.yaml or use --config config.yaml. See the FAQ.
-Dynaconf: Configurations now use uppercase keys (e.g., EXCLUDE, DIRECTORIES, FILES) to match src/prepdir/config.yaml. Update custom configs accordingly.
-Dependencies: Requires Python 3.8 or higher; older versions are unsupported.
-
-Acknowledgments
-Thanks to the community for feedback and support. Report issues or suggest improvements on GitHub Issues.
-Links
-
-README
-GitHub Repository
-PyPI
-Dynaconf Documentation
-
+### Links
+- [README](https://github.com/eyecantell/prepdir/blob/main/README.md)
+- [GitHub Repository](https://github.com/eyecantell/prepdir)
+- [PyPI](https://pypi.org/project/prepdir/)
+- [Dynaconf Documentation](https://dynaconf.com)

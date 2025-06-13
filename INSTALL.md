@@ -151,6 +151,20 @@ After installation, you can use the tool from anywhere:
   prepdir --version
   ```
 
+### Sample Output
+
+```plaintext
+File listing generated 2025-06-13 09:28:00.123456 by prepdir (pip install prepdir)
+Base directory is '/path/to/project'
+=-=-=-=-=-=-=-= Begin File: 'src/main.py' =-=-=-=-=-=-=-=
+print("Hello, World!")
+=-=-=-=-=-=-=-= End File: 'src/main.py' =-=-=-=-=-=-=-=
+=-=-=-=-=-=-=-= Begin File: 'README.md' =-=-=-=-=-=-=-=
+# My Project
+This is a sample project.
+=-=-=-=-=-=-=-= End File: 'README.md' =-=-=-=-=-=-=-=
+```
+
 ## Testing
 
 To run the test suite, ensure pytest is installed (included in development dependencies):
@@ -252,7 +266,7 @@ Alternatively, specify the old path with `--config config.yaml`.
 
 For versions <0.10.0, update configuration keys to uppercase (`EXCLUDE`, `DIRECTORIES`, `FILES`, `SCRUB_UUIDS`, `REPLACEMENT_UUID`) to comply with Dynaconf requirements.
 
-For versions <0.12.0, add `SCRUB_UUIDS` and `REPLACEMENT_UUID` to your `config.yaml` if you wish to customize UUID scrubbing behavior. Note that UUID scrubbing now matches standalone UUIDs (with word boundaries).
+For versions <0.12.0, add `SCRUB_UUIDS` and `REPLACEMENT_UUID` to your `config.yaml` if you wish to customize UUID scrubbing behavior. Note that UUID scrubbing now matches standalone UUIDs (with word boundaries) and file delimiters are shortened to 15 characters.
 
 ## Development Setup
 
