@@ -16,11 +16,20 @@ import uuid
 from datetime import datetime
 from contextlib import redirect_stdout
 from pathlib import Path
-from importlib.metadata import version
+from importlib.metadata import version, PackageNotFoundError
 from prepdir.config import load_config
 import logging
 from io import StringIO
-from typing_extensions import Tuple
+
+if sys.version_info < (3, 9):
+    from typing_extensions import Tuple
+else:
+    from typing import Tuple
+
+try:
+    __version__ = version("prepdir")
+except PackageNotFoundError:
+    __version__ = "0.13.0"  # Fallback to hardcoded version
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +153,7 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
     files_found = False
     any_uuids_scrubbed = False
     
-    print(f"File listing generated {datetime.now()} by prepdir version {version('prepdir')} (pip install prepdir)")
+    print(f"File listing generated {datetime.now()} by prepdir version {__version__} (pip install prepdir)")
     print(f"Base directory is '{Path.cwd()}'")
     if scrub_uuids_enabled:
         print(f"Note: Valid UUIDs in file contents will be scrubbed and replaced with '{replacement_uuid}'.")
@@ -219,7 +228,7 @@ def validate_output_file(file_path: str) -> dict:
 
         # Check the generated header (first line)
         first_line = lines[0].strip()
-        if not GENERATED_HEADER_PATTERN.match(first_line.replace(f" version {version('prepdir')}", "")):
+        if not GENERATED_HEADER_PATTERN.match(first_line.replace(f" version {__version__}", "")):
             errors.append(f"Line 1: Missing or invalid prepdir header. Got: '{first_line}'")
         else:
             # Check the second line (Base directory)
@@ -412,7 +421,7 @@ def main():
     parser.add_argument(
         '--version',
         action='version',
-        version=f'%(prog)s {version("prepdir")}',
+        version=f'%(prog)s {__version__}',
         help='Show the version number and exit'
     )
     
