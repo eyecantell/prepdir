@@ -145,6 +145,9 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
     
     print(f"File listing generated {datetime.now()} by prepdir version {version('prepdir')} (pip install prepdir)")
     print(f"Base directory is '{Path.cwd()}'")
+    if scrub_uuids_enabled:
+        print(f"Note: Valid UUIDs in file contents will be scrubbed and replaced with '{replacement_uuid}'.")
+    
     for root, dirs, files in os.walk(directory):
         if not include_all:
             skipped_dirs = [d for d in dirs if is_excluded_dir(d, root, directory, excluded_dirs)]
@@ -176,9 +179,6 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
             full_path = os.path.join(root, file)
             if display_file_content(full_path, directory, scrub_uuids_enabled, replacement_uuid):
                 any_uuids_scrubbed = True
-    
-    if any_uuids_scrubbed and scrub_uuids_enabled:
-        print(f"Note: UUIDs in file contents have been scrubbed and replaced with '{replacement_uuid}'.")
     
     if not files_found:
         if extensions:
