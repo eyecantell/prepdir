@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 import logging
 from io import StringIO
-from prepdir.main import init_config, main, is_prepdir_generated, traverse_directory, scrub_uuids, run
+from prepdir.main import init_config, main, is_prepdir_generated, traverse_directory, scrub_uuids, run, validate_output_file
 
 def test_init_config_success(tmp_path, capsys):
     """Test initializing a new config.yaml."""
@@ -100,8 +100,8 @@ def test_is_prepdir_generated(tmp_path):
 def test_scrub_uuids():
     """Test UUID scrubbing functionality with word boundaries."""
     content = """
-    Some text with UUID: 123e4567-e89b-12d3-a456-426614174000
-    Another UUID: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+    Some text with UUID: 00000000-0000-0000-0000-000000000000
+    Another UUID: 00000000-0000-0000-0000-000000000000
     Not a UUID: 123e4567-e89b-12d3-a456-42661417400
     Embedded UUID: prefix123e4567-e89b-12d3-a456-426614174000suffix
     """
@@ -115,24 +115,24 @@ def test_scrub_uuids():
     assert result.strip() == expected.strip()
     
     # Test with custom replacement UUID
-    custom_uuid = "11111111-2222-3333-4444-555555555555"
+    custom_uuid = "00000000-0000-0000-0000-000000000000"
     expected_custom = """
-    Some text with UUID: 11111111-2222-3333-4444-555555555555
-    Another UUID: 11111111-2222-3333-4444-555555555555
+    Some text with UUID: 00000000-0000-0000-0000-000000000000
+    Another UUID: 00000000-0000-0000-0000-000000000000
     Not a UUID: 123e4567-e89b-12d3-a456-42661417400
     Embedded UUID: prefix123e4567-e89b-12d3-a456-426614174000suffix
     """
     result_custom = scrub_uuids(content, custom_uuid)
     assert result_custom.strip() == expected_custom.strip()
 
-def test_traverse_directory_scrub_uuids(tmp_path, capsys):
-    """Test UUID scrubbing in traverse_directory with word boundaries."""
+def test_traverse_directory_content(tmp_path, capsys):
+    """Test UUID content traversal with directory content."""
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     test_file = project_dir / "test.txt"
     test_file.write_text("""
     ID: 123e4567-e89b-12d3-a456-426614174000
-    Another: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+    Another: 00000000-0000-0000-0000-000000000000
     Embedded: prefix123e4567-e89b-12d3-a456-426614174000suffix
     """)
     output_file = tmp_path / "output.txt"
@@ -172,11 +172,11 @@ def test_traverse_directory_scrub_uuids(tmp_path, capsys):
         )
     captured = mock_stdout.getvalue()
     assert "ID: 123e4567-e89b-12d3-a456-426614174000" in captured
-    assert "Another: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" in captured
+    assert "Another: 00000000-0000-0000-0000-000000000000" in captured
     assert "Embedded: prefix123e4567-e89b-12d3-a456-426614174000suffix" in captured
     
     # Test custom replacement UUID
-    custom_uuid = "11111111-2222-3333-4444-555555555555"
+    custom_uuid = "11111111-1111-1111-1111-111111111111"
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
         traverse_directory(
             str(project_dir),
@@ -359,3 +359,128 @@ def test_run_include_prepdir_files(tmp_path):
     assert "Begin File: 'prepped_dir.txt'" in content
     assert "File listing generated" in content
     assert "End File: 'prepped_dir.txt'" in content
+
+def test_validate_output_file_valid(tmp_path):
+    """Test validate_output_file with a valid prepdir output file."""
+    output_file = tmp_path / "prepped_dir.txt"
+    content = """File listing generated 2025-06-13 09:28:00.123456 by prepdir (pip install prepdir)
+Base directory is '/path/to/project'
+=-=-=-=-=-=-=-= Begin File: 'src/main.py' =-=-=-=-=-=-=-=
+print("Hello, World!")
+=-=-=-=-=-=-=-= End File: 'src/main.py' =-=-=-=-=-=-=-=
+=-=-=-=-=-=-=-= Begin File: 'README.md' =-=-=-=-=-=-=-=
+# My Project
+This is a sample project.
+=-=-=-=-=-=-=-= End File: 'README.md' =-=-=-=-=-=-=-=
+"""
+    output_file.write_text(content, encoding='utf-8')
+    
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert len(result["errors"]) == 0
+    assert len(result["warnings"]) == 0
+
+def test_validate_output_file_missing_footer(tmp_path):
+    """Test validate_output_file with a missing footer."""
+    output_file = tmp_path / "prepped_dir.txt"
+    content = """File listing generated 2025-06-13 09:28:00.123456 by prepdir (pip install prepdir)
+Base directory is '/path/to/project'
+=-=-=-=-=-=-=-= Begin File: 'src/main.py' =-=-=-=-=-=-=-=
+print("Hello, World!")
+"""
+    output_file.write_text(content, encoding='utf-8')
+    
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is False
+    assert "Line 3: Header for 'src/main.py' has no matching footer." in result["errors"]
+    assert len(result["warnings"]) == 0
+
+def test_validate_output_file_unmatched_footer(tmp_path):
+    """Test validate_output_file with an unmatched footer."""
+    output_file = tmp_path / "prepped_dir.txt"
+    content = """File listing generated 2025-06-13 09:28:00.123456 by prepdir (pip install prepdir)
+Base directory is '/path/to/project'
+=-=-=-=-=-=-=-= Begin File: 'src/main.py' =-=-=-=-=-=-=-=
+print("Hello, World!")
+=-=-=-=-=-=-=-= End File: 'src/other.py' =-=-=-=-=-=-=-=
+"""
+    output_file.write_text(content, encoding='utf-8')
+    
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is False
+    assert "Line 5: Footer for 'src/other.py' does not match open header 'src/main.py' from line 3." in result["errors"]
+    assert len(result["warnings"]) == 0
+
+def test_validate_output_file_missing_header(tmp_path):
+    """Test validate_output_file with a missing header."""
+    output_file = tmp_path / "prepped_dir.txt"
+    content = """File listing generated 2025-06-13 09:28:00.123456 by prepdir (pip install prepdir)
+Base directory is '/path/to/project'
+print("Hello, World!")
+=-=-=-=-=-=-=-= End File: 'src/main.py' =-=-=-=-=-=-=-=
+"""
+    output_file.write_text(content, encoding='utf-8')
+    
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is False
+    assert "Line 4: Footer for 'src/main.py' without matching header." in result["errors"]
+    assert len(result["warnings"]) == 0
+
+def test_validate_output_file_invalid_header(tmp_path):
+    """Test validate_output_file with an invalid prepdir header."""
+    output_file = tmp_path / "prepped_dir.txt"
+    content = """Invalid header
+Base directory is '/path/to/project'
+=-=-=-=-=-=-=-= Begin File: 'src/main.py' =-=-=-=-=-=-=-=
+print("Hello, World!")
+=-=-=-=-=-=-=-= End File: 'src/main.py' =-=-=-=-=-=-=-=
+"""
+    output_file.write_text(content, encoding='utf-8')
+    
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is False
+    assert "Line 1: Missing or invalid prepdir header. Got: 'Invalid header'" in result["errors"]
+    assert len(result["warnings"]) == 0
+
+def test_validate_output_file_malformed_delimiter(tmp_path):
+    """Test validate_output_file with a malformed delimiter."""
+    output_file = tmp_path / "prepped_dir.txt"
+    content = """File listing generated 2025-06-13 09:28:00.123456 by prepdir (pip install prepdir)
+Base directory is '/path/to/project'
+=-=-=- Begin File: 'src/main.py' =-=-=-=
+print("Hello, World!")
+=-=-=-=-=-=-=-= End File: 'src/main.py' =-=-=-=-=-=-=-=
+"""
+    output_file.write_text(content, encoding='utf-8')
+    
+    result = validate_output_file(str(output_file))
+    print(f"{result=}")
+    assert result["is_valid"] is False
+    assert len(result["errors"]) == 1
+    assert "Line 5: Footer for 'src/main.py' without matching header." in result["errors"]
+
+def test_validate_output_file_empty(tmp_path):
+    """Test validate_output_file with an empty file."""
+    output_file = tmp_path / "prepped_dir.txt"
+    output_file.write_text("", encoding='utf-8')
+    
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is False
+    assert "File is empty." in result["errors"]
+    assert len(result["warnings"]) == 0
+
+def test_validate_output_file_nonexistent(tmp_path):
+    """Test validate_output_file with a nonexistent file."""
+    output_file = tmp_path / "nonexistent.txt"
+    with pytest.raises(FileNotFoundError) as exc_info:
+        validate_output_file(str(output_file))
+    assert f"File '{output_file}' does not exist." in str(exc_info.value)
+
+def test_validate_output_file_invalid_encoding(tmp_path):
+    """Test validate_output_file with a binary file."""
+    output_file = tmp_path / "binary.bin"
+    output_file.write_bytes(b'\x00\x01\x02')
+    result = validate_output_file(str(output_file))
+    print(f"{result=}")
+    assert result["is_valid"] == False
+    assert "Missing or invalid prepdir header" in result["errors"][0]

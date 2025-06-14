@@ -29,6 +29,12 @@ UUID_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+# File delimiter and header/footer patterns
+DELIMITER = "=-=-=-=-=-=-=-="
+HEADER_PATTERN = re.compile(rf"^{DELIMITER} Begin File: '(.*?)' {DELIMITER}$")
+FOOTER_PATTERN = re.compile(rf"^{DELIMITER} End File: '(.*?)' {DELIMITER}$")
+GENERATED_HEADER_PATTERN = re.compile(r"^File listing generated \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+ by prepdir \(pip install prepdir\)$")
+
 def is_valid_uuid(value: str) -> bool:
     """Check if a string is a valid UUID."""
     try:
@@ -170,6 +176,94 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
             print(f"No files with extension(s) {', '.join(extensions)} found.")
         else:
             print("No files found.")
+
+def validate_output_file(file_path: str) -> dict:
+    """
+    Validate a prepdir-generated output file to ensure it has correct structure.
+
+    Args:
+        file_path (str): Path to the output file to validate.
+
+    Returns:
+        dict: Validation result with keys:
+            - is_valid (bool): True if the file is valid, False otherwise.
+            - errors (list): List of error messages for invalid structure.
+            - warnings (list): List of warning messages for minor issues.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        UnicodeDecodeError: If the file cannot be read as text.
+    """
+    errors = []
+    warnings = []
+    open_headers = []
+    line_number = 0
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        if not lines:
+            errors.append("File is empty.")
+            return {"is_valid": False, "errors": errors, "warnings": warnings}
+
+        print(f"lines are {lines}")
+
+        # Check the generated header (first line)
+        first_line = lines[0].strip()
+        if not GENERATED_HEADER_PATTERN.match(first_line):
+            errors.append(f"Line 1: Missing or invalid prepdir header. Got: '{first_line}'")
+        else:
+            # Check the second line (Base directory)
+            if len(lines) < 2 or not lines[1].strip().startswith("Base directory is"):
+                warnings.append("Line 2: Missing or invalid base directory line.")
+
+        for line_number, line in enumerate(lines, 1):
+            line = line.strip()
+
+            # Skip empty lines or content lines
+            if not line or (not HEADER_PATTERN.match(line) and not FOOTER_PATTERN.match(line)):
+                continue
+
+            # Check for header
+            header_match = HEADER_PATTERN.match(line)
+            if header_match:
+                file_path = header_match.group(1)
+                open_headers.append((file_path, line_number))
+                continue
+
+            # Check for footer
+            footer_match = FOOTER_PATTERN.match(line)
+            if footer_match:
+                file_path = footer_match.group(1)
+                if not open_headers:
+                    errors.append(f"Line {line_number}: Footer for '{file_path}' without matching header.")
+                else:
+                    last_header_path, header_line = open_headers[-1]
+                    if last_header_path != file_path:
+                        errors.append(
+                            f"Line {line_number}: Footer for '{file_path}' does not match open header "
+                            f"'{last_header_path}' from line {header_line}."
+                        )
+                    else:
+                        open_headers.pop()
+                continue
+
+            # If line matches neither header nor footer but looks like a delimiter
+            if DELIMITER in line:
+                warnings.append(f"Line {line_number}: Malformed header or footer: '{line}'")
+
+        # Check for unclosed headers
+        for file_path, header_line in open_headers:
+            errors.append(f"Line {header_line}: Header for '{file_path}' has no matching footer.")
+
+        is_valid = len(errors) == 0
+        return {"is_valid": is_valid, "errors": errors, "warnings": warnings}
+
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File '{file_path}' does not exist.")
+    except UnicodeDecodeError:
+        raise UnicodeDecodeError(f"File '{file_path}' cannot be read as text.", b"", 0, 0, "Invalid encoding")
 
 def run(
     directory: str = ".",

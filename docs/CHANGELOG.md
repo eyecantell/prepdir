@@ -8,10 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 - New `run()` function in `prepdir.main` for programmatic use, allowing other Python projects to import and use `prepdir` as a library. The function mirrors CLI functionality, accepting parameters for directory, extensions, output file, and more, and returns formatted content as a string. Accessible via `from prepdir import run`.
+- New `validate_output_file()` function in `prepdir.main` to verify the legitimacy of prepdir-generated output files (e.g., `prepped_dir.txt`). It checks for a valid header, matching `Begin File` and `End File` pairs, and correct delimiters. Accessible via `from prepdir import validate_output_file`.
 - Tests for `run()` function in `tests/test_main.py`, covering successful execution, output file writing, UUID scrubbing, error handling, and inclusion of prepdir-generated files.
+- Tests for `validate_output_file()` in `tests/test_main.py`, covering valid files, missing footers, unmatched headers/footers, invalid headers, and malformed delimiters.
 
 ### Changed
-- Bumped version to `0.13.0`.
 - Updated `__version__` in `src/prepdir/__init__.py` to `"0.13.0"`.
 
 ### Links
