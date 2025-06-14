@@ -20,6 +20,7 @@ from importlib.metadata import version
 from prepdir.config import load_config
 import logging
 from io import StringIO
+from typing_extensions import Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ def is_valid_uuid(value: str) -> bool:
     except ValueError:
         return False
 
-def scrub_uuids(content: str, replacement_uuid: str) -> tuple[str, bool]:
+def scrub_uuids(content: str, replacement_uuid: str) -> Tuple[str, bool]:
     """Replace UUIDs in content with the specified replacement UUID, return content and whether any were replaced."""
     original_content = content
     content = UUID_PATTERN.sub(replacement_uuid, content)
