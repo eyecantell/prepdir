@@ -100,8 +100,8 @@ def test_is_prepdir_generated(tmp_path):
 def test_scrub_uuids():
     """Test UUID scrubbing functionality with word boundaries."""
     content = """
-    Some text with UUID: 00000000-0000-0000-0000-000000000000
-    Another UUID: 00000000-0000-0000-0000-000000000000
+    Some text with UUID: 11111111-1111-1111-1111-111111111111
+    Another UUID: aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa
     Not a UUID: 123e4567-e89b-12d3-a456-42661417400
     Embedded UUID: prefix123e4567-e89b-12d3-a456-426614174000suffix
     """
@@ -111,19 +111,21 @@ def test_scrub_uuids():
     Not a UUID: 123e4567-e89b-12d3-a456-42661417400
     Embedded UUID: prefix123e4567-e89b-12d3-a456-426614174000suffix
     """
-    result = scrub_uuids(content, "00000000-0000-0000-0000-000000000000")
-    assert result.strip() == expected.strip()
+    result_str, result_bool = scrub_uuids(content, "00000000-0000-0000-0000-000000000000")
+    assert result_str.strip() == expected.strip()
+    assert result_bool == True
     
     # Test with custom replacement UUID
-    custom_uuid = "00000000-0000-0000-0000-000000000000"
-    expected_custom = """
-    Some text with UUID: 00000000-0000-0000-0000-000000000000
-    Another UUID: 00000000-0000-0000-0000-000000000000
+    custom_uuid = "11111111-2222-3333-4444-555555555555"
+    expected_custom = f"""
+    Some text with UUID: {custom_uuid}
+    Another UUID: {custom_uuid}
     Not a UUID: 123e4567-e89b-12d3-a456-42661417400
     Embedded UUID: prefix123e4567-e89b-12d3-a456-426614174000suffix
     """
-    result_custom = scrub_uuids(content, custom_uuid)
-    assert result_custom.strip() == expected_custom.strip()
+    result_custom_str, result_custom_bool = scrub_uuids(content, custom_uuid)
+    assert result_custom_str.strip() == expected_custom.strip()
+    assert result_custom_bool == True
 
 def test_traverse_directory_content(tmp_path, capsys):
     """Test UUID content traversal with directory content."""
