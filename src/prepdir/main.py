@@ -19,6 +19,7 @@ from pathlib import Path
 from importlib.metadata import version
 from prepdir.config import load_config
 import logging
+from io import StringIO
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +171,83 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
         else:
             print("No files found.")
 
+def run(
+    directory: str = ".",
+    extensions: list = None,
+    output_file: str = None,
+    include_all: bool = False,
+    config_path: str = None,
+    verbose: bool = False,
+    include_prepdir_files: bool = False,
+    scrub_uuids: bool = True,
+    replacement_uuid: str = "00000000-0000-0000-0000-000000000000"
+) -> str:
+    """
+    Programmatically run prepdir to traverse a directory and prepare file contents.
+
+    Args:
+        directory (str): Directory to traverse (default: current directory).
+        extensions (list): List of file extensions to include (without dot, e.g., ["py", "txt"]).
+        output_file (str): Path to save output (if None, returns content as string).
+        include_all (bool): If True, ignore exclusion lists in config.
+        config_path (str): Path to custom configuration YAML file.
+        verbose (bool): If True, log additional information about skipped files.
+        include_prepdir_files (bool): If True, include prepdir-generated files.
+        scrub_uuids (bool): If True, scrub UUIDs in file contents.
+        replacement_uuid (str): UUID to replace detected UUIDs with.
+
+    Returns:
+        str: Formatted content of traversed files.
+
+    Raises:
+        ValueError: If directory does not exist or is not a directory, or if replacement_uuid is invalid.
+    """
+    # Configure logging
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format='%(levelname)s: %(message)s')
+
+    # Validate directory
+    if not os.path.exists(directory):
+        raise ValueError(f"Directory '{directory}' does not exist.")
+    if not os.path.isdir(directory):
+        raise ValueError(f"'{directory}' is not a directory.")
+
+    # Load configuration
+    config = load_config("prepdir", config_path)
+    excluded_dirs = [] if include_all else config.get('exclude.directories', [])
+    excluded_files = [] if include_all else config.get('exclude.files', [])
+
+    # Validate replacement UUID
+    if not is_valid_uuid(replacement_uuid):
+        logger.error(f"Invalid replacement UUID: '{replacement_uuid}'. Using default nil UUID.")
+        replacement_uuid = "00000000-0000-0000-0000-000000000000"
+
+    # Capture output
+    output = StringIO()
+    with redirect_stdout(output):
+        traverse_directory(
+            directory,
+            extensions,
+            excluded_dirs,
+            excluded_files,
+            include_all,
+            verbose,
+            output_file=output_file,
+            include_prepdir_files=include_prepdir_files,
+            scrub_uuids_enabled=scrub_uuids,
+            replacement_uuid=replacement_uuid
+        )
+    
+    content = output.getvalue()
+
+    # Write to output file if specified
+    if output_file:
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open('w', encoding='utf-8') as f:
+            f.write(content)
+
+    return content
+
 def main():
     parser = argparse.ArgumentParser(
         prog='prepdir',
@@ -238,68 +316,27 @@ def main():
     
     args = parser.parse_args()
     
-    # Configure logging
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format='%(levelname)s: %(message)s')
-    
     # Handle --init
     if args.init:
         init_config(args.config or ".prepdir/config.yaml", args.force)
         sys.exit(0)
     
-    # Validate directory
-    if not os.path.exists(args.directory):
-        print(f"Error: Directory '{args.directory}' does not exist.", file=sys.stderr)
+    # Run prepdir programmatically
+    try:
+        run(
+            directory=args.directory,
+            extensions=args.extensions,
+            output_file=args.output,
+            include_all=args.all,
+            config_path=args.config,
+            verbose=args.verbose,
+            include_prepdir_files=args.include_prepdir_files,
+            scrub_uuids=not args.no_scrub_uuids,
+            replacement_uuid=args.replacement_uuid or "00000000-0000-0000-0000-000000000000"
+        )
+    except ValueError as e:
+        print(f"Error: {str(e)}", file=sys.stderr)
         sys.exit(1)
-    
-    if not os.path.isdir(args.directory):
-        print(f"Error: '{args.directory}' is not a directory.", file=sys.stderr)
-        sys.exit(1)
-    
-    # Load configuration
-    config = load_config("prepdir", args.config)
-    excluded_dirs = [] if args.all else config.get('exclude.directories', [])
-    excluded_files = [] if args.all else config.get('exclude.files', [])
-    
-    # Handle UUID scrubbing settings
-    scrub_uuids_enabled = not args.no_scrub_uuids and config.get('SCRUB_UUIDS', True)
-    replacement_uuid = args.replacement_uuid or config.get('REPLACEMENT_UUID', "00000000-0000-0000-0000-000000000000")
-    
-    # Validate replacement UUID
-    if not is_valid_uuid(replacement_uuid):
-        logger.error(f"Invalid replacement UUID: '{replacement_uuid}'. Using default nil UUID.")
-        replacement_uuid = "00000000-0000-0000-0000-000000000000"
-    
-    # Prepare output
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    print(f"Generated {datetime.now()}")
-    print(f"Traversing directory: {os.path.abspath(args.directory)}")
-    print(f"Extensions filter: {args.extensions if args.extensions else 'None'}")
-    print(f"Output file: {output_path}")
-    print(f"Config file: {args.config if args.config else 'default'}")
-    print(f"Ignoring exclusions: {args.all}")
-    print(f"Verbose mode: {args.verbose}")
-    print(f"Include prepdir-generated files: {args.include_prepdir_files}")
-    print(f"Scrub UUIDs: {scrub_uuids_enabled}")
-    print(f"Replacement UUID: {replacement_uuid}")
-    print("-" * 60)
-    
-    # Redirect output to file
-    with output_path.open('w', encoding='utf-8') as f:
-        with redirect_stdout(f):
-            traverse_directory(
-                args.directory,
-                args.extensions,
-                excluded_dirs,
-                excluded_files,
-                args.all,
-                args.verbose,
-                output_file=str(output_path),
-                include_prepdir_files=args.include_prepdir_files,
-                scrub_uuids_enabled=scrub_uuids_enabled,
-                replacement_uuid=replacement_uuid
-            )
 
 if __name__ == "__main__":
     main()

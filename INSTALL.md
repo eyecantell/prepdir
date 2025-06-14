@@ -71,15 +71,17 @@ To create a distributable package and install it:
 
 ### Method 3: Install from GitHub
 
-```
+```bash
 pip install git+https://github.com/eyecantell/prepdir.git
 ```
 
 ### Method 4: Install from PyPI
 
-```
+```bash
 pip install prepdir
 ```
+
+After installation, `prepdir` can be used as a CLI tool or as a Python library (version 0.13.0 and later).
 
 ## Publishing to PyPI
 
@@ -100,7 +102,9 @@ If you want to share your tool with others, you can publish it to PyPI:
 
 ## Usage after Installation
 
-After installation, you can use the tool from anywhere:
+### CLI Usage
+
+After installation, you can use the tool from the command line:
 
 - Output all files in current directory to prepped_dir.txt (UUIDs scrubbed by default)
   ```
@@ -132,7 +136,7 @@ After installation, you can use the tool from anywhere:
   ```
 - Use a custom replacement UUID
   ```
-  prepdir --replacement-uuid 11111111-2222-3333-4444-555555555555
+  prepdir --replacement-uuid 00000000-0000-0000-0000-000000000000
   ```
 - Use a custom config file
   ```
@@ -150,6 +154,41 @@ After installation, you can use the tool from anywhere:
   ```
   prepdir --version
   ```
+
+### Programmatic Usage (Version 0.13.0+)
+
+Use `prepdir` as a library in your Python project:
+
+```python
+from prepdir import run
+
+# Generate content for Python files and print
+content = run(
+    directory="/path/to/project",
+    extensions=["py"],
+    verbose=True
+)
+print(content)
+
+# Generate and save to a file
+content = run(
+    directory="/path/to/project",
+    extensions=["py", "md"],
+    output_file="project_review.txt",
+    scrub_uuids=False
+)
+```
+
+The `run()` function accepts the following parameters:
+- `directory`: Directory to traverse (default: current directory).
+- `extensions`: List of file extensions to include (e.g., `["py", "md"]`).
+- `output_file`: Path to save output (if `None`, returns content as string).
+- `include_all`: If `True`, ignore exclusion lists in config.
+- `config_path`: Path to custom configuration YAML file.
+- `verbose`: If `True`, log additional information about skipped files.
+- `include_prepdir_files`: If `True`, include prepdir-generated files.
+- `scrub_uuids`: If `True`, scrub UUIDs in file contents (default: `True`).
+- `replacement_uuid`: UUID to replace detected UUIDs with (default: `"00000000-0000-0000-0000-000000000000"`).
 
 ### Sample Output
 
@@ -182,12 +221,12 @@ To run the test suite, ensure pytest is installed (included in development depen
 
 Exclusions for directories and files, as well as UUID scrubbing settings, are defined in `config.yaml`, with the following precedence:
 
-1. Custom config specified via `--config` (highest precedence)
+1. Custom config specified via `--config` or `config_path` (highest precedence)
 2. Project config at `.prepdir/config.yaml` in your project
 3. Global config at `~/.prepdir/config.yaml`
 4. Default `config.yaml` included with the prepdir package (lowest precedence)
 
-The output file (e.g., `prepped_dir.txt`) and `prepdir`-generated files are automatically excluded by default. Use `--include-prepdir-files` to include them. UUIDs are scrubbed by default as standalone tokens (surrounded by word boundaries, e.g., whitespace or punctuation); use `--no-scrub-uuids` or set `SCRUB_UUIDS: false` to disable. The configuration uses .gitignore-style glob patterns for exclusions.
+The output file (e.g., `prepped_dir.txt`) and `prepdir`-generated files are automatically excluded by default. Use `--include-prepdir-files` or `include_prepdir_files=True` to include them. UUIDs are scrubbed by default as standalone tokens; use `--no-scrub-uuids` or `scrub_uuids=False` to disable. The configuration uses .gitignore-style glob patterns for exclusions.
 
 To initialize a project-level config with the default exclusions and UUID settings:
 
@@ -250,7 +289,7 @@ To use a global configuration, create `~/.prepdir/config.yaml`:
 
 ```
 mkdir -p ~/.prepdir
-echo "EXCLUDE:\n  DIRECTORIES:\n    - .git\n  FILES:\n    - *.pyc\nSCRUB_UUIDS: false\nREPLACEMENT_UUID: \"11111111-2222-3333-4444-555555555555\"" > ~/.prepdir/config.yaml
+echo "EXCLUDE:\n  DIRECTORIES:\n    - .git\n  FILES:\n    - *.pyc\nSCRUB_UUIDS: false\nREPLACEMENT_UUID: \"00000000-0000-0000-0000-000000000000\"" > ~/.prepdir/config.yaml
 ```
 
 ## Upgrading
@@ -267,6 +306,8 @@ Alternatively, specify the old path with `--config config.yaml`.
 For versions <0.10.0, update configuration keys to uppercase (`EXCLUDE`, `DIRECTORIES`, `FILES`, `SCRUB_UUIDS`, `REPLACEMENT_UUID`) to comply with Dynaconf requirements.
 
 For versions <0.12.0, add `SCRUB_UUIDS` and `REPLACEMENT_UUID` to your `config.yaml` if you wish to customize UUID scrubbing behavior. Note that UUID scrubbing now matches standalone UUIDs (with word boundaries) and file delimiters are shortened to 15 characters.
+
+For versions <0.13.0, note the addition of the `run()` function for programmatic use, allowing `prepdir` to be imported as a library.
 
 ## Development Setup
 

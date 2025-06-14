@@ -6,7 +6,7 @@
 [![Downloads](https://pepy.tech/badge/prepdir)](https://pepy.tech/project/prepdir)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A lightweight CLI utility to prepare your code project for AI assistants, formatting file contents with clear separators for easy sharing. **Get Started**: [Quick Start](#-quick-start)
+A lightweight CLI and library utility to prepare your code project for AI assistants, formatting file contents with clear separators for easy sharing. **Get Started**: [Quick Start](#-quick-start)
 
 ```
 prepdir -e py md -o ai_review.txt
@@ -30,6 +30,10 @@ prepdir -e py md -o ai_review.txt
 
 ## 📰 What's New
 
+### 0.13.0
+- Added `run()` function for programmatic use, allowing other Python projects to import `prepdir` and process directories directly (e.g., `from prepdir import run`). See [Programmatic Usage](#programmatic-usage) for details.
+- Added tests for `run()` function to ensure reliability.
+
 ### 0.12.0
 - Added automatic scrubbing of UUIDs in file contents, replacing them with the nil UUID (`00000000-0000-0000-0000-000000000000`) by default. UUIDs are matched as standalone tokens (using word boundaries) to avoid false positives. Use `--no-scrub-uuids` to disable or `--replacement-uuid` to specify a custom UUID. Configure via `SCRUB_UUIDS` and `REPLACEMENT_UUID` in `config.yaml`.
 - Shortened file delimiter from 31 to 15 characters to reduce token usage in AI model inputs.
@@ -37,15 +41,13 @@ prepdir -e py md -o ai_review.txt
 ### 0.11.0
 - Added automatic exclusion of `prepdir`-generated files (e.g., `prepped_dir.txt`) by default, with new `--include-prepdir-files` option to include them.
 
-### 0.10.1
-- Added validation for uppercase configuration keys (`EXCLUDE`, `DIRECTORIES`, `FILES`) with guidance for users upgrading from older versions.
-
 See [CHANGELOG.md](docs/CHANGELOG.md) for the complete version history.
 
 ## 🚀 Quick Start
 
 Get up and running with `prepdir` in minutes:
 
+### CLI Usage
 ```bash
 # Install prepdir
 pip install prepdir
@@ -57,6 +59,15 @@ cd /path/to/your/project
 prepdir
 
 # Share prepped_dir.txt with an AI assistant
+```
+
+### Programmatic Usage
+```python
+from prepdir import run
+
+# Generate content for Python files
+content = run(directory="/path/to/project", extensions=["py"])
+print(content)  # Use the content directly
 ```
 
 ## 📦 Installation
@@ -83,7 +94,7 @@ pip install -e .
 
 ## 💡 Usage Examples
 
-### **Basic Usage**
+### **CLI Usage**
 
 ```bash
 # Output all files to prepped_dir.txt (UUIDs scrubbed)
@@ -105,10 +116,41 @@ prepdir --include-prepdir-files -o project_with_outputs.txt
 prepdir --no-scrub-uuids -o unscrubbed.txt
 
 # Use a custom replacement UUID
-prepdir --replacement-uuid 11111111-2222-3333-4444-555555555555 -o custom_uuid.txt
+prepdir --replacement-uuid 00000000-0000-0000-0000-000000000000 -o custom_uuid.txt
 
 # Process a specific directory
 prepdir /path/to/directory
+```
+
+### **Programmatic Usage**
+
+Use `prepdir` as a library in another Python project:
+
+```python
+from prepdir import run
+
+# Basic usage: process Python and Markdown files
+content = run(
+    directory="/path/to/project",
+    extensions=["py", "md"],
+    verbose=True
+)
+print(content)
+
+# Save to a file
+content = run(
+    directory="/path/to/project",
+    extensions=["py"],
+    output_file="project_review.txt",
+    scrub_uuids=False
+)
+
+# Include all files, ignoring exclusions
+content = run(
+    directory="/path/to/project",
+    include_all=True,
+    include_prepdir_files=True
+)
 ```
 
 ### **Sample Output**
@@ -131,7 +173,7 @@ This is a sample project.
 
 ### **Configuration Precedence**
 
-1. **Custom config**: Specified with `--config` (highest precedence)
+1. **Custom config**: Specified with `--config` or `config_path` (highest precedence)
 2. **Local config**: `.prepdir/config.yaml` in your project directory
 3. **Global config**: `~/.prepdir/config.yaml` in your home directory
 4. **Default config**: Built-in at `src/prepdir/config.yaml` (lowest precedence)
@@ -147,14 +189,15 @@ This is a sample project.
 - IDE files: `.idea`
 - Dependencies: `node_modules`
 - Temporary files: `*.pyc`, `*.log`
-- `prepdir`-generated files: Files like `prepped_dir.txt` (unless `--include-prepdir-files` is used)
+- `prepdir`-generated files: Files like `prepped_dir.txt` (unless `--include-prepdir-files` or `include_prepdir_files=True` is used)
 
 ### **UUID Scrubbing**
 
 By default, `prepdir` scrubs UUIDs in file contents, replacing them with `00000000-0000-0000-0000-000000000000`. UUIDs are matched as standalone tokens (surrounded by word boundaries, e.g., whitespace or punctuation) to avoid replacing embedded strings. Configure via:
 
-- `SCRUB_UUIDS`: Set to `false` to disable UUID scrubbing.
-- `REPLACEMENT_UUID`: Specify a custom UUID for replacement.
+- CLI: `--no-scrub-uuids` or `--replacement-uuid <uuid>`
+- Programmatic: `scrub_uuids=False` or `replacement_uuid="custom-uuid"`
+- `config.yaml`: `SCRUB_UUIDS` (boolean, default: `true`), `REPLACEMENT_UUID` (string, default: `"00000000-0000-0000-0000-000000000000"`)
 
 ### **Creating a Config**
 
@@ -197,6 +240,7 @@ REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
 - **Filter Automatically**: Excludes irrelevant files like caches, binaries, and `prepdir`-generated files.
 - **Protect Privacy**: Scrubs UUIDs by default to anonymize sensitive identifiers.
 - **Enhance Clarity**: Uses clear separators and relative paths for AI compatibility.
+- **Programmatic Access**: Use as a library to integrate with other tools or scripts.
 - **Streamline Workflow**: Optimizes code review, analysis, and documentation tasks.
 
 ## 🔍 Common Use Cases
@@ -229,6 +273,14 @@ prepdir -e py md rst -o docs_context.txt
 # Ask AI: "Generate detailed documentation for this project"
 ```
 
+### **5. Programmatic Integration**
+
+```python
+from prepdir import run
+content = run(directory="src", extensions=["py"], output_file="code.txt")
+# Process content or send to AI assistant
+```
+
 ## 🔧 Advanced Options
 
 ```bash
@@ -242,7 +294,7 @@ prepdir --include-prepdir-files
 prepdir --no-scrub-uuids
 
 # Use a custom replacement UUID
-prepdir --replacement-uuid 11111111-2222-3333-4444-555555555555
+prepdir --replacement-uuid 00000000-0000-0000-0000-000000000000
 
 # Use a custom config file
 prepdir --config custom_config.yaml
@@ -266,6 +318,15 @@ pdm run prepdir  # Run development version
 pdm run pytest   # Run tests
 ```
 
+### **Programmatic Use**
+
+Import `prepdir` in your Python project:
+
+```python
+from prepdir import run
+content = run(directory="/path/to/project", extensions=["py"], verbose=True)
+```
+
 ### **Configuration Management**
 
 The `load_config` function in `prepdir.config` uses Dynaconf for shared configuration across tools like `vibedir` and `applydir`, with the precedence described above.
@@ -282,10 +343,10 @@ pdm publish            # Publish to PyPI (requires credentials)
 
 ### **Common Issues**
 
-- **No files found**: Verify directory path and file extensions (`-e`).
-- **Files missing**: Check exclusions in config with `-v`. Note that `prepdir`-generated files are excluded by default unless `--include-prepdir-files` is used. Use `-v` to see specific reasons for skipped files (e.g., "prepdir-generated file").
-- **UUIDs not scrubbed**: Ensure `--no-scrub-uuids` is not used and `SCRUB_UUIDS` is not set to `false` in the config. Verify the UUID is a standalone token (surrounded by whitespace or punctuation).
-- **Invalid replacement UUID**: Check that `--replacement-uuid` or `REPLACEMENT_UUID` in the config is a valid UUID. Invalid UUIDs default to the nil UUID.
+- **No files found**: Verify directory path and file extensions (`-e` or `extensions`).
+- **Files missing**: Check exclusions in config with `-v` or `verbose=True`. Note that `prepdir`-generated files are excluded by default unless `--include-prepdir-files` or `include_prepdir_files=True` is used.
+- **UUIDs not scrubbed**: Ensure `--no-scrub-uuids` or `scrub_uuids=False` is not used and `SCRUB_UUIDS` is not set to `false` in the config. Verify the UUID is a standalone token.
+- **Invalid replacement UUID**: Check that `--replacement-uuid` or `replacement_uuid` in the config is a valid UUID. Invalid UUIDs default to the nil UUID.
 - **Config errors**: Ensure valid YAML syntax in `config.yaml` and uppercase keys (`EXCLUDE`, `DIRECTORIES`, `FILES`, `SCRUB_UUIDS`, `REPLACEMENT_UUID`).
 - **Command not found**: Confirm Python environment and PATH.
 
@@ -293,30 +354,33 @@ pdm publish            # Publish to PyPI (requires credentials)
 
 ```bash
 prepdir -v
+# or
+from prepdir import run
+run(verbose=True)
 ```
 
 ## 📝 FAQ
 
 **Q: What project sizes can prepdir handle?**  
-A: Effective for moderate projects (thousands of files). Use `-e` to filter large projects.
+A: Effective for moderate projects (thousands of files). Use `-e` or `extensions` to filter large projects.
 
 **Q: Can prepdir handle non-code files?**  
-A: Yes, it supports any text file. Specify types with `-e` (e.g., `prepdir -e txt md`).
+A: Yes, it supports any text file. Specify types with `-e` or `extensions` (e.g., `prepdir -e txt md`).
 
 **Q: Why are my prepdir output files missing from the new output?**  
-A: Starting with version 0.11.0, `prepdir` excludes its own generated files (e.g., `prepped_dir.txt`) by default. Use `--include-prepdir-files` to include them.
+A: Starting with version 0.11.0, `prepdir` excludes its own generated files (e.g., `prepped_dir.txt`) by default. Use `--include-prepdir-files` or `include_prepdir_files=True` to include them.
 
 **Q: When should I use `--include-prepdir-files`?**  
-A: Use `--include-prepdir-files` if you need to include previously generated output files (e.g., `prepped_dir.txt`) in a new output, such as when reviewing past `prepdir` runs or combining multiple outputs from disparate directories.
+A: Use it if you need to include previously generated output files in a new output, such as when reviewing past `prepdir` runs or combining multiple outputs.
 
 **Q: Why are UUIDs replaced in my output?**  
-A: Starting with version 0.12.0, `prepdir` scrubs UUIDs by default to protect sensitive identifiers. Only standalone UUIDs (surrounded by word boundaries) are replaced. Use `--no-scrub-uuids` to disable this or configure `SCRUB_UUIDS: false` in `config.yaml`.
+A: Starting with version 0.12.0, `prepdir` scrubs UUIDs by default. Use `--no-scrub-uuids` or `scrub_uuids=False` to disable, or configure `SCRUB_UUIDS: false` in `config.yaml`.
 
 **Q: Can I customize the replacement UUID?**  
-A: Yes, use `--replacement-uuid <uuid>` on the command line or set `REPLACEMENT_UUID` in `config.yaml`. The UUID must be valid (e.g., `11111111-2222-3333-4444-555555555555`).
+A: Yes, use `--replacement-uuid <uuid>` or `replacement_uuid="<uuid>"` in code, or set `REPLACEMENT_UUID` in `config.yaml`.
 
 **Q: Why am I getting an error about lowercase configuration keys?**  
-A: Starting with version 0.10.0, `prepdir` uses Dynaconf, which requires configuration keys like `EXCLUDE`, `DIRECTORIES`, `FILES`, `SCRUB_UUIDS`, and `REPLACEMENT_UUID` to be uppercase. Update your `config.yaml` to use uppercase keys. See the [Configuration section](#configuration) for details.
+A: Starting with version 0.10.0, `prepdir` requires uppercase keys (`EXCLUDE`, `DIRECTORIES`, `FILES`, `SCRUB_UUIDS`, `REPLACEMENT_UUID`). Update your `config.yaml`.
 
 **Q: How do I upgrade from older versions?**  
 A: For versions <0.6.0, move `config.yaml` to `.prepdir/config.yaml` or use `--config config.yaml`. For versions <0.10.0, update configuration keys to uppercase.

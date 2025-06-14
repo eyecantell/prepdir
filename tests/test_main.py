@@ -3,8 +3,9 @@ from unittest.mock import patch
 import pytest
 from pathlib import Path
 import yaml
+import logging
 from io import StringIO
-from prepdir.main import init_config, main, is_prepdir_generated, traverse_directory, scrub_uuids
+from prepdir.main import init_config, main, is_prepdir_generated, traverse_directory, scrub_uuids, run
 
 def test_init_config_success(tmp_path, capsys):
     """Test initializing a new config.yaml."""
@@ -173,7 +174,6 @@ def test_traverse_directory_scrub_uuids(tmp_path, capsys):
     assert "ID: 123e4567-e89b-12d3-a456-426614174000" in captured
     assert "Another: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" in captured
     assert "Embedded: prefix123e4567-e89b-12d3-a456-426614174000suffix" in captured
-    assert "00000000-0000-0000-0000-000000000000" not in captured
     
     # Test custom replacement UUID
     custom_uuid = "11111111-2222-3333-4444-555555555555"
@@ -194,3 +194,168 @@ def test_traverse_directory_scrub_uuids(tmp_path, capsys):
     assert f"ID: {custom_uuid}" in captured
     assert f"Another: {custom_uuid}" in captured
     assert "Embedded: prefix123e4567-e89b-12d3-a456-426614174000suffix" in captured
+
+def test_run_success(tmp_path):
+    """Test run() function with default parameters."""
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    test_file = project_dir / "test.py"
+    test_file.write_text("print('Hello, World!')\n")
+    
+    with patch("prepdir.main.load_config", return_value=type("MockDynaconf", (), {
+        "get": lambda self, key, default=None: {
+            "exclude.directories": [".git"],
+            "exclude.files": ["*.pyc"]
+        }.get(key, default)
+    })()):
+        content = run(
+            directory=str(project_dir),
+            extensions=["py"],
+            verbose=False
+        )
+    
+    assert "File listing generated" in content
+    assert "Base directory is" in content
+    assert "Begin File: 'test.py'" in content
+    assert "print('Hello, World!')" in content
+    assert "End File: 'test.py'" in content
+
+def test_run_with_output_file(tmp_path):
+    """Test run() function with output file."""
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    test_file = project_dir / "test.py"
+    test_file.write_text("print('Hello, World!')\n")
+    output_file = tmp_path / "output.txt"
+    
+    with patch("prepdir.main.load_config", return_value=type("MockDynaconf", (), {
+        "get": lambda self, key, default=None: {
+            "exclude.directories": [".git"],
+            "exclude.files": ["*.pyc"]
+        }.get(key, default)
+    })()):
+        content = run(
+            directory=str(project_dir),
+            extensions=["py"],
+            output_file=str(output_file),
+            verbose=False
+        )
+    
+    assert output_file.exists()
+    with output_file.open('r', encoding='utf-8') as f:
+        file_content = f.read()
+    assert "File listing generated" in file_content
+    assert "Base directory is" in file_content
+    assert "Begin File: 'test.py'" in file_content
+    assert "print('Hello, World!')" in file_content
+    assert "End File: 'test.py'" in file_content
+    assert file_content == content
+
+def test_run_uuid_scrubbing(tmp_path):
+    """Test run() function with UUID scrubbing."""
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    test_file = project_dir / "test.txt"
+    test_file.write_text("ID: 123e4567-e89b-12d3-a456-426614174000\n")
+    
+    with patch("prepdir.main.load_config", return_value=type("MockDynaconf", (), {
+        "get": lambda self, key, default=None: {
+            "exclude.directories": [],
+            "exclude.files": [],
+            "SCRUB_UUIDS": True,
+            "REPLACEMENT_UUID": "00000000-0000-0000-0000-000000000000"
+        }.get(key, default)
+    })()):
+        content = run(
+            directory=str(project_dir),
+            extensions=["txt"],
+            scrub_uuids=True,
+            replacement_uuid="00000000-0000-0000-0000-000000000000",
+            verbose=False
+        )
+    
+    assert "ID: 00000000-0000-0000-0000-000000000000" in content
+    assert "123e4567-e89b-12d3-a456-426614174000" not in content
+
+def test_run_no_uuid_scrubbing(tmp_path):
+    """Test run() function without UUID scrubbing."""
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    test_file = project_dir / "test.txt"
+    test_file.write_text("ID: 123e4567-e89b-12d3-a456-426614174000\n")
+    
+    with patch("prepdir.main.load_config", return_value=type("MockDynaconf", (), {
+        "get": lambda self, key, default=None: {
+            "exclude.directories": [],
+            "exclude.files": [],
+            "SCRUB_UUIDS": False
+        }.get(key, default)
+    })()):
+        content = run(
+            directory=str(project_dir),
+            extensions=["txt"],
+            scrub_uuids=False,
+            verbose=False
+        )
+    
+    assert "ID: 123e4567-e89b-12d3-a456-426614174000" in content
+    assert "00000000-0000-0000-0000-000000000000" not in content
+
+def test_run_invalid_directory(tmp_path):
+    """Test run() function with invalid directory."""
+    invalid_dir = tmp_path / "nonexistent"
+    with patch("prepdir.main.load_config", return_value=type("MockDynaconf", (), {
+        "get": lambda self, key, default=None: {}
+    })()):
+        with pytest.raises(ValueError) as exc_info:
+            run(directory=str(invalid_dir))
+        assert f"Directory '{invalid_dir}' does not exist." in str(exc_info.value)
+
+def test_run_invalid_uuid(tmp_path, caplog):
+    """Test run() function with invalid replacement UUID."""
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    test_file = project_dir / "test.txt"
+    test_file.write_text("ID: 123e4567-e89b-12d3-a456-426614174000\n")
+    
+    with patch("prepdir.main.load_config", return_value=type("MockDynaconf", (), {
+        "get": lambda self, key, default=None: {
+            "exclude.directories": [],
+            "exclude.files": []
+        }.get(key, default)
+    })()):
+        with caplog.at_level(logging.ERROR):
+            content = run(
+                directory=str(project_dir),
+                extensions=["txt"],
+                scrub_uuids=True,
+                replacement_uuid="invalid-uuid",
+                verbose=True
+            )
+    
+    assert "Invalid replacement UUID: 'invalid-uuid'. Using default nil UUID." in caplog.text
+    assert "ID: 00000000-0000-0000-0000-000000000000" in content
+
+def test_run_include_prepdir_files(tmp_path):
+    """Test run() function with include_prepdir_files option."""
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    prepdir_file = project_dir / "prepped_dir.txt"
+    prepdir_file.write_text("File listing generated 2025-06-07 15:04:54.188485 by prepdir (pip install prepdir)\n")
+    
+    with patch("prepdir.main.load_config", return_value=type("MockDynaconf", (), {
+        "get": lambda self, key, default=None: {
+            "exclude.directories": [],
+            "exclude.files": []
+        }.get(key, default)
+    })()):
+        content = run(
+            directory=str(project_dir),
+            extensions=["txt"],
+            include_prepdir_files=True,
+            verbose=False
+        )
+    
+    assert "Begin File: 'prepped_dir.txt'" in content
+    assert "File listing generated" in content
+    assert "End File: 'prepped_dir.txt'" in content

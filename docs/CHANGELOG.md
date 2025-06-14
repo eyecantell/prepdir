@@ -4,6 +4,22 @@ All notable changes to `prepdir` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2025-06-13
+
+### Added
+- New `run()` function in `prepdir.main` for programmatic use, allowing other Python projects to import and use `prepdir` as a library. The function mirrors CLI functionality, accepting parameters for directory, extensions, output file, and more, and returns formatted content as a string. Accessible via `from prepdir import run`.
+- Tests for `run()` function in `tests/test_main.py`, covering successful execution, output file writing, UUID scrubbing, error handling, and inclusion of prepdir-generated files.
+
+### Changed
+- Bumped version to `0.13.0`.
+- Updated `__version__` in `src/prepdir/__init__.py` to `"0.13.0"`.
+
+### Links
+- [README](https://github.com/eyecantell/prepdir/blob/main/README.md)
+- [GitHub Repository](https://github.com/eyecantell/prepdir)
+- [PyPI](https://pypi.org/project/prepdir/)
+- [Dynaconf Documentation](https://dynaconf.com)
+
 ## [0.12.0] - 2025-06-13
 
 ### Added
