@@ -129,16 +129,19 @@ def test_scrub_uuids():
 
 def test_traverse_directory_content(tmp_path, capsys):
     """Test UUID content traversal with directory content."""
+
     project_dir = tmp_path / "project"
     project_dir.mkdir()
     test_file = project_dir / "test.txt"
-    test_file.write_text("""
-    ID: 123e4567-e89b-12d3-a456-426614174000
-    Another: 00000000-0000-0000-0000-000000000000
-    Embedded: prefix123e4567-e89b-12d3-a456-426614174000suffix
+    legit_uuid = "123e4567-e89b-12d3-a456-426614174000"
+    test_file.write_text(f"""
+    ID: {legit_uuid}
+    Another: {legit_uuid}
+    Embedded: prefix{legit_uuid}suffix
     """)
     output_file = tmp_path / "output.txt"
     
+    replacement_uuid="00000000-0000-0000-0000-000000000000"
     # Test default scrubbing
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
         traverse_directory(
@@ -151,12 +154,13 @@ def test_traverse_directory_content(tmp_path, capsys):
             output_file=str(output_file),
             include_prepdir_files=False,
             scrub_uuids_enabled=True,
-            replacement_uuid="00000000-0000-0000-0000-000000000000"
+            replacement_uuid=replacement_uuid
         )
     captured = mock_stdout.getvalue()
-    assert "ID: 00000000-0000-0000-0000-000000000000" in captured
-    assert "Another: 00000000-0000-0000-0000-000000000000" in captured
-    assert "Embedded: prefix123e4567-e89b-12d3-a456-426614174000suffix" in captured
+    print(f"{captured=}")
+    assert f"ID: {replacement_uuid}" in captured
+    assert f"Another: {replacement_uuid}" in captured
+    assert f"Embedded: prefix{legit_uuid}suffix" in captured
     
     # Test disabled scrubbing
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
@@ -173,9 +177,10 @@ def test_traverse_directory_content(tmp_path, capsys):
             replacement_uuid="00000000-0000-0000-0000-000000000000"
         )
     captured = mock_stdout.getvalue()
-    assert "ID: 123e4567-e89b-12d3-a456-426614174000" in captured
-    assert "Another: 00000000-0000-0000-0000-000000000000" in captured
-    assert "Embedded: prefix123e4567-e89b-12d3-a456-426614174000suffix" in captured
+    print(f"{captured=}")
+    assert f"ID: {legit_uuid}" in captured
+    assert f"Another: {legit_uuid}" in captured
+    assert f"Embedded: prefix{legit_uuid}suffix" in captured
     
     # Test custom replacement UUID
     custom_uuid = "11111111-1111-1111-1111-111111111111"

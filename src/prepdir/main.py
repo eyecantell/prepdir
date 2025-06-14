@@ -178,7 +178,7 @@ def traverse_directory(directory, extensions=None, excluded_dirs=None, excluded_
                 any_uuids_scrubbed = True
     
     if any_uuids_scrubbed and scrub_uuids_enabled:
-        print("Note: UUIDs in file contents have been scrubbed and replaced with the configured replacement UUID.")
+        print(f"Note: UUIDs in file contents have been scrubbed and replaced with '{replacement_uuid}'.")
     
     if not files_found:
         if extensions:
