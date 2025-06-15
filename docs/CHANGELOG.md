@@ -4,22 +4,36 @@ All notable changes to `prepdir` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.13.0] - 2025-06-13
-
-### Added
-- New `run()` function in `prepdir.main` for programmatic use, allowing other Python projects to import and use `prepdir` as a library. The function mirrors CLI functionality, accepting parameters for directory, extensions, output file, and more, and returns formatted content as a string. Accessible via `from prepdir import run`.
-- New `validate_output_file()` function in `prepdir.main` to verify the legitimacy of prepdir-generated output files (e.g., `prepped_dir.txt`). It checks for a valid header, matching `Begin File` and `End File` pairs, and correct delimiters. Accessible via `from prepdir import validate_output_file`.
-- Tests for `run()` function in `tests/test_main.py`, covering successful execution, output file writing, UUID scrubbing, error handling, and inclusion of prepdir-generated files.
-- Tests for `validate_output_file()` in `tests/test_main.py`, covering valid files, missing footers, unmatched headers/footers, invalid headers, and malformed delimiters.
-
-### Changed
-- Updated `__version__` in `src/prepdir/__init__.py` to `"0.13.0"`.
-
 ### Links
 - [README](https://github.com/eyecantell/prepdir/blob/main/README.md)
 - [GitHub Repository](https://github.com/eyecantell/prepdir)
 - [PyPI](https://pypi.org/project/prepdir/)
 - [Dynaconf Documentation](https://dynaconf.com)
+
+## [0.13.0] - 2025-06-14
+
+### Added
+- New `run()` function in `prepdir.main` for programmatic use, allowing other Python projects to import and use `prepdir` as a library. Mirrors CLI functionality, accepting parameters for directory, extensions, output file, and more, returning formatted content as a string. Accessible via `from prepdir import run`.
+- New `validate_output_file()` function in `prepdir.main` to verify the legitimacy of prepdir-generated output files (e.g., `prepped_dir.txt`). Checks for valid headers, matching `Begin File` and `End File` pairs, and correct delimiters. Accessible via `from prepdir import validate_output_file`.
+- Support for environment variable `TEST_ENV` to skip default config files during testing.
+- Debug logging for configuration loading steps, including attempted files and final config values (`SCRUB_UUIDS`, `REPLACEMENT_UUID`).
+- Tests for `run()` respecting `SCRUB_UUIDS` and `REPLACEMENT_UUID` from `config.yaml`, CLI overrides, and general functionality (successful execution, output file writing, error handling, inclusion of prepdir-generated files).
+- Tests for `validate_output_file()` covering valid files, missing footers, unmatched headers/footers, invalid headers, and malformed delimiters.
+- Tests for ignoring real config files when `TEST_ENV=true` and custom config path excluding bundled config.
+
+### Changed
+- Standardized logging format to `%(asctime)s - %(name)s - %(levelname)s - %(message)s` with default level `INFO`.
+- Configuration loading prioritizes local `.prepdir/config.yaml` over home `~/.prepdir/config.yaml`.
+- Bundled config is now copied to a temporary file for `Dynaconf` compatibility, with cleanup afterward.
+- Disabled `Dynaconf` features: `load_dotenv`, `merge_enabled`, and `environments` for simpler config behavior.
+- Removed uppercase key validation (introduced in `0.10.0`) to allow flexible key casing.
+- Updated `run()` to allow `scrub_uuids` and `replacement_uuid` to be `None`, falling back to config defaults.
+- CLI argument descriptions for `--no-scrub-uuids` and `--replacement-uuid` clarify config fallback behavior.
+- Overhauled `tests/test_config.py` for isolated environments using `clean_cwd` fixture and updated assertions.
+- Updated `__version__` in `src/prepdir/__init__.py` to `"0.13.0"`.
+
+### Fixed
+- Ensured consistent handling of missing bundled config without logging errors when skipped.
 
 ## [0.12.0] - 2025-06-13
 

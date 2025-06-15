@@ -290,8 +290,8 @@ def run(
     config_path: str = None,
     verbose: bool = False,
     include_prepdir_files: bool = False,
-    scrub_uuids: bool = True,
-    replacement_uuid: str = "00000000-0000-0000-0000-000000000000"
+    scrub_uuids: bool = None,
+    replacement_uuid: str = None
 ) -> str:
     """
     Programmatically run prepdir to traverse a directory and prepare file contents.
@@ -304,8 +304,8 @@ def run(
         config_path (str): Path to custom configuration YAML file.
         verbose (bool): If True, log additional information about skipped files.
         include_prepdir_files (bool): If True, include prepdir-generated files.
-        scrub_uuids (bool): If True, scrub UUIDs in file contents.
-        replacement_uuid (str): UUID to replace detected UUIDs with.
+        scrub_uuids (bool): If True, scrub UUIDs in file contents; if None, use config value.
+        replacement_uuid (str): UUID to replace detected UUIDs with; if None, use config value.
 
     Returns:
         str: Formatted content of traversed files.
@@ -327,10 +327,21 @@ def run(
     excluded_dirs = [] if include_all else config.get('exclude.directories', [])
     excluded_files = [] if include_all else config.get('exclude.files', [])
 
+    # Log the loaded config values for debugging
+    logger.debug(f"Loaded REPLACEMENT_UUID from config: {config.get('REPLACEMENT_UUID', 'Not set')}")
+    logger.debug(f"Loaded SCRUB_UUIDS from config: {config.get('SCRUB_UUIDS', 'Not set')}")
+
+    # Use config values if arguments are not provided
+    scrub_uuids_enabled = config.get('SCRUB_UUIDS', True) if scrub_uuids is None else scrub_uuids
+    logger.debug(f"Scrub UUIDs enabled: {scrub_uuids_enabled}")
+    replacement_uuid_config = config.get('REPLACEMENT_UUID', "00000000-0000-0000-0000-000000000000")
+    replacement_uuid_final = replacement_uuid if replacement_uuid is not None else replacement_uuid_config
+    logger.debug(f"Final REPLACEMENT_UUID: {replacement_uuid_final}")
+
     # Validate replacement UUID
-    if not is_valid_uuid(replacement_uuid):
-        logger.error(f"Invalid replacement UUID: '{replacement_uuid}'. Using default nil UUID.")
-        replacement_uuid = "00000000-0000-0000-0000-000000000000"
+    if not is_valid_uuid(replacement_uuid_final):
+        logger.error(f"Invalid replacement UUID: '{replacement_uuid_final}'. Using default nil UUID.")
+        replacement_uuid_final = "00000000-0000-0000-0000-000000000000"
 
     # Capture output
     output = StringIO()
@@ -344,8 +355,8 @@ def run(
             verbose,
             output_file=output_file,
             include_prepdir_files=include_prepdir_files,
-            scrub_uuids_enabled=scrub_uuids,
-            replacement_uuid=replacement_uuid
+            scrub_uuids_enabled=scrub_uuids_enabled,
+            replacement_uuid=replacement_uuid_final
         )
     
     content = output.getvalue()
@@ -365,14 +376,14 @@ def main():
         description='Traverse directory and prepare file contents for review.'
     )
     parser.add_argument(
-        'directory', 
-        nargs='?', 
-        default='.', 
+        'directory',
+        nargs='?',
+        default='.',
         help='Directory to traverse (default: current directory)'
     )
     parser.add_argument(
-        '-e', '--extensions', 
-        nargs='+', 
+        '-e', '--extensions',
+        nargs='+',
         help='Filter files by extension(s) (without dot, e.g., "py txt")'
     )
     parser.add_argument(
@@ -387,7 +398,7 @@ def main():
     )
     parser.add_argument(
         '--config',
-        help='Path to configuration YAML file'
+        help='Path to custom configuration YAML file'
     )
     parser.add_argument(
         '-v', '--verbose',
@@ -412,11 +423,11 @@ def main():
     parser.add_argument(
         '--no-scrub-uuids',
         action='store_true',
-        help='Disable scrubbing of UUIDs in file contents (default: enabled)'
+        help='Disable scrubbing of UUIDs in file contents (default: per config)'
     )
     parser.add_argument(
         '--replacement-uuid',
-        help='Custom UUID to replace detected UUIDs (default: 00000000-0000-0000-0000-000000000000)'
+        help='Custom UUID to replace detected UUIDs with (default: per config)'
     )
     parser.add_argument(
         '--version',
@@ -442,8 +453,8 @@ def main():
             config_path=args.config,
             verbose=args.verbose,
             include_prepdir_files=args.include_prepdir_files,
-            scrub_uuids=not args.no_scrub_uuids,
-            replacement_uuid=args.replacement_uuid or "00000000-0000-0000-0000-000000000000"
+            scrub_uuids=None if not args.no_scrub_uuids else False,
+            replacement_uuid=args.replacement_uuid
         )
     except ValueError as e:
         print(f"Error: {str(e)}", file=sys.stderr)

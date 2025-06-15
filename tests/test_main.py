@@ -491,3 +491,108 @@ def test_validate_output_file_invalid_encoding(tmp_path):
     print(f"{result=}")
     assert result["is_valid"] == False
     assert "Missing or invalid prepdir header" in result["errors"][0]
+
+def test_run_config_uuid_scrubbing(tmp_path):
+    """Test run() function respects SCRUB_UUIDS from config.yaml."""
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    test_file = project_dir / "test.txt"
+    test_file.write_text("ID: 123e4567-e89b-12d3-a456-426614174000\n")
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    config_path.parent.mkdir()
+    config_path.write_text("""
+EXCLUDE:
+  DIRECTORIES: []
+  FILES: []
+SCRUB_UUIDS: true
+REPLACEMENT_UUID: "11111111-0000-0000-0000-000000000000"
+""")
+    
+    with patch("prepdir.main.load_config", return_value=type("MockDynaconf", (), {
+        "get": lambda self, key, default=None: {
+            "exclude.directories": [],
+            "exclude.files": [],
+            "SCRUB_UUIDS": True,
+            "REPLACEMENT_UUID": "11111111-0000-0000-0000-000000000000"
+        }.get(key, default)
+    })()):
+        content = run(
+            directory=str(project_dir),
+            extensions=["txt"],
+            config_path=str(config_path),
+            verbose=False
+        )
+    
+    assert "ID: 11111111-0000-0000-0000-000000000000" in content
+    assert "123e4567-e89b-12d3-a456-426614174000" not in content
+
+def test_run_config_no_uuid_scrubbing(tmp_path):
+    """Test run() function respects SCRUB_UUIDS: false from config.yaml."""
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    test_file = project_dir / "test.txt"
+    test_file.write_text("ID: 123e4567-e89b-12d3-a456-426614174000\n")
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    config_path.parent.mkdir()
+    config_path.write_text("""
+EXCLUDE:
+  DIRECTORIES: []
+  FILES: []
+SCRUB_UUIDS: false
+REPLACEMENT_UUID: "11111111-0000-0000-0000-000000000000"
+""")
+    
+    with patch("prepdir.main.load_config", return_value=type("MockDynaconf", (), {
+        "get": lambda self, key, default=None: {
+            "exclude.directories": [],
+            "exclude.files": [],
+            "SCRUB_UUIDS": False,
+            "REPLACEMENT_UUID": "11111111-0000-0000-0000-000000000000"
+        }.get(key, default)
+    })()):
+        content = run(
+            directory=str(project_dir),
+            extensions=["txt"],
+            config_path=str(config_path),
+            verbose=False
+        )
+    
+    assert "ID: 123e4567-e89b-12d3-a456-426614174000" in content
+    assert "11111111-0000-0000-0000-000000000000" not in content
+
+def test_run_config_uuid_override(tmp_path):
+    """Test run() function overrides config.yaml UUID settings with arguments."""
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    test_file = project_dir / "test.txt"
+    test_file.write_text("ID: 123e4567-e89b-12d3-a456-426614174000\n")
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    config_path.parent.mkdir()
+    config_path.write_text("""
+EXCLUDE:
+  DIRECTORIES: []
+  FILES: []
+SCRUB_UUIDS: true
+REPLACEMENT_UUID: "11111111-0000-0000-0000-000000000000"
+""")
+    
+    with patch("prepdir.main.load_config", return_value=type("MockDynaconf", (), {
+        "get": lambda self, key, default=None: {
+            "exclude.directories": [],
+            "exclude.files": [],
+            "SCRUB_UUIDS": True,
+            "REPLACEMENT_UUID": "11111111-0000-0000-0000-000000000000"
+        }.get(key, default)
+    })()):
+        content = run(
+            directory=str(project_dir),
+            extensions=["txt"],
+            config_path=str(config_path),
+            scrub_uuids=False,
+            replacement_uuid="22222222-0000-0000-0000-000000000000",
+            verbose=False
+        )
+    
+    assert "ID: 123e4567-e89b-12d3-a456-426614174000" in content
+    assert "11111111-0000-0000-0000-000000000000" not in content
+    assert "22222222-0000-0000-0000-000000000000" not in content

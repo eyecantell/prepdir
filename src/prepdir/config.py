@@ -1,96 +1,97 @@
-import sys
+import os
 import logging
-from pathlib import Path
 from dynaconf import Dynaconf
+from pathlib import Path
+import sys
+from typing import Optional
 
-# Conditional import for Python <3.9 compatibility
 if sys.version_info < (3, 9):
-    import importlib_resources as resources
+    from importlib_resources import files
 else:
-    from importlib import resources
+    from importlib.resources import files
 
+# Configure logging to ensure debug messages are visible
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def load_config(tool_name: str, config_path: str = None) -> Dynaconf:
+def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
     """
-    Load configuration for a tool with precedence:
-    1. Custom config specified via config_path (--config)
-    2. Local .{tool_name}/config.yaml in current directory
-    3. Global ~/.{tool_name}/config.yaml in home directory
-    4. Bundled src/{tool_name}/config.yaml in package
+    Load configuration for the given namespace, with optional custom config path.
 
     Args:
-        tool_name: Name of the tool (e.g., 'prepdir', 'vibedir', 'applydir')
-        config_path: Path to custom config file (optional)
+        namespace (str): Namespace for the configuration (e.g., 'prepdir').
+        config_path (Optional[str]): Path to a custom configuration file.
 
     Returns:
-        Dynaconf instance containing the configuration
-
-    Raises:
-        ValueError: If lowercase configuration keys are detected, with guidance to update to uppercase
+        Dynaconf: Configuration object with loaded settings.
     """
+    # Initialize settings_files based on whether custom config_path is provided
     settings_files = []
-    
-    # 1. Custom config (highest precedence)
     if config_path:
-        settings_files.append(config_path)
+        settings_files = [config_path]
+        logger.debug(f"Using custom config path: {config_path}")
+    elif os.getenv('TEST_ENV') != 'true':
+        # Prioritize local config first
+        local_config = '.prepdir/config.yaml'
+        home_config = os.path.expanduser('~/.prepdir/config.yaml')
+        if Path(local_config).exists():
+            settings_files.append(local_config)
+            logger.debug(f"Found local config: {local_config}")
+        else:
+            logger.debug(f"No local config found at: {local_config}")
+        if Path(home_config).exists():
+            settings_files.append(home_config)
+            logger.debug(f"Found home config: {home_config}")
+        else:
+            logger.debug(f"No home config found at: {home_config}")
+        if not settings_files:
+            logger.debug("No local or home config found, will attempt bundled config")
+        else:
+            logger.debug("Loading default config files")
     else:
-        # 2. Local config (e.g., .prepdir/config.yaml)
-        settings_files.append(f".{tool_name}/config.yaml")
-        
-        # 3. Global config (e.g., ~/.prepdir/config.yaml)
-        settings_files.append(str(Path.home() / f".{tool_name}" / "config.yaml"))
-        
-        # 4. Bundled config (e.g., src/prepdir/config.yaml)
-        try:
-            with resources.files(tool_name).joinpath("config.yaml") as bundled:
-                settings_files.append(str(bundled))
-        except Exception as e:
-            logger.warning(f"Failed to load bundled config for {tool_name}: {e}")
+        logger.debug("Skipping default config files due to TEST_ENV=true")
 
-    # Initialize Dynaconf with the settings files
+    # Log skipping bundled config if TEST_ENV is set or custom config_path is provided
+    bundled_config_path = None
+    if os.getenv('TEST_ENV') == 'true' or config_path or settings_files:
+        logger.debug("Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files")
+    else:
+        try:
+            bundled_config = files(namespace) / 'config.yaml'
+            logger.debug(f"Attempting to load bundled config from: {bundled_config}")
+            with bundled_config.open('r', encoding='utf-8') as f:
+                # Create a temporary file for Dynaconf to read the bundled config
+                temp_bundled_path = Path(f"/tmp/{namespace}_bundled_config.yaml")
+                temp_bundled_path.write_text(f.read(), encoding='utf-8')
+                settings_files.append(str(temp_bundled_path))
+                bundled_config_path = temp_bundled_path
+                logger.debug(f"Loaded bundled config into temporary file: {temp_bundled_path}")
+        except Exception as e:
+            logger.warning(f"Failed to load bundled config for {namespace}: {str(e)}")
+
+    # Initialize Dynaconf with explicit settings files
+    logger.debug(f"Initializing Dynaconf with settings files: {settings_files}")
     config = Dynaconf(
         settings_files=settings_files,
-        envvar_prefix=tool_name.upper(),
-        load_dotenv=True,
-        merge_enabled=True,  # Merge configs from multiple files
-        root_path=Path.cwd(),
-        lowercase_read=True,  # Allow lowercase key access
+        environments=False,  # Disable environment-based configs
+        load_dotenv=False,  # Disable .env file loading
+        merge_enabled=False,  # Disable merging to prevent appending
+        lowercase_read=True,  # Allow case-insensitive key access
+        default_settings_paths=[],  # Prevent default configs
     )
-    
-    # Validate configuration keys for uppercase requirement
-    for file_path in settings_files:
-        file_path = Path(file_path)
-        if file_path.exists():
-            try:
-                with file_path.open('r', encoding='utf-8') as f:
-                    import yaml
-                    config_data = yaml.safe_load(f)
-                    if config_data:
-                        # Check for lowercase keys
-                        lowercase_keys = [key for key in config_data.keys() if key.islower()]
-                        if lowercase_keys:
-                            raise ValueError(
-                                f"Lowercase configuration keys {lowercase_keys} found in {file_path}. "
-                                "Starting with version 0.10.0, prepdir requires uppercase keys (e.g., 'EXCLUDE' instead of 'exclude', "
-                                "'DIRECTORIES' instead of 'directories', 'FILES' instead of 'files'). "
-                                "Please update your configuration file to use uppercase keys. "
-                                "See https://github.com/eyecantell/prepdir#configuration for details."
-                            )
-                        # Check nested keys under EXCLUDE
-                        exclude_data = config_data.get('EXCLUDE') or config_data.get('exclude', {})
-                        nested_lowercase_keys = [key for key in exclude_data.keys() if key.islower()]
-                        if nested_lowercase_keys:
-                            raise ValueError(
-                                f"Lowercase configuration keys {nested_lowercase_keys} found under 'EXCLUDE' in {file_path}. "
-                                "Starting with version 0.10.0, prepdir requires uppercase keys (e.g., 'DIRECTORIES' instead of 'directories', "
-                                "'FILES' instead of 'files'). "
-                                "Please update your configuration file to use uppercase keys. "
-                                "See https://github.com/eyecantell/prepdir#configuration for details."
-                            )
-            except yaml.YAMLError as e:
-                logger.error(f"Invalid YAML in {file_path}: {e}")
-                raise
-    
-    logger.debug(f"Attempted config files for {tool_name}: {settings_files}")
+
+    # Log the final configuration values for debugging
+    logger.debug(f"Final config values: REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}, SCRUB_UUIDS={config.get('SCRUB_UUIDS', 'Not set')}")
+
+    # Clean up temporary bundled config file if it was created
+    if bundled_config_path and bundled_config_path.exists():
+        try:
+            bundled_config_path.unlink()
+            logger.debug(f"Removed temporary bundled config: {bundled_config_path}")
+        except Exception as e:
+            logger.debug(f"Failed to remove temporary bundled config: {str(e)}")
+
+    # Log the config files attempted
+    logger.debug(f"Attempted config files for {namespace}: {settings_files}")
+
     return config
