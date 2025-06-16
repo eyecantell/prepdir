@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 - Ensured consistent handling of missing bundled config without logging errors when skipped.
+- Fixed `LOGLEVEL` environment variable not applying debug logging by explicitly configuring logging in `main.py`.
 
 ## [0.12.0] - 2025-06-13
 

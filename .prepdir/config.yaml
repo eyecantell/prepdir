@@ -1,0 +1,39 @@
+EXCLUDE:
+  DIRECTORIES:
+  - .git
+  - __pycache__
+  - .pdm-build
+  - .venv
+  - venv
+  - .idea
+  - node_modules
+  - dist
+  - build
+  - .pytest_cache
+  - .mypy_cache
+  - .cache
+  - .eggs
+  - .tox
+  - '*.egg-info'
+  FILES:
+  - .gitignore
+  - .prepdir/config.yaml
+  - ~/.prepdir/config.yaml
+  - LICENSE
+  - .DS_Store
+  - Thumbs.db
+  - .env
+  - .env.production
+  - .coverage
+  - coverage.xml
+  - .pdm-python
+  - pdm.lock
+  - '*.pyc'
+  - '*.pyo'
+  - '*.log'
+  - '*.bak'
+  - '*.swp'
+  - '**/*.log'
+LOAD_DOTENV: true
+REPLACEMENT_UUID: 123e4567-e89b-12d3-a456-426614174000
+SCRUB_UUIDS: false

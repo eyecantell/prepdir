@@ -17,6 +17,8 @@ EXCLUDE:
     - "*.egg-info"
   FILES:
     - .gitignore
+    - .prepdir/config.yaml
+    - ~/.prepdir/config.yaml
     - LICENSE
     - .DS_Store
     - Thumbs.db
