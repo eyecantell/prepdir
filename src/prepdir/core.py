@@ -44,6 +44,8 @@ DELIMITER = "=-=-=-=-=-=-=-="
 HEADER_PATTERN = re.compile(rf"^{DELIMITER} Begin File: '(.*?)' {DELIMITER}$")
 FOOTER_PATTERN = re.compile(rf"^{DELIMITER} End File: '(.*?)' {DELIMITER}$")
 GENERATED_HEADER_PATTERN = re.compile(r"^File listing generated \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+ by prepdir( version \d+\.\d+\.\d+)? \(pip install prepdir\)$")
+PARTIAL_HEADER_PATTERN = re.compile(rf"^{DELIMITER} Begin File:")
+PARTIAL_FOOTER_PATTERN = re.compile(rf"^{DELIMITER} End File:")
 
 def is_valid_uuid(value: str) -> bool:
     """Check if a string is a valid UUID."""
@@ -153,9 +155,7 @@ def validate_output_file(file_path: str) -> dict:
 
         for line_number, line in enumerate(lines, 1):
             line = line.strip()
-
-            # Skip empty lines or content lines
-            if not line or (not HEADER_PATTERN.match(line) and not FOOTER_PATTERN.match(line)):
+            if not line:
                 continue
 
             # Check for header
@@ -182,9 +182,13 @@ def validate_output_file(file_path: str) -> dict:
                         open_headers.pop()
                 continue
 
-            # If line matches neither header nor footer but looks like a delimiter
-            if DELIMITER in line:
-                warnings.append(f"Line {line_number}: Malformed header or footer: '{line}'")
+            # Check for partial header or footer (starts with pattern but doesn't match fully)
+            if PARTIAL_HEADER_PATTERN.match(line) and not HEADER_PATTERN.match(line):
+                warnings.append(f"Line {line_number}: Malformed header: '{line}'")
+                continue
+            if PARTIAL_FOOTER_PATTERN.match(line) and not FOOTER_PATTERN.match(line):
+                warnings.append(f"Line {line_number}: Malformed footer: '{line}'")
+                continue
 
         # Check for unclosed headers
         for file_path, header_line in open_headers:

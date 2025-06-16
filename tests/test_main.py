@@ -24,23 +24,39 @@ def custom_config(tmp_path):
     config_file.write_text(yaml.safe_dump(config_content))
     return config_file
 
+@pytest.fixture
+def uuid_test_file(tmp_path):
+    """Create a test file with UUIDs."""
+    file = tmp_path / "test.txt"
+    file.write_text("UUID: 12345678-1234-5678-1234-567812345678\nHyphenless: 12345678123456781234567812345678")
+    return file
+
 def test_main_version(capsys):
     """Test main() with --version flag."""
     with patch.object(sys, 'argv', ['prepdir', '--version']):
         with pytest.raises(SystemExit) as exc:
             main()
         assert exc.value.code == 0
-        captured = capsys.readouterr()
-        assert "prepdir 0.13.0" in captured.out
+    captured = capsys.readouterr()
+    assert "prepdir 0.13.0" in captured.out
 
-def test_main_no_scrub_hyphenless_uuids(tmp_path, capsys, custom_config):
+def test_main_no_scrub_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_test_file):
     """Test main() with --no-scrub-hyphenless-uuids preserves hyphenless UUIDs."""
-    test_file = tmp_path / "test.txt"
-    test_file.write_text("Hyphenless: 00000000000000000000000000000000")
-    with patch.object(sys, 'argv', ['prepdir', str(tmp_path), '--no-scrub-hyphenless-uuids', '-o', str(tmp_path / "prepped_dir.txt"), '--config', str(custom_config)]):
+    output_file = tmp_path / "prepped_dir.txt"
+    with patch.object(sys, 'argv', ['prepdir', str(tmp_path), '--no-scrub-hyphenless-uuids', '-o', str(output_file), '--config', str(custom_config)]):
         main()
-    content = (tmp_path / "prepped_dir.txt").read_text()
+    content = output_file.read_text()
+    assert "Hyphenless: 12345678123456781234567812345678" in content
+    assert "UUID: 00000000-0000-0000-0000-000000000000" in content
+
+def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_test_file):
+    """Test main() with default hyphenless UUID scrubbing from config."""
+    output_file = tmp_path / "prepped_dir.txt"
+    with patch.object(sys, 'argv', ['prepdir', str(tmp_path), '-o', str(output_file), '--config', str(custom_config)]):
+        main()
+    content = output_file.read_text()
     assert "Hyphenless: 00000000000000000000000000000000" in content
+    assert "UUID: 00000000-0000-0000-0000-000000000000" in content
 
 def test_main_init_config(capfd, tmp_path):
     """Test init_config creates a config file."""
@@ -64,7 +80,7 @@ def test_main_init_config_force(capfd, tmp_path):
     assert f"Created '{config_path}' with default configuration." in captured.out
     assert config_path.exists()
     content = config_path.read_text()
-    assert "EXCLUDE" in content  # Check that default config was written
+    assert "EXCLUDE" in content
 
 def test_main_init_config_exists(capfd, tmp_path):
     """Test init_config fails if config exists without force=True."""

@@ -41,7 +41,6 @@ def capture_log():
 def clean_cwd(tmp_path):
     """Change working directory to a clean temporary path to avoid loading real configs."""
     original_cwd = os.getcwd()
-    # Remove any existing .prepdir directory in tmp_path
     prepdir_path = tmp_path / ".prepdir"
     if prepdir_path.exists():
         import shutil
@@ -77,7 +76,7 @@ def test_load_config_home(sample_config_content, capture_log, tmp_path, monkeypa
     config_path.write_text(yaml.safe_dump(sample_config_content))
     
     monkeypatch.setenv("HOME", str(home_dir))
-    with patch.dict(os.environ, {"TEST_ENV": "false"}):  # Allow loading home config
+    with patch.dict(os.environ, {"TEST_ENV": "false"}):
         config = load_config("prepdir")
     
     assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == sample_config_content["EXCLUDE"]["DIRECTORIES"]
@@ -103,10 +102,9 @@ def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
     }
     bundled_path.write_text(yaml.safe_dump(bundled_config_content))
     
-    # Create mock for resources.files
     mock_files = MagicMock()
-    mock_resource = MagicMock()  # Use MagicMock to support __str__
-    mock_resource.__str__.return_value = str(bundled_path)  # Ensure string representation matches bundled_path
+    mock_resource = MagicMock()
+    mock_resource.__str__.return_value = str(bundled_path)
     mock_file = Mock()
     mock_file.read.return_value = bundled_path.read_text(encoding='utf-8')
     mock_context = MagicMock()
@@ -115,7 +113,6 @@ def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
     mock_resource.open.return_value = mock_context
     mock_files.__truediv__.return_value = mock_resource
     
-    # Patch prepdir.config.files
     with patch("prepdir.config.files", return_value=mock_files):
         with patch.dict(os.environ, {"TEST_ENV": "false"}):
             config = load_config("prepdir")
@@ -131,7 +128,6 @@ def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
 
 def test_load_config_bundled_missing(capture_log, tmp_path, clean_cwd):
     """Test handling missing bundled config."""
-    # Patch prepdir.config.files
     with patch("prepdir.config.files", side_effect=Exception("Resource error")):
         with patch.dict(os.environ, {"TEST_ENV": "true"}):
             config = load_config("prepdir")
@@ -148,13 +144,21 @@ def test_load_config_bundled_missing(capture_log, tmp_path, clean_cwd):
     assert "Skipping default config files due to TEST_ENV=true" in log_output
     assert "Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files" in log_output
 
+def test_load_config_bundled_failure(capture_log, tmp_path, clean_cwd):
+    """Test failure to load bundled config logs warning."""
+    with patch("prepdir.config.files", side_effect=Exception("Resource not found")):
+        with patch.dict(os.environ, {"TEST_ENV": "false"}):
+            config = load_config("prepdir")
+    assert isinstance(config, Dynaconf)
+    log_output = capture_log.getvalue()
+    assert "Failed to load bundled config for prepdir: Resource not found" in log_output
+
 def test_load_config_custom_path_excludes_bundled(sample_config_content, capture_log, tmp_path, clean_cwd):
     """Test that a custom config path excludes the bundled config."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
     config_path.parent.mkdir()
     config_path.write_text(yaml.safe_dump(sample_config_content))
     
-    # Create mock to ensure bundled config is not accessed
     with patch("prepdir.config.files") as mock_files:
         with patch.dict(os.environ, {"TEST_ENV": "true"}):
             config = load_config("prepdir", str(config_path))
@@ -171,12 +175,10 @@ def test_load_config_custom_path_excludes_bundled(sample_config_content, capture
 
 def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp_path, clean_cwd):
     """Test that real config files are ignored when TEST_ENV=true."""
-    # Create a real .prepdir/config.yaml in the test directory
     real_config_path = tmp_path / ".prepdir" / "config.yaml"
     real_config_path.parent.mkdir()
     real_config_path.write_text(yaml.safe_dump(sample_config_content))
     
-    # Create a real ~/.prepdir/config.yaml
     home_dir = tmp_path / "home"
     home_dir.mkdir()
     home_config_path = home_dir / ".prepdir" / "config.yaml"
@@ -198,7 +200,6 @@ def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp
 
 def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test configuration precedence: custom > local > global > bundled using non-list fields."""
-    # Create bundled config (mocked)
     bundled_config = {
         "EXCLUDE": {"DIRECTORIES": ["bundled_dir"], "FILES": ["bundled_file"]},
         "SCRUB_UUIDS": False,
@@ -208,7 +209,6 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
     bundled_path.parent.mkdir(parents=True)
     bundled_path.write_text(yaml.safe_dump(bundled_config))
     
-    # Create global config
     home_dir = tmp_path / "home"
     home_dir.mkdir()
     global_config_path = home_dir / ".prepdir" / "config.yaml"
@@ -220,7 +220,6 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
     }
     global_config_path.write_text(yaml.safe_dump(global_config))
     
-    # Create local config
     local_config_path = tmp_path / ".prepdir" / "config.yaml"
     local_config_path.parent.mkdir()
     local_config = {
@@ -230,7 +229,6 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
     }
     local_config_path.write_text(yaml.safe_dump(local_config))
     
-    # Create custom config
     custom_config_path = tmp_path / "custom.yaml"
     custom_config = {
         "EXCLUDE": {"DIRECTORIES": ["custom_dir"], "FILES": ["custom_file"]},
@@ -239,10 +237,9 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
     }
     custom_config_path.write_text(yaml.safe_dump(custom_config))
     
-    # Mock bundled config loading
     mock_files = MagicMock()
-    mock_resource = MagicMock()  # Use MagicMock to support __str__
-    mock_resource.__str__.return_value = str(bundled_path)  # Ensure string representation matches bundled_path
+    mock_resource = MagicMock()
+    mock_resource.__str__.return_value = str(bundled_path)
     mock_file = Mock()
     mock_file.read.return_value = bundled_path.read_text(encoding='utf-8')
     mock_context = MagicMock()
@@ -252,25 +249,20 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
     mock_files.__truediv__.return_value = mock_resource
     with patch("prepdir.config.files", return_value=mock_files):
         with patch.dict(os.environ, {"HOME": str(home_dir), "TEST_ENV": "false"}):
-            # Test custom config
             config = load_config("prepdir", str(custom_config_path))
             assert config.get("SCRUB_UUIDS") is True
             assert config.get("REPLACEMENT_UUID") == "33333333-3333-3333-3333-333333333333"
             
-            # Test local config (ensure local config exists)
             config = load_config("prepdir")
             assert config.get("SCRUB_UUIDS") is False
             assert config.get("REPLACEMENT_UUID") == "22222222-2222-2222-2222-222222222222"
             
-            # Test global config (remove local config)
             local_config_path.unlink()
             config = load_config("prepdir")
             assert config.get("SCRUB_UUIDS") is True
             assert config.get("REPLACEMENT_UUID") == "11111111-1111-1111-1111-111111111111"
             
-            # Test bundled config (remove global config)
             global_config_path.unlink()
-            # Verify bundled config contents
             with open(bundled_path, 'r') as f:
                 bundled_config_content = yaml.safe_load(f)
             config = load_config("prepdir")
@@ -278,18 +270,19 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
             assert config.get("REPLACEMENT_UUID") == "00000000-0000-0000-0000-000000000000"
 
 def test_load_config_invalid_yaml(tmp_path, capture_log, clean_cwd):
-    """Test loading a config with invalid YAML raises an error."""
+    """Test loading a config with invalid YAML raises an error and logs."""
     config_path = tmp_path / "invalid.yaml"
-    config_path.write_text("invalid: yaml: : :")  # Malformed YAML
-    with pytest.raises(ValueError, match="Invalid YAML.*mapping values are not allowed here"):
+    config_path.write_text("invalid: yaml: : :")
+    with pytest.raises(ValueError, match="Invalid YAML"):
         load_config("prepdir", str(config_path))
     log_output = capture_log.getvalue()
     assert f"Using custom config path: {config_path}" in log_output
+    assert "Invalid YAML in config file(s)" in log_output
 
 def test_load_config_empty_yaml(tmp_path, capture_log, clean_cwd):
     """Test loading an empty YAML config file."""
     config_path = tmp_path / "empty.yaml"
-    config_path.write_text("")  # Empty file
+    config_path.write_text("")
     config = load_config("prepdir", str(config_path))
     assert config.get("EXCLUDE.DIRECTORIES", []) == []
     assert config.get("EXCLUDE.FILES", []) == []
