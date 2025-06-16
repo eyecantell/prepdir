@@ -77,18 +77,17 @@ def test_load_config_home(sample_config_content, capture_log, tmp_path, monkeypa
     config_path.write_text(yaml.safe_dump(sample_config_content))
     
     monkeypatch.setenv("HOME", str(home_dir))
-    with patch.dict(os.environ, {"TEST_ENV": "true"}):
+    with patch.dict(os.environ, {"TEST_ENV": "false"}):  # Allow loading home config
         config = load_config("prepdir")
     
-    assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == []
-    assert config.get("EXCLUDE", {}).get("FILES", []) == []
-    assert config.get("SCRUB_UUIDS", True) is True
-    assert config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000") == "00000000-0000-0000-0000-000000000000"
+    assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == sample_config_content["EXCLUDE"]["DIRECTORIES"]
+    assert config.get("EXCLUDE", {}).get("FILES", []) == sample_config_content["EXCLUDE"]["FILES"]
+    assert config.get("SCRUB_UUIDS", True) is sample_config_content["SCRUB_UUIDS"]
+    assert config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000") == sample_config_content["REPLACEMENT_UUID"]
     
     log_output = capture_log.getvalue()
-    assert f"Attempted config files for prepdir: []" in log_output
-    assert "Skipping default config files due to TEST_ENV=true" in log_output
-    assert "Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files" in log_output
+    assert f"Attempted config files for prepdir: ['{config_path}']" in log_output
+    assert f"Found home config: {config_path}" in log_output
 
 def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
     """Test loading bundled configuration."""
