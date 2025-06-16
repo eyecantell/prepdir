@@ -8,11 +8,10 @@
 
 A lightweight CLI and library utility to prepare your code project for AI assistants, formatting file contents with clear separators for easy sharing. **Get Started**: [Quick Start](#-quick-start)
 
+## Contents
 ```
 prepdir -e py md -o ai_review.txt
 ```
-
-## 📋 Contents
 
 - [What's New](#-whats-new)
 - [Quick Start](#-quick-start)
@@ -23,20 +22,18 @@ prepdir -e py md -o ai_review.txt
 - [Why Use prepdir?](#-why-use-prepdir)
 - [Common Use Cases](#-common-use-cases)
 - [Advanced Options](#-advanced-options)
-- [For Developers](#-for-developers)
-- [Troubleshooting](#-troubleshooting)
+- [Development](#-development)
 - [FAQ](#-faq)
-- [Contributing](#-contributing)
-- [License](#-license)
 
 ## 📰 What's New
 
 ### 0.13.0
 - Added `run()` and `validate_output_file()` functions for programmatic use, enabling `prepdir` as a library (`from prepdir import run, validate_output_file`).
 - Improved configuration loading: local `.prepdir/config.yaml` now takes precedence over `~/.prepdir/config.yaml`, with `TEST_ENV=true` skipping defaults for testing.
-- Removed uppercase key requirement for `config.yaml` (introduced in `0.10.0`).
+- Removed uppercase key requirement for `config.yaml` (introduced in 0.10.0).
 - Standardized logging with `LOGLEVEL` environment variable (e.g., `LOGLEVEL=DEBUG prepdir`).
 - CLI arguments `--no-scrub-uuids` and `--replacement-uuid` now override `config.yaml` settings, with config as default otherwise.
+- Added support for scrubbing hyphen-less UUIDs via `SCRUB_HYPHENLESS_UUIDS` in `config.yaml` and `--no-scrub-hyphenless-uuids` CLI flag.
 - Enhanced tests for configuration and programmatic functionality.
 
 ### 0.12.0
@@ -78,19 +75,16 @@ print(content)  # Use the content directly
 ## 📦 Installation
 
 ### **Using pip (Recommended)**
-
 ```bash
 pip install prepdir
 ```
 
 ### **From GitHub**
-
 ```bash
 pip install git+https://github.com/eyecantell/prepdir.git
 ```
 
-### **For Development**
-
+### **From Source**
 ```bash
 git clone https://github.com/eyecantell/prepdir.git
 cd prepdir
@@ -100,7 +94,6 @@ pip install -e .
 ## 💡 Usage Examples
 
 ### **CLI Usage**
-
 ```bash
 # Output all files to prepped_dir.txt (UUIDs scrubbed per config)
 prepdir
@@ -108,10 +101,7 @@ prepdir
 # Include only Python files
 prepdir -e py
 
-# Include Python and Markdown files
-prepdir -e py md
-
-# Use a custom output file
+# Save output to a custom file
 prepdir -o my_project.txt
 
 # Include prepdir-generated files
@@ -119,6 +109,9 @@ prepdir --include-prepdir-files -o project_with_outputs.txt
 
 # Disable UUID scrubbing (overrides config)
 prepdir --no-scrub-uuids -o unscrubbed.txt
+
+# Disable hyphen-less UUID scrubbing (overrides config)
+prepdir --no-scrub-hyphenless-uuids -o no_hyphenless_scrub.txt
 
 # Use a custom replacement UUID (overrides config)
 prepdir --replacement-uuid 123e4567-e89b-12d3-a456-426614174000 -o custom_uuid.txt
@@ -128,9 +121,7 @@ prepdir /path/to/directory
 ```
 
 ### **Programmatic Usage**
-
 Use `prepdir` as a library in another Python project:
-
 ```python
 from prepdir import run, validate_output_file
 
@@ -147,7 +138,8 @@ content = run(
     directory="/path/to/project",
     extensions=["py"],
     output_file="project_review.txt",
-    scrub_uuids=False
+    scrub_uuids=False,
+    scrub_hyphenless_uuids=False
 )
 
 # Include all files, ignoring exclusions
@@ -167,95 +159,70 @@ else:
 ```
 
 ### **Sample Output**
-
 ```plaintext
-File listing generated 2025-06-14 23:24:00.123456 by prepdir (pip install prepdir)
+File listing generated 2025-06-14 23:24:00.123456 by prepdir version 0.13.0 (pip install prepdir)
 Base directory is '/path/to/project'
 =-=-=-=-=-=-=-= Begin File: 'src/main.py' =-=-=-=-=-=-=-=
 print("Hello, World!")
 =-=-=-=-=-=-=-= End File: 'src/main.py' =-=-=-=-=-=-=-=
+
 =-=-=-=-=-=-=-= Begin File: 'README.md' =-=-=-=-=-=-=-=
-# My Project
 This is a sample project.
+# Sample Header
+- Item 1
+- Item 2
 =-=-=-=-=-=-=-= End File: 'README.md' =-=-=-=-=-=-=-=
 ```
 
-## ⚙️ Configuration
-
-`prepdir` uses [Dynaconf](https://dynaconf.com) for flexible and robust configuration management, allowing seamless handling of settings across projects.
-
 ### **Configuration Precedence**
-
 1. **Custom config**: Specified with `--config` or `config_path` (highest precedence)
 2. **Local config**: `.prepdir/config.yaml` in your project directory
 3. **Global config**: `~/.prepdir/config.yaml` in your home directory
-4. **Bundled config**: Built-in at `src/prepdir/config.yaml` (lowest precedence, used if no other configs exist)
+4. **Bundled config**: Built-in at `src/prepdir/config.yaml` (lowest precedence)
 
 When `TEST_ENV=true`, default config files (local and global) are skipped for testing purposes.
 
 ### **Default Exclusions**
-
-`prepdir` skips common irrelevant files and directories, such as:
-
 - Version control: `.git`
-- Build artifacts: `dist`, `build`
-- Cache directories: `__pycache__`, `.pytest_cache`
-- Virtual environments: `.venv`, `venv`
+- Cache files: `__pycache__`, `.pytest_cache`, `.mypy_cache`
+- Build artifacts: `dist`, `build`, `*.egg-info`
 - IDE files: `.idea`
 - Dependencies: `node_modules`
 - Temporary files: `*.pyc`, `*.log`
 - `prepdir`-generated files: Files like `prepped_dir.txt` (unless `--include-prepdir-files` or `include_prepdir_files=True` is used)
+- Config files: `.prepdir/config.yaml`, `~/.prepdir/config.yaml`
 
 ### **UUID Scrubbing**
-
-By default, `prepdir` scrubs UUIDs in file contents, replacing them with `00000000-0000-0000-0000-000000000000` (per config). UUIDs are matched as standalone tokens (surrounded by word boundaries, e.g., whitespace or punctuation) to avoid replacing embedded strings. Configure via:
-
+By default, `prepdir` scrubs UUIDs in file contents, replacing them with `00000000-0000-0000-0000-000000000000` (per config). UUIDs are matched as standalone tokens (surrounded by word boundaries, e.g., whitespace or punctuation) to avoid replacing embedded strings. Hyphen-less UUIDs are also scrubbed by default (per `SCRUB_HYPHENLESS_UUIDS`). Configure via:
 - CLI: `--no-scrub-uuids` or `--replacement-uuid <uuid>` (overrides config)
-- Programmatic: `scrub_uuids=None` (uses config) or `scrub_uuids=False`, `replacement_uuid=None` (uses config) or `replacement_uuid="custom-uuid"`
-- `config.yaml`: `SCRUB_UUIDS` (boolean, default: `true`), `REPLACEMENT_UUID` (string, default: `"00000000-0000-0000-0000-000000000000"`)
+- CLI: `--no-scrub-hyphenless-uuids` to disable hyphen-less UUID scrubbing
+- Programmatic: `scrub_uuids=None` (uses config) or `scrub_uuids=False`, `replacement_uuid=None` (uses config) or `replacement_uuid="custom-uuid"`, `scrub_hyphenless_uuids=None` or `scrub_hyphenless_uuids=False`
+- `config.yaml`: `SCRUB_UUIDS` (boolean, default: `true`), `REPLACEMENT_UUID` (string, default: `"00000000-0000-0000-0000-000000000000"`), `SCRUB_HYPHENLESS_UUIDS` (boolean, default: `true`)
 
 ### **Creating a Config**
-
-Initialize a project-level config with default settings:
-
 ```bash
-# Create .prepdir/config.yaml
+# Initialize a local config
 prepdir --init
 
-# Overwrite existing config
-prepdir --init --force
-```
-
-### **Example config.yaml**
-
-```yaml
-EXCLUDE:
+# Or create manually
+mkdir .prepdir
+echo "EXCLUDE:
   DIRECTORIES:
     - .git
-    - __pycache__
-    - .venv
-    - node_modules
-    - dist
-    - "*.egg-info"
   FILES:
-    - .gitignore
-    - .DS_Store
-    - "*.pyc"
-    - "*.log"
+    - *.pyc
 SCRUB_UUIDS: true
-REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
+SCRUB_HYPHENLESS_UUIDS: true
+REPLACEMENT_UUID: \"00000000-0000-0000-0000-000000000000\"" > .prepdir/config.yaml
 ```
 
 ## 📜 Logging
-
 `prepdir` uses Python’s standard logging with a default level of `INFO` and format:
-
 ```
 %(asctime)s - %(name)s - %(levelname)s - %(message)s
 ```
 
 Control verbosity with the `LOGLEVEL` environment variable:
-
 ```bash
 LOGLEVEL=DEBUG prepdir
 ```
@@ -263,55 +230,49 @@ LOGLEVEL=DEBUG prepdir
 Valid `LOGLEVEL` values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
 
 Use verbose mode for additional details:
-
 ```bash
 prepdir -v
+# or
+from prepdir import run
+run(verbose=True)
 ```
 
 ## 🧐 Why Use prepdir?
-
 `prepdir` simplifies sharing code with AI assistants:
-
 - **Save Time**: Automates collecting and formatting project files.
 - **Provide Context**: Combines all relevant files into one structured file.
 - **Filter Automatically**: Excludes irrelevant files like caches, binaries, and `prepdir`-generated files.
-- **Protect Privacy**: Scrubs UUIDs by default to anonymize sensitive identifiers.
+- **Protect Privacy**: Scrubs UUIDs (including hyphen-less) by default to anonymize sensitive identifiers.
 - **Enhance Clarity**: Uses clear separators and relative paths for AI compatibility.
 - **Programmatic Access**: Use as a library to integrate with other tools or scripts.
 - **Streamline Workflow**: Optimizes code review, analysis, and documentation tasks.
 
 ## 🔍 Common Use Cases
-
-### **1. AI Code Review**
-
+1. **Code Review with AI**
 ```bash
-prepdir
-# Ask AI: "Review Python project described in file prepped_dir.txt for best practices"
+prepdir -e py -o code_review.txt
+# Ask AI: "Review my Python code for bugs and improvements"
 ```
 
-### **2. Project Analysis**
-
+2. **Debugging Help**
 ```bash
-prepdir --all -o full_project.txt
-# Ask AI: "Explain this project's architecture"
+prepdir -e py log -o debug_context.txt
+# Ask AI: "Help me debug errors in these logs and Python files"
 ```
 
-### **3. Bug Hunting**
-
+3. **Refactoring Suggestions**
 ```bash
-prepdir ./src/problematic_module -e py -o debug.txt
-# Ask AI: "Find the bug causing this error..."
+prepdir -e py -o refactor.txt
+# Ask AI: "Suggest refactoring improvements for this Python code"
 ```
 
-### **4. Documentation Generation**
-
+4. **Documentation Generation**
 ```bash
 prepdir -e py md rst -o docs_context.txt
 # Ask AI: "Generate detailed documentation for this project"
 ```
 
-### **5. Programmatic Integration**
-
+5. **Programmatic Integration**
 ```python
 from prepdir import run
 content = run(directory="src", extensions=["py"], output_file="code.txt")
@@ -319,7 +280,6 @@ content = run(directory="src", extensions=["py"], output_file="code.txt")
 ```
 
 ## 🔧 Advanced Options
-
 ```bash
 # Include all files, ignoring exclusions
 prepdir --all
@@ -330,35 +290,21 @@ prepdir --include-prepdir-files
 # Disable UUID scrubbing (overrides config)
 prepdir --no-scrub-uuids
 
+# Disable hyphen-less UUID scrubbing (overrides config)
+prepdir --no-scrub-hyphenless-uuids
+
 # Use a custom replacement UUID (overrides config)
 prepdir --replacement-uuid 123e4567-e89b-12d3-a456-426614174000
 
 # Use a custom config file
 prepdir --config custom_config.yaml
 
-# Enable verbose mode to debug exclusions
-prepdir -v
-
-# Show version
+# Check version
 prepdir --version
 ```
 
-## 👨‍💻 For Developers
-
-### **Development Setup**
-
-```bash
-git clone https://github.com/eyecantell/prepdir.git
-cd prepdir
-pdm install
-pdm run prepdir  # Run development version
-pdm run pytest   # Run tests
-```
-
 ### **Programmatic Use**
-
 Import `prepdir` in your Python project:
-
 ```python
 from prepdir import run, validate_output_file
 content = run(directory="/path/to/project", extensions=["py"], verbose=True)
@@ -366,30 +312,28 @@ result = validate_output_file("output.txt")
 ```
 
 ### **Configuration Management**
-
 The `load_config` function in `prepdir.config` uses Dynaconf for shared configuration across tools like `vibedir` and `applydir`, with the precedence described above.
 
-### **Building and Publishing**
-
+### **Development Setup**
 ```bash
-pdm build              # Build package
-pip install dist/*.whl # Install locally
-pdm publish            # Publish to PyPI (requires credentials)
+git clone https://github.com/eyecantell/prepdir.git
+cd prepdir
+pdm install
+pdm run prepdir  # Run development version
+pdm run pytest   # Run tests
+pdm publish      # Publish to PyPI (requires credentials)
 ```
 
-## ❓ Troubleshooting
-
 ### **Common Issues**
-
 - **No files found**: Verify directory path and file extensions (`-e` or `extensions`).
 - **Files missing**: Check exclusions in config with `-v` or `verbose=True`. Note that `prepdir`-generated files are excluded by default unless `--include-prepdir-files` or `include_prepdir_files=True` is used.
 - **UUIDs not scrubbed**: Ensure `--no-scrub-uuids` or `scrub_uuids=False` is not used and `SCRUB_UUIDS` is not set to `false` in the config. Verify the UUID is a standalone token.
-- **Invalid replacement UUID**: Check that `--replacement-uuid` or `REPLACEMENT_UUID` in the config is a valid UUID. Invalid UUIDs default to the nil UUID.
+- **Hyphen-less UUIDs not scrubbed**: Ensure `--no-scrub-hyphenless-uuids` or `scrub_hyphenless_uuids=False` is not used and `SCRUB_HYPHENLESS_UUIDS` is not set to `false`.
+- **Invalid replacement UUID**: Check that `--replacement-uuid` or `REPLACEMENT_UUID` is a valid UUID. Invalid UUIDs default to the nil UUID.
 - **Config errors**: Ensure valid YAML syntax in `config.yaml`.
 - **Command not found**: Confirm Python environment and PATH.
 
 ### **Verbose Mode**
-
 ```bash
 prepdir -v
 # or
@@ -398,7 +342,6 @@ run(verbose=True)
 ```
 
 ## 📝 FAQ
-
 **Q: What project sizes can prepdir handle?**  
 A: Effective for moderate projects (thousands of files). Use `-e` or `extensions` to filter large projects.
 
@@ -414,6 +357,9 @@ A: Use it if you need to include previously generated output files in a new outp
 **Q: Why are UUIDs replaced in my output?**  
 A: Starting with version 0.12.0, `prepdir` scrubs UUIDs by default. Use `--no-scrub-uuids` or `scrub_uuids=False` to disable, or configure `SCRUB_UUIDS: false` in `config.yaml`.
 
+**Q: Why are hyphen-less UUIDs replaced?**  
+A: Starting with version 0.13.0, `prepdir` scrubs hyphen-less UUIDs by default. Use `--no-scrub-hyphenless-uuids` or `scrub_hyphenless_uuids=False` to disable, or configure `SCRUB_HYPHENLESS_UUIDS: false`.
+
 **Q: Can I customize the replacement UUID?**  
 A: Yes, use `--replacement-uuid <uuid>` or `replacement_uuid="<uuid>"` in code, or set `REPLACEMENT_UUID` in `config.yaml`.
 
@@ -425,11 +371,3 @@ A: For versions <0.6.0, move `config.yaml` to `.prepdir/config.yaml` or use `--c
 
 **Q: Are glob patterns supported?**  
 A: Yes, use .gitignore-style patterns like `*.pyc` or `**/*.log` in configs.
-
-## 🤝 Contributing
-
-We welcome contributions! Check out our [GitHub Issues](https://github.com/eyecantell/prepdir/issues) or submit a pull request. See [CONTRIBUTING.md](https://github.com/eyecantell/prepdir/blob/main/CONTRIBUTING.md) for guidelines.
-
-## 📄 License
-
-MIT License - See [LICENSE](LICENSE) for details.
