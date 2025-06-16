@@ -13,37 +13,28 @@ else:
 logger = logging.getLogger(__name__)
 
 def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
-    """
-    Load configuration for the given namespace, with optional custom config path.
-
-    Args:
-        namespace (str): Namespace for the configuration (e.g., 'prepdir').
-        config_path (Optional[str]): Path to a custom configuration file.
-
-    Returns:
-        Dynaconf: Configuration object with loaded settings.
-    """
     settings_files = []
     if config_path:
         settings_files = [config_path]
         logger.debug(f"Using custom config path: {config_path}")
     elif os.getenv('TEST_ENV') != 'true':
-        local_config = '.prepdir/config.yaml'
-        home_config = os.path.expanduser('~/.prepdir/config.yaml')
-        if Path(local_config).exists():
-            settings_files.append(local_config)
-            logger.debug(f"Found local config: {local_config}")
-        else:
-            logger.debug(f"No local config found at: {local_config}")
-        if Path(home_config).exists():
-            settings_files.append(home_config)
+        home_config = Path(os.path.expanduser('~/.prepdir/config.yaml')).resolve()
+        local_config = Path('.prepdir/config.yaml').resolve()
+        # Prioritize global config first, then local config to ensure local overrides
+        if home_config.exists():
+            settings_files.append(str(home_config))
             logger.debug(f"Found home config: {home_config}")
         else:
             logger.debug(f"No home config found at: {home_config}")
+        if local_config.exists():
+            settings_files.append(str(local_config))
+            logger.debug(f"Found local config: {local_config}")
+        else:
+            logger.debug(f"No local config found at: {local_config}")
         if not settings_files:
             logger.debug("No local or home config found, will attempt bundled config")
         else:
-            logger.debug("Loading default config files")
+            logger.debug(f"Loading default config files in order: {settings_files}")
     else:
         logger.debug("Skipping default config files due to TEST_ENV=true")
 
@@ -64,16 +55,22 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
             logger.warning(f"Failed to load bundled config for {namespace}: {str(e)}")
 
     logger.debug(f"Initializing Dynaconf with settings files: {settings_files}")
-    config = Dynaconf(
-        settings_files=settings_files,
-        environments=False,
-        load_dotenv=False,
-        merge_enabled=False,
-        lowercase_read=True,
-        default_settings_paths=[],
-    )
-
-    logger.debug(f"Final config values: REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}, SCRUB_UUIDS={config.get('SCRUB_UUIDS', 'Not set')}")
+    try:
+        config = Dynaconf(
+            settings_files=settings_files,
+            environments=False,
+            load_dotenv=False,
+            merge_enabled=True,
+            merge_lists=False,
+            lowercase_read=True,
+            default_settings_paths=[],
+        )
+        # Force loading to catch YAML errors early
+        config._wrapped  # Access internal storage to trigger loading
+        logger.debug(f"Final config values: REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}, SCRUB_UUIDS={config.get('SCRUB_UUIDS', 'Not set')}")
+    except Exception as e:
+        logger.error(f"Invalid YAML in config file(s): {str(e)}")
+        raise ValueError(f"Invalid YAML in config file(s): {str(e)}")
 
     if bundled_config_path and bundled_config_path.exists():
         try:

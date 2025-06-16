@@ -9,6 +9,11 @@ from pathlib import Path
 from dynaconf import Dynaconf
 from prepdir.config import load_config
 
+@pytest.fixture(autouse=True)
+def set_test_env(monkeypatch):
+    """Set TEST_ENV=true for all tests to skip real config loading."""
+    monkeypatch.setenv("TEST_ENV", "true")
+
 @pytest.fixture
 def sample_config_content():
     """Provide sample configuration content."""
@@ -36,6 +41,11 @@ def capture_log():
 def clean_cwd(tmp_path):
     """Change working directory to a clean temporary path to avoid loading real configs."""
     original_cwd = os.getcwd()
+    # Remove any existing .prepdir directory in tmp_path
+    prepdir_path = tmp_path / ".prepdir"
+    if prepdir_path.exists():
+        import shutil
+        shutil.rmtree(prepdir_path)
     os.chdir(tmp_path)
     yield
     os.chdir(original_cwd)
@@ -95,33 +105,35 @@ def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
     bundled_path.write_text(yaml.safe_dump(bundled_config_content))
     
     # Create mock for resources.files
-    mock_files = Mock()
-    mock_cm = MagicMock()
-    mock_cm.__enter__.return_value = bundled_path.open('r', encoding='utf-8')
-    mock_cm.__exit__.return_value = None
-    mock_files.joinpath.return_value = mock_cm
+    mock_files = MagicMock()
+    mock_resource = MagicMock()  # Use MagicMock to support __str__
+    mock_resource.__str__.return_value = str(bundled_path)  # Ensure string representation matches bundled_path
+    mock_file = Mock()
+    mock_file.read.return_value = bundled_path.read_text(encoding='utf-8')
+    mock_context = MagicMock()
+    mock_context.__enter__.return_value = mock_file
+    mock_context.__exit__.return_value = None
+    mock_resource.open.return_value = mock_context
+    mock_files.__truediv__.return_value = mock_resource
     
-    # Patch the correct module based on Python version
-    patch_target = "importlib_resources.files" if sys.version_info < (3, 9) else "importlib.resources.files"
-    with patch(patch_target, return_value=mock_files):
-        with patch.dict(os.environ, {"TEST_ENV": "true"}):
+    # Patch prepdir.config.files
+    with patch("prepdir.config.files", return_value=mock_files):
+        with patch.dict(os.environ, {"TEST_ENV": "false"}):
             config = load_config("prepdir")
     
-    assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == []
-    assert config.get("EXCLUDE", {}).get("FILES", []) == []
-    assert config.get("SCRUB_UUIDS", True) is True
-    assert config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000") == "00000000-0000-0000-0000-000000000000"
+    assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == ["bundled_dir"]
+    assert config.get("EXCLUDE", {}).get("FILES", []) == ["*.py"]
+    assert config.get("SCRUB_UUIDS", True) is False
+    assert config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000") == "11111111-1111-1111-1111-111111111111"
     
     log_output = capture_log.getvalue()
-    assert f"Attempted config files for prepdir: []" in log_output
-    assert "Skipping default config files due to TEST_ENV=true" in log_output
-    assert "Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files" in log_output
+    assert f"Attempted config files for prepdir: ['/tmp/prepdir_bundled_config.yaml']" in log_output
+    assert f"Attempting to load bundled config from: {bundled_path}" in log_output
 
 def test_load_config_bundled_missing(capture_log, tmp_path, clean_cwd):
     """Test handling missing bundled config."""
-    # Patch the correct module based on Python version
-    patch_target = "importlib_resources.files" if sys.version_info < (3, 9) else "importlib.resources.files"
-    with patch(patch_target, side_effect=Exception("Resource error")):
+    # Patch prepdir.config.files
+    with patch("prepdir.config.files", side_effect=Exception("Resource error")):
         with patch.dict(os.environ, {"TEST_ENV": "true"}):
             config = load_config("prepdir")
     
@@ -144,8 +156,7 @@ def test_load_config_custom_path_excludes_bundled(sample_config_content, capture
     config_path.write_text(yaml.safe_dump(sample_config_content))
     
     # Create mock to ensure bundled config is not accessed
-    patch_target = "importlib_resources.files" if sys.version_info < (3, 9) else "importlib.resources.files"
-    with patch(patch_target) as mock_files:
+    with patch("prepdir.config.files") as mock_files:
         with patch.dict(os.environ, {"TEST_ENV": "true"}):
             config = load_config("prepdir", str(config_path))
     
@@ -185,3 +196,114 @@ def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp
     assert f"Attempted config files for prepdir: []" in log_output
     assert "Skipping default config files due to TEST_ENV=true" in log_output
     assert "Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files" in log_output
+
+def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
+    """Test configuration precedence: custom > local > global > bundled using non-list fields."""
+    # Create bundled config (mocked)
+    bundled_config = {
+        "EXCLUDE": {"DIRECTORIES": ["bundled_dir"], "FILES": ["bundled_file"]},
+        "SCRUB_UUIDS": False,
+        "REPLACEMENT_UUID": "00000000-0000-0000-0000-000000000000"
+    }
+    bundled_path = tmp_path / "src" / "prepdir" / "config.yaml"
+    bundled_path.parent.mkdir(parents=True)
+    bundled_path.write_text(yaml.safe_dump(bundled_config))
+    
+    # Create global config
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    global_config_path = home_dir / ".prepdir" / "config.yaml"
+    global_config_path.parent.mkdir()
+    global_config = {
+        "EXCLUDE": {"DIRECTORIES": ["global_dir"], "FILES": ["global_file"]},
+        "SCRUB_UUIDS": True,
+        "REPLACEMENT_UUID": "11111111-1111-1111-1111-111111111111"
+    }
+    global_config_path.write_text(yaml.safe_dump(global_config))
+    
+    # Create local config
+    local_config_path = tmp_path / ".prepdir" / "config.yaml"
+    local_config_path.parent.mkdir()
+    local_config = {
+        "EXCLUDE": {"DIRECTORIES": ["local_dir"], "FILES": ["local_file"]},
+        "SCRUB_UUIDS": False,
+        "REPLACEMENT_UUID": "22222222-2222-2222-2222-222222222222"
+    }
+    local_config_path.write_text(yaml.safe_dump(local_config))
+    
+    # Create custom config
+    custom_config_path = tmp_path / "custom.yaml"
+    custom_config = {
+        "EXCLUDE": {"DIRECTORIES": ["custom_dir"], "FILES": ["custom_file"]},
+        "SCRUB_UUIDS": True,
+        "REPLACEMENT_UUID": "33333333-3333-3333-3333-333333333333"
+    }
+    custom_config_path.write_text(yaml.safe_dump(custom_config))
+    
+    # Mock bundled config loading
+    mock_files = MagicMock()
+    mock_resource = MagicMock()  # Use MagicMock to support __str__
+    mock_resource.__str__.return_value = str(bundled_path)  # Ensure string representation matches bundled_path
+    mock_file = Mock()
+    mock_file.read.return_value = bundled_path.read_text(encoding='utf-8')
+    mock_context = MagicMock()
+    mock_context.__enter__.return_value = mock_file
+    mock_context.__exit__.return_value = None
+    mock_resource.open.return_value = mock_context
+    mock_files.__truediv__.return_value = mock_resource
+    with patch("prepdir.config.files", return_value=mock_files):
+        with patch.dict(os.environ, {"HOME": str(home_dir), "TEST_ENV": "false"}):
+            # Test custom config
+            config = load_config("prepdir", str(custom_config_path))
+            assert config.get("SCRUB_UUIDS") is True
+            assert config.get("REPLACEMENT_UUID") == "33333333-3333-3333-3333-333333333333"
+            
+            # Test local config (ensure local config exists)
+            config = load_config("prepdir")
+            assert config.get("SCRUB_UUIDS") is False
+            assert config.get("REPLACEMENT_UUID") == "22222222-2222-2222-2222-222222222222"
+            
+            # Test global config (remove local config)
+            local_config_path.unlink()
+            config = load_config("prepdir")
+            assert config.get("SCRUB_UUIDS") is True
+            assert config.get("REPLACEMENT_UUID") == "11111111-1111-1111-1111-111111111111"
+            
+            # Test bundled config (remove global config)
+            global_config_path.unlink()
+            # Verify bundled config contents
+            with open(bundled_path, 'r') as f:
+                bundled_config_content = yaml.safe_load(f)
+            config = load_config("prepdir")
+            assert config.get("SCRUB_UUIDS") is False
+            assert config.get("REPLACEMENT_UUID") == "00000000-0000-0000-0000-000000000000"
+
+def test_load_config_invalid_yaml(tmp_path, capture_log, clean_cwd):
+    """Test loading a config with invalid YAML raises an error."""
+    config_path = tmp_path / "invalid.yaml"
+    config_path.write_text("invalid: yaml: : :")  # Malformed YAML
+    with pytest.raises(ValueError, match="Invalid YAML.*mapping values are not allowed here"):
+        load_config("prepdir", str(config_path))
+    log_output = capture_log.getvalue()
+    assert f"Using custom config path: {config_path}" in log_output
+
+def test_load_config_empty_yaml(tmp_path, capture_log, clean_cwd):
+    """Test loading an empty YAML config file."""
+    config_path = tmp_path / "empty.yaml"
+    config_path.write_text("")  # Empty file
+    config = load_config("prepdir", str(config_path))
+    assert config.get("EXCLUDE.DIRECTORIES", []) == []
+    assert config.get("EXCLUDE.FILES", []) == []
+    assert config.get("SCRUB_UUIDS", True) is True
+    log_output = capture_log.getvalue()
+    assert f"Using custom config path: {config_path}" in log_output
+
+def test_load_config_missing_file(tmp_path, capture_log, clean_cwd):
+    """Test loading a non-existent config file."""
+    config_path = tmp_path / "nonexistent.yaml"
+    config = load_config("prepdir", str(config_path))
+    assert config.get("EXCLUDE.DIRECTORIES", []) == []
+    assert config.get("EXCLUDE.FILES", []) == []
+    assert config.get("SCRUB_UUIDS", True) is True
+    log_output = capture_log.getvalue()
+    assert f"Using custom config path: {config_path}" in log_output

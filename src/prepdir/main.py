@@ -14,14 +14,11 @@ from .core import run, init_config, __version__
 
 logger = logging.getLogger(__name__)
 
+# src/prepdir/main.py
 def configure_logging(level=None):
     """
     Configure logging for prepdir, respecting LOGLEVEL environment variable.
-
-    Args:
-        level (str, optional): Override log level (e.g., 'DEBUG', 'INFO'). If None, use LOGLEVEL env var.
     """
-    # Skip if already configured
     if hasattr(configure_logging, 'configured'):
         logger.debug("Logging already configured, skipping setup.")
         return
@@ -36,14 +33,12 @@ def configure_logging(level=None):
     }
     level_value = log_level_map.get(log_level, logging.INFO)
     
-    # Configure root logger
-    logging.basicConfig(
-        level=level_value,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
-    # Set level for prepdir logger
-    logging.getLogger("prepdir").setLevel(level_value)
+    # Configure prepdir logger only
+    prepdir_logger = logging.getLogger("prepdir")
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    prepdir_logger.addHandler(handler)
+    prepdir_logger.setLevel(level_value)
     
     if level_value != log_level_map.get("INFO"):
         logger.info(f"Set logging level to {log_level}")
@@ -108,6 +103,11 @@ def main():
         help='Disable scrubbing of UUIDs in file contents (default: per config)'
     )
     parser.add_argument(
+        '--no-scrub-hyphenless-uuids',
+        action='store_true',
+        help='Disable scrubbing of hyphenless UUIDs in file contents (default: per config)'
+    )
+    parser.add_argument(
         '--replacement-uuid',
         help='Custom UUID to replace detected UUIDs with (default: per config)'
     )
@@ -138,6 +138,7 @@ def main():
             verbose=args.verbose,
             include_prepdir_files=args.include_prepdir_files,
             scrub_uuids=None if not args.no_scrub_uuids else False,
+            scrub_hyphenless_uuids=None if not args.no_scrub_hyphenless_uuids else False,
             replacement_uuid=args.replacement_uuid
         )
     except ValueError as e:
