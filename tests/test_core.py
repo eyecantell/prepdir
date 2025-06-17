@@ -30,7 +30,7 @@ def test_run_loglevel_debug(tmp_path, monkeypatch, caplog):
     monkeypatch.setenv("LOGLEVEL", "DEBUG")
     configure_logging()
     caplog.set_level(logging.DEBUG, logger="prepdir")
-    content = run(directory=str(tmp_path), config_path=str(tmp_path / "nonexistent_config.yaml"))
+    content, _ = run(directory=str(tmp_path), config_path=str(tmp_path / "nonexistent_config.yaml"))
     logs = caplog.text
     assert "Running prepdir on directory: " in logs
     assert "Set logging level to DEBUG" in logs
@@ -51,7 +51,7 @@ EXCLUDE:
 SCRUB_UUIDS: False
 REPLACEMENT_UUID: 123e4567-e89b-12d3-a456-426614174000
 """)
-    content = run(directory=str(tmp_path), config_path=str(config_file))
+    content, _ = run(directory=str(tmp_path), config_path=str(config_file))
     assert test_uuid in content
     assert "123e4567-e89b-12d3-a456-426614174000" not in content
 
@@ -65,7 +65,7 @@ def test_scrub_hyphenless_uuids():
     Hyphenated: 00000000-0000-0000-0000-000000000000
     Hyphenless: 00000000000000000000000000000000
     """
-    result_str, result_bool = scrub_uuids(content, "00000000-0000-0000-0000-000000000000", scrub_hyphenless=True)
+    result_str, result_bool, _, _ = scrub_uuids(content, "00000000-0000-0000-0000-000000000000", scrub_hyphenless=True)
     assert result_str.strip() == expected.strip()
     assert result_bool is True
 
@@ -90,7 +90,7 @@ REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
 """)
     with monkeypatch.context() as m:
         m.setenv("TEST_ENV", "true")
-        content = run(directory=str(home_dir), config_path=str(config_file))
+        content, _ = run(directory=str(home_dir), config_path=str(config_file))
     assert "sensitive: data" not in content
     assert ".prepdir/config.yaml" not in content
 
@@ -117,7 +117,7 @@ def test_run_excludes_global_config_bundled(tmp_path, monkeypatch):
     if (tmp_path / ".prepdir").exists():
         import shutil
         shutil.rmtree(tmp_path / ".prepdir")
-    content = run(directory=str(home_dir), config_path=str(bundled_path))
+    content, _ = run(directory=str(home_dir), config_path=str(bundled_path))
     assert "sensitive: data" not in content
     assert ".prepdir/config.yaml" not in content
 
@@ -135,14 +135,14 @@ def test_run_non_directory(tmp_path):
 
 def test_run_empty_directory(tmp_path):
     """Test run() with an empty directory outputs 'No files found'."""
-    content = run(directory=str(tmp_path))
+    content, _ = run(directory=str(tmp_path))
     assert "No files found." in content
 
 def test_run_with_extensions_no_match(tmp_path):
     """Test run() with extensions that don't match any files."""
     test_file = tmp_path / "test.bin"
     test_file.write_text("binary")
-    content = run(directory=str(tmp_path), extensions=["py", "txt"])
+    content, _ = run(directory=str(tmp_path), extensions=["py", "txt"])
     assert "No files with extension(s) py, txt found." in content
 
 def test_version_fallback(monkeypatch):
@@ -157,7 +157,7 @@ def test_scrub_uuids_verbose_logs(caplog, uuid_test_file):
     caplog.set_level(logging.DEBUG, logger="prepdir")
     with open(uuid_test_file, 'r', encoding='utf-8') as f:
         content = f.read()
-    result_str, result_bool = scrub_uuids(
+    result_str, result_bool, _, _ = scrub_uuids(
         content,
         "00000000-0000-0000-0000-000000000000",
         scrub_hyphenless=True,
@@ -171,7 +171,7 @@ def test_scrub_uuids_verbose_logs(caplog, uuid_test_file):
 def test_scrub_uuids_no_matches():
     """Test scrub_uuids() with content containing no UUIDs."""
     content = "No UUIDs here"
-    result_str, result_bool = scrub_uuids(content, "00000000-0000-0000-0000-000000000000")
+    result_str, result_bool, _, _ = scrub_uuids(content, "00000000-0000-0000-0000-000000000000")
     assert result_str == content
     assert result_bool is False
 
@@ -210,7 +210,81 @@ def test_traverse_directory_uuid_notes(tmp_path, capsys):
     )
     captured = capsys.readouterr()
     assert "Note: Valid UUIDs in file contents will be scrubbed and replaced with '00000000-0000-0000-0000-000000000000'." in captured.out
-    assert "Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '00000000-0000-0000-0000-000000000000'." in captured.out
+    assert "Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '00000000000000000000000000000000'." in captured.out
+
+def test_run_uuid_mapping_unique_placeholders(tmp_path):
+    """Test run() returns correct UUID mapping with unique placeholders."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("UUID: 12345678-1234-5678-1234-567812345678\nHyphenless: aaaaaaaa111111111111111111111111")
+    content, uuid_mapping = run(
+        directory=str(tmp_path),
+        scrub_uuids=True,
+        scrub_hyphenless_uuids=True,
+        use_unique_placeholders=True
+    )
+    assert "PREPDIR_UUID_PLACEHOLDER_1" in content
+    assert "PREPDIR_UUID_PLACEHOLDER_2" in content
+    assert uuid_mapping == {
+        "PREPDIR_UUID_PLACEHOLDER_1": "12345678-1234-5678-1234-567812345678",
+        "PREPDIR_UUID_PLACEHOLDER_2": "aaaaaaaa111111111111111111111111"
+    }
+    assert content.count("PREPDIR_UUID_PLACEHOLDER_1") == 1
+    assert content.count("PREPDIR_UUID_PLACEHOLDER_2") == 1
+
+def test_run_uuid_mapping_no_placeholders(tmp_path):
+    """Test run() with use_unique_placeholders=False uses replacement_uuid."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("UUID: 12345678-1234-5678-1234-567812345678\nHyphenless: aaaaaaaa111111111111111111111111")
+    replacement_uuid = "00000000-0000-0000-0000-000000000000"
+    content, uuid_mapping = run(
+        directory=str(tmp_path),
+        scrub_uuids=True,
+        scrub_hyphenless_uuids=True,
+        replacement_uuid=replacement_uuid,
+        use_unique_placeholders=False
+    )
+    assert replacement_uuid in content
+    assert replacement_uuid.replace('-', '') in content
+    assert uuid_mapping == {}
+    # Extract file content section to avoid counting header notes
+    file_content = content.split("Begin File: 'test.txt'")[1].split("End File: 'test.txt'")[0]
+    assert file_content.count(replacement_uuid) == 1  # Hyphenated UUID replacement in file content
+    assert file_content.count(replacement_uuid.replace('-', '')) == 1  # Hyphen-less UUID replacement in file content
+
+def test_run_uuid_mapping_no_uuids(tmp_path):
+    """Test run() returns empty UUID mapping when no UUIDs are found."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("No UUIDs here")
+    content, uuid_mapping = run(
+        directory=str(tmp_path),
+        scrub_uuids=True,
+        scrub_hyphenless_uuids=True,
+        use_unique_placeholders=True
+    )
+    assert "No UUIDs here" in content
+    assert uuid_mapping == {}
+    assert not any(f"PREPDIR_UUID_PLACEHOLDER_{i}" in content for i in range(1, 10))  # Check no placeholders in file content
+
+def test_run_uuid_mapping_multiple_files(tmp_path):
+    """Test run() correctly maps UUIDs across multiple files."""
+    file1 = tmp_path / "file1.txt"
+    file1.write_text("UUID: 11111111-1111-1111-1111-111111111111")
+    file2 = tmp_path / "file2.txt"
+    file2.write_text("Hyphenless: aaaaaaaa222222222222222222222222")
+    content, uuid_mapping = run(
+        directory=str(tmp_path),
+        scrub_uuids=True,
+        scrub_hyphenless_uuids=True,
+        use_unique_placeholders=True
+    )
+    assert "PREPDIR_UUID_PLACEHOLDER_1" in content
+    assert "PREPDIR_UUID_PLACEHOLDER_2" in content
+    assert uuid_mapping == {
+        "PREPDIR_UUID_PLACEHOLDER_1": "11111111-1111-1111-1111-111111111111",
+        "PREPDIR_UUID_PLACEHOLDER_2": "aaaaaaaa222222222222222222222222"
+    }
+    assert content.count("PREPDIR_UUID_PLACEHOLDER_1") == 1
+    assert content.count("PREPDIR_UUID_PLACEHOLDER_2") == 1
 
 # =============================================================================
 # IMPROVED validate_output_file TESTS
@@ -251,7 +325,6 @@ def test_validate_output_file_valid_complete(tmp_path):
         "file2.py": "print('hello')"
     }
 
-
 def test_validate_output_file_missing_base_directory(tmp_path):
     """Test validate_output_file with missing base directory line."""
     output_file = tmp_path / "output.txt"
@@ -283,7 +356,6 @@ def test_validate_output_file_unmatched_footer(tmp_path):
     assert len(result["errors"]) == 1
     assert "Footer for 'test.txt' without matching header" in result["errors"][0]
     assert result["files"] == {}
-
 
 def test_validate_output_file_unclosed_header(tmp_path):
     """Test validate_output_file with header that has no matching footer."""
@@ -461,8 +533,6 @@ def test_validate_output_file_malformed_timestamp(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
-    # The current regex pattern (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+) 
-    # matches malformed timestamps, so this is considered valid
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -480,8 +550,6 @@ def test_validate_output_file_missing_version(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
-    # The current regex pattern is very lenient - it matches timestamps followed by anything
-    # So this header is still considered valid by the current implementation
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -500,9 +568,6 @@ def test_validate_output_file_mismatched_header_footer(tmp_path):
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
     assert result["is_valid"] is False
-    # The current implementation generates 2 errors:
-    # 1. Footer mismatch error
-    # 2. Unclosed header error (because the header wasn't removed from stack)
     assert len(result["errors"]) == 2
     assert "Footer for 'file2.txt' does not match open header 'file1.txt'" in result["errors"][0]
     assert "Header for 'file1.txt' has no matching footer" in result["errors"][1]
@@ -523,6 +588,4 @@ def test_validate_output_file_partial_content(tmp_path):
     assert result["is_valid"] is False
     assert len(result["errors"]) == 1
     assert "Header for 'test.txt' has no matching footer" in result["errors"][0]
-    # The content includes everything after the header until the end
-    # The incomplete delimiter line is captured as content
     assert result["files"] == {"test.txt": "partial content\nincomplete delimiter =-=-=-"}
