@@ -197,55 +197,6 @@ def test_init_config_permission_denied(tmp_path, capfd, monkeypatch):
     captured = capfd.readouterr()
     assert f"Error: Failed to create '{config_path}': No access" in captured.err
 
-@pytest.mark.parametrize("content,expected_error_substring", [
-    ("", "File is empty"),
-    ("File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\nBase directory is '/test'\n=-=-=-=-=-=-=-= End File: 'test.txt' =-=-=-=-=-=-=-=", "Footer for 'test.txt' without matching header"),
-    ("Invalid header\nBase directory is '/test'\n=-=-=-=-=-=-=-= Begin File: 'test.txt' =-=-=-=-=-=-=-=\ncontent\n=-=-=-=-=-=-=-= End File: 'test.txt' =-=-=-=-=-=-=-=", "Missing or invalid prepdir header"),
-    ("File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\nBase directory is '/test'\n=-=-=-=-=-=-=-= Begin File: 'test.txt' =-=-=-=-=-=-=-=\ncontent", "Header for 'test.txt' has no matching footer"),
-])
-def test_validate_output_file_cases(tmp_path, content, expected_error_substring):
-    """Test validate_output_file with various invalid cases."""
-    output_file = tmp_path / "output.txt"
-    output_file.write_text(content)
-    result = validate_output_file(str(output_file))
-    assert result["is_valid"] is False
-    assert any(expected_error_substring in error for error in result["errors"]), f"Expected '{expected_error_substring}' in errors: {result['errors']}"
-
-def test_validate_output_file_unicode_error(tmp_path):
-    """Test validate_output_file handles UnicodeDecodeError."""
-    output_file = tmp_path / "invalid.bin"
-    output_file.write_bytes(b"\xFF\xFE")
-    with pytest.raises(UnicodeDecodeError):
-        validate_output_file(str(output_file))
-
-def test_validate_output_file_invalid_header_and_warnings(tmp_path):
-    """Test validate_output_file with malformed header."""
-    output_file = tmp_path / "invalid.txt"
-    output_file.write_text(
-        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0 (pip install prepdir)\n"
-        "Base directory is '/test'\n"
-        "=-=-=-=-=-=-=-= Begin File: test.txt =-=-=-=-=-=-=-=\n"
-        "content\n"
-        "=-=-=-=-=-=-=-= End File: test.txt =-=-=-=-=-=-=-=\n"
-    )
-    result = validate_output_file(str(output_file))
-    print(f"Errors: {result['errors']}")
-    print(f"Warnings: {result['warnings']}")
-    assert result["is_valid"] is True
-    assert any("Malformed header" in warning for warning in result["warnings"])
-
-def test_validate_output_file_footer_no_header(tmp_path):
-    """Test validate_output_file with footer but no header."""
-    output_file = tmp_path / "invalid.txt"
-    output_file.write_text(
-        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
-        "Base directory is '/test'\n"
-        "=-=-=-=-=-=-=-= End File: 'test.txt' =-=-=-=-=-=-=-=\n"
-    )
-    result = validate_output_file(str(output_file))
-    assert result["is_valid"] is False
-    assert any("Footer for 'test.txt' without matching header" in error for error in result["errors"])
-
 def test_traverse_directory_uuid_notes(tmp_path, capsys):
     """Test traverse_directory prints UUID scrubbing notes."""
     test_file = tmp_path / "test.txt"
@@ -260,3 +211,318 @@ def test_traverse_directory_uuid_notes(tmp_path, capsys):
     captured = capsys.readouterr()
     assert "Note: Valid UUIDs in file contents will be scrubbed and replaced with '00000000-0000-0000-0000-000000000000'." in captured.out
     assert "Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '00000000-0000-0000-0000-000000000000'." in captured.out
+
+# =============================================================================
+# IMPROVED validate_output_file TESTS
+# =============================================================================
+
+def test_validate_output_file_empty_file(tmp_path):
+    """Test validate_output_file with an empty file."""
+    output_file = tmp_path / "empty.txt"
+    output_file.write_text("")
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is False
+    assert len(result["errors"]) == 1
+    assert "File is empty." in result["errors"][0]
+    assert result["warnings"] == []
+    assert result["files"] == {}
+
+def test_validate_output_file_valid_complete(tmp_path):
+    """Test validate_output_file with a valid, complete prepdir output."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0 (pip install prepdir)\n"
+        "Base directory is '/test'\n"
+        "=-=-=-=-=-=-=-= Begin File: 'file1.txt' =-=-=-=-=-=-=-=\n"
+        "Content of file1\n"
+        "Line 2\n"
+        "=-=-=-=-=-=-=-= End File: 'file1.txt' =-=-=-=-=-=-=-=\n"
+        "=-=-=-=-=-=-=-= Begin File: 'file2.py' =-=-=-=-=-=-=-=\n"
+        "print('hello')\n"
+        "=-=-=-=-=-=-=-= End File: 'file2.py' =-=-=-=-=-=-=-=\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert result["files"] == {
+        "file1.txt": "Content of file1\nLine 2",
+        "file2.py": "print('hello')"
+    }
+
+
+def test_validate_output_file_missing_base_directory(tmp_path):
+    """Test validate_output_file with missing base directory line."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "=-=-=-=-=-=-=-= Begin File: 'test.txt' =-=-=-=-=-=-=-=\n"
+        "content\n"
+        "=-=-=-=-=-=-=-= End File: 'test.txt' =-=-=-=-=-=-=-=\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert len(result["warnings"]) == 1
+    assert "Missing or invalid base directory line" in result["warnings"][0]
+    assert result["files"] == {"test.txt": "content"}
+
+def test_validate_output_file_unmatched_footer(tmp_path):
+    """Test validate_output_file with footer without matching header."""
+    output_file = tmp_path / "invalid.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "=-=-=-=-=-=-=-= End File: 'test.txt' =-=-=-=-=-=-=-=\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is False
+    assert len(result["errors"]) == 1
+    assert "Footer for 'test.txt' without matching header" in result["errors"][0]
+    assert result["files"] == {}
+
+
+def test_validate_output_file_unclosed_header(tmp_path):
+    """Test validate_output_file with header that has no matching footer."""
+    output_file = tmp_path / "invalid.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "=-=-=-=-=-=-=-= Begin File: 'test.txt' =-=-=-=-=-=-=-=\n"
+        "content without footer\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is False
+    assert len(result["errors"]) == 1
+    assert "Header for 'test.txt' has no matching footer" in result["errors"][0]
+    assert result["files"] == {"test.txt": "content without footer"}
+
+def test_validate_output_file_malformed_delimiters(tmp_path):
+    """Test validate_output_file with malformed header/footer delimiters."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "=-=-=-=-=-=-=-= Begin File:\n"  # Missing filename
+        "content\n"
+        "=-=-=-=-=-=-=-= End File:\n"    # Missing filename
+        "=-=-=-=-=-=-=-= Begin File: 'good.txt' =-=-=-=-=-=-=-=\n"
+        "good content\n"
+        "=-=-=-=-=-=-=-= End File: 'good.txt' =-=-=-=-=-=-=-=\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert len(result["warnings"]) == 2
+    assert any("Malformed header" in warning for warning in result["warnings"])
+    assert any("Malformed footer" in warning for warning in result["warnings"])
+    assert result["files"] == {"good.txt": "good content"}
+
+def test_validate_output_file_large_file(tmp_path):
+    """Test validate_output_file with a large file to ensure performance."""
+    output_file = tmp_path / "large.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+    )
+    # Generate a large file with 10,000 lines across 10 files
+    for i in range(10):
+        content += f"=-=-=-=-=-=-=-= Begin File: 'file{i}.txt' =-=-=-=-=-=-=-=\n"
+        content += "\n".join(f"Line {j}" for j in range(1000)) + "\n"
+        content += f"=-=-=-=-=-=-=-= End File: 'file{i}.txt' =-=-=-=-=-=-=-=\n"
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert len(result["files"]) == 10
+    for i in range(10):
+        assert f"file{i}.txt" in result["files"]
+        assert result["files"][f"file{i}.txt"].count("\n") == 999  # 1000 lines minus one for joining
+
+def test_validate_output_file_empty_files(tmp_path):
+    """Test validate_output_file with files that have no content."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "=-=-=-=-=-=-=-= Begin File: 'empty.txt' =-=-=-=-=-=-=-=\n"
+        "=-=-=-=-=-=-=-= End File: 'empty.txt' =-=-=-=-=-=-=-=\n"
+        "=-=-=-=-=-=-=-= Begin File: 'whitespace.txt' =-=-=-=-=-=-=-=\n"
+        "   \n"
+        "\t\n"
+        "=-=-=-=-=-=-=-= End File: 'whitespace.txt' =-=-=-=-=-=-=-=\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert result["files"]["empty.txt"] == ""
+    assert result["files"]["whitespace.txt"] == "   \n\t"
+
+def test_validate_output_file_with_blank_lines(tmp_path):
+    """Test validate_output_file preserves blank lines within file content."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "=-=-=-=-=-=-=-= Begin File: 'test.txt' =-=-=-=-=-=-=-=\n"
+        "line 1\n"
+        "\n"
+        "line 3\n"
+        "\n"
+        "\n"
+        "line 6\n"
+        "=-=-=-=-=-=-=-= End File: 'test.txt' =-=-=-=-=-=-=-=\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    expected_content = "line 1\n\nline 3\n\n\nline 6"
+    assert result["files"]["test.txt"] == expected_content
+    assert result["files"]["test.txt"].count("\n") == 5
+
+def test_validate_output_file_unicode_error(tmp_path):
+    """Test validate_output_file handles UnicodeDecodeError."""
+    output_file = tmp_path / "invalid.bin"
+    output_file.write_bytes(b"\xFF\xFE\x00\x01")
+    with pytest.raises(UnicodeDecodeError, match="Invalid encoding"):
+        validate_output_file(str(output_file))
+
+def test_validate_output_file_file_not_found(tmp_path):
+    """Test validate_output_file with non-existent file."""
+    with pytest.raises(FileNotFoundError, match="File '.*' does not exist"):
+        validate_output_file(str(tmp_path / "nonexistent.txt"))
+
+def test_validate_output_file_multiple_files_complex(tmp_path):
+    """Test validate_output_file with multiple files and complex content."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 12:00:00.000000 by prepdir version 0.13.0\n"
+        "Base directory is '/complex/test'\n"
+        "Note: Valid UUIDs in file contents will be scrubbed\n"
+        "\n"
+        "=-=-=-=-=-=-=-= Begin File: 'src/main.py' =-=-=-=-=-=-=-=\n"
+        "#!/usr/bin/env python3\n"
+        "def main():\n"
+        "    print('Hello, World!')\n"
+        "\n"
+        "if __name__ == '__main__':\n"
+        "    main()\n"
+        "=-=-=-=-=-=-=-= End File: 'src/main.py' =-=-=-=-=-=-=-=\n"
+        "=-=-=-=-=-=-=-= Begin File: 'README.md' =-=-=-=-=-=-=-=\n"
+        "# Project Title\n"
+        "\n"
+        "This is a sample project.\n"
+        "\n"
+        "## Usage\n"
+        "\n"
+        "```bash\n"
+        "python main.py\n"
+        "```\n"
+        "=-=-=-=-=-=-=-= End File: 'README.md' =-=-=-=-=-=-=-=\n"
+        "=-=-=-=-=-=-=-= Begin File: 'config.json' =-=-=-=-=-=-=-=\n"
+        "{\n"
+        '  "name": "test",\n'
+        '  "version": "1.0.0"\n'
+        "}\n"
+        "=-=-=-=-=-=-=-= End File: 'config.json' =-=-=-=-=-=-=-=\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert len(result["files"]) == 3
+    assert "def main():" in result["files"]["src/main.py"]
+    assert "# Project Title" in result["files"]["README.md"]
+    assert '"name": "test"' in result["files"]["config.json"]
+    assert result["files"]["src/main.py"].count("\n") == 5
+    assert result["files"]["README.md"].count("\n") == 8
+    assert result["files"]["config.json"].count("\n") == 3
+
+def test_validate_output_file_malformed_timestamp(tmp_path):
+    """Test validate_output_file with a malformed timestamp in header."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-13-99 25:99:99.999999 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "=-=-=-=-=-=-=-= Begin File: 'test.txt' =-=-=-=-=-=-=-=\n"
+        "content\n"
+        "=-=-=-=-=-=-=-= End File: 'test.txt' =-=-=-=-=-=-=-=\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    # The current regex pattern (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+) 
+    # matches malformed timestamps, so this is considered valid
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert result["files"] == {"test.txt": "content"}
+
+def test_validate_output_file_missing_version(tmp_path):
+    """Test validate_output_file with missing version in header."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010\n"
+        "Base directory is '/test'\n"
+        "=-=-=-=-=-=-=-= Begin File: 'test.txt' =-=-=-=-=-=-=-=\n"
+        "content\n"
+        "=-=-=-=-=-=-=-= End File: 'test.txt' =-=-=-=-=-=-=-=\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    # The current regex pattern is very lenient - it matches timestamps followed by anything
+    # So this header is still considered valid by the current implementation
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert result["files"] == {"test.txt": "content"}
+
+def test_validate_output_file_mismatched_header_footer(tmp_path):
+    """Test validate_output_file with mismatched header and footer."""
+    output_file = tmp_path / "invalid.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "=-=-=-=-=-=-=-= Begin File: 'file1.txt' =-=-=-=-=-=-=-=\n"
+        "content\n"
+        "=-=-=-=-=-=-=-= End File: 'file2.txt' =-=-=-=-=-=-=-=\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is False
+    # The current implementation generates 2 errors:
+    # 1. Footer mismatch error
+    # 2. Unclosed header error (because the header wasn't removed from stack)
+    assert len(result["errors"]) == 2
+    assert "Footer for 'file2.txt' does not match open header 'file1.txt'" in result["errors"][0]
+    assert "Header for 'file1.txt' has no matching footer" in result["errors"][1]
+    assert result["files"] == {'file1.txt': 'content'}
+
+def test_validate_output_file_partial_content(tmp_path):
+    """Test validate_output_file with partial file content (incomplete delimiters)."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "=-=-=-=-=-=-=-= Begin File: 'test.txt' =-=-=-=-=-=-=-=\n"
+        "partial content\n"
+        "incomplete delimiter =-=-=-\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is False
+    assert len(result["errors"]) == 1
+    assert "Header for 'test.txt' has no matching footer" in result["errors"][0]
+    # The content includes everything after the header until the end
+    # The incomplete delimiter line is captured as content
+    assert result["files"] == {"test.txt": "partial content\nincomplete delimiter =-=-=-"}

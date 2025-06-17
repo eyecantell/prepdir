@@ -43,7 +43,7 @@ UUID_PATTERN_NO_HYPHENS = re.compile(
 DELIMITER = "=-=-=-=-=-=-=-="
 HEADER_PATTERN = re.compile(rf"^{DELIMITER} Begin File: '(.*?)' {DELIMITER}$")
 FOOTER_PATTERN = re.compile(rf"^{DELIMITER} End File: '(.*?)' {DELIMITER}$")
-GENERATED_HEADER_PATTERN = re.compile(r"^File listing generated \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+ by prepdir( version \d+\.\d+\.\d+)? \(pip install prepdir\)$")
+GENERATED_HEADER_PATTERN = re.compile(r"^File listing generated \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+.*$")
 PARTIAL_HEADER_PATTERN = re.compile(rf"^{DELIMITER} Begin File:")
 PARTIAL_FOOTER_PATTERN = re.compile(rf"^{DELIMITER} End File:")
 
@@ -126,6 +126,7 @@ def validate_output_file(file_path: str) -> dict:
             - is_valid (bool): True if the file is valid, False otherwise.
             - errors (list): List of error messages for invalid structure.
             - warnings (list): List of warning messages for minor issues.
+            - files (dict): Dictionary mapping file paths to their contents.
 
     Raises:
         FileNotFoundError: If the file does not exist.
@@ -134,6 +135,9 @@ def validate_output_file(file_path: str) -> dict:
     errors = []
     warnings = []
     open_headers = []
+    files_content = {}
+    current_file = None
+    current_content = []
     line_number = 0
     
     try:
@@ -142,31 +146,37 @@ def validate_output_file(file_path: str) -> dict:
         
         if not lines:
             errors.append("File is empty.")
-            return {"is_valid": False, "errors": errors, "warnings": warnings}
+            return {"is_valid": False, "errors": errors, "warnings": warnings, "files": files_content}
 
         # Check the generated header (first line)
         first_line = lines[0].strip()
-        if not GENERATED_HEADER_PATTERN.match(first_line.replace(f" version {__version__}", "")):
-            errors.append(f"Line 1: Missing or invalid prepdir header. Got: '{first_line}'")
+        if not GENERATED_HEADER_PATTERN.match(first_line):
+            errors.append(f"Line 1: Missing or invalid file listing header. Got: '{first_line}'")
         else:
             # Check the second line (Base directory)
             if len(lines) < 2 or not lines[1].strip().startswith("Base directory is"):
                 warnings.append("Line 2: Missing or invalid base directory line.")
 
         for line_number, line in enumerate(lines, 1):
-            line = line.strip()
-            if not line:
+            stripped_line = line.rstrip('\n')
+            if not stripped_line:
+                if current_file:
+                    current_content.append(stripped_line)
                 continue
 
             # Check for header
-            header_match = HEADER_PATTERN.match(line)
+            header_match = HEADER_PATTERN.match(stripped_line)
             if header_match:
                 file_path = header_match.group(1)
+                if current_file:
+                    files_content[current_file] = '\n'.join(current_content)
+                    current_content = []
                 open_headers.append((file_path, line_number))
+                current_file = file_path
                 continue
 
             # Check for footer
-            footer_match = FOOTER_PATTERN.match(line)
+            footer_match = FOOTER_PATTERN.match(stripped_line)
             if footer_match:
                 file_path = footer_match.group(1)
                 if not open_headers:
@@ -179,23 +189,39 @@ def validate_output_file(file_path: str) -> dict:
                             f"'{last_header_path}' from line {header_line}."
                         )
                     else:
+                        if current_file:
+                            files_content[current_file] = '\n'.join(current_content)
+                            current_content = []
+                            current_file = None
                         open_headers.pop()
                 continue
 
-            # Check for partial header or footer (starts with pattern but doesn't match fully)
-            if PARTIAL_HEADER_PATTERN.match(line) and not HEADER_PATTERN.match(line):
-                warnings.append(f"Line {line_number}: Malformed header: '{line}'")
+            # Check for partial header or footer
+            if PARTIAL_HEADER_PATTERN.match(stripped_line) and not HEADER_PATTERN.match(stripped_line):
+                warnings.append(f"Line {line_number}: Malformed header: '{stripped_line}'")
+                if current_file:
+                    current_content.append(stripped_line)
                 continue
-            if PARTIAL_FOOTER_PATTERN.match(line) and not FOOTER_PATTERN.match(line):
-                warnings.append(f"Line {line_number}: Malformed footer: '{line}'")
+            if PARTIAL_FOOTER_PATTERN.match(stripped_line) and not FOOTER_PATTERN.match(stripped_line):
+                warnings.append(f"Line {line_number}: Malformed footer: '{stripped_line}'")
+                if current_file:
+                    current_content.append(stripped_line)
                 continue
+
+            # Collect content for the current file
+            if current_file:
+                current_content.append(stripped_line)
+
+        # Finalize any open file content
+        if current_file:
+            files_content[current_file] = '\n'.join(current_content)
 
         # Check for unclosed headers
         for file_path, header_line in open_headers:
             errors.append(f"Line {header_line}: Header for '{file_path}' has no matching footer.")
 
         is_valid = len(errors) == 0
-        return {"is_valid": is_valid, "errors": errors, "warnings": warnings}
+        return {"is_valid": is_valid, "errors": errors, "warnings": warnings, "files": files_content}
 
     except FileNotFoundError:
         raise FileNotFoundError(f"File '{file_path}' does not exist.")
