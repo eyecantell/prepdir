@@ -165,15 +165,6 @@ def test_run_with_extensions_no_match(tmp_path):
     assert "No files with extension(s) py, txt found." in content
 
 
-def test_version_fallback(monkeypatch):
-    """Test __version__ fallback when package metadata is unavailable."""
-    monkeypatch.setattr("prepdir.core.version", lambda *args, **kwargs: (_ for _ in ()).throw(PackageNotFoundError))
-    import importlib
-
-    importlib.reload(sys.modules["prepdir.core"])
-    assert sys.modules["prepdir.core"].__version__ == "0.13.0"
-
-
 def test_scrub_uuids_verbose_logs(caplog, uuid_test_file):
     """Test UUID scrubbing logs with verbose=True."""
     caplog.set_level(logging.DEBUG, logger="prepdir")

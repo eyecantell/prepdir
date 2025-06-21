@@ -41,7 +41,8 @@ def test_main_version(capsys):
             main()
         assert exc.value.code == 0
     captured = capsys.readouterr()
-    assert "prepdir 0.13.0" in captured.out
+    from importlib.metadata import version
+    assert "prepdir " + version("prepdir") in captured.out
 
 
 def test_main_no_scrub_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_test_file):
