@@ -326,6 +326,7 @@ def test_validate_output_file_empty_file(tmp_path):
     output_file = tmp_path / "empty.txt"
     output_file.write_text("")
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is False
     assert len(result["errors"]) == 1
     assert "File is empty." in result["errors"][0]
@@ -349,6 +350,7 @@ def test_validate_output_file_valid_complete(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -366,6 +368,7 @@ def test_validate_output_file_missing_base_directory(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert len(result["warnings"]) == 1
@@ -383,6 +386,7 @@ def test_validate_output_file_unmatched_footer(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is False
     assert len(result["errors"]) == 1
     assert "Footer for 'test.txt' without matching header" in result["errors"][0]
@@ -400,6 +404,7 @@ def test_validate_output_file_unclosed_header(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is False
     assert len(result["errors"]) == 1
     assert "Header for 'test.txt' has no matching footer" in result["errors"][0]
@@ -422,7 +427,7 @@ def test_validate_output_file_malformed_delimiters(tmp_path):
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
 
-    print(f"{json.dumps(result, indent=4)}")
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is False
     assert any("Malformed header" in error for error in result["errors"])
     assert any("Malformed footer" in error for error in result["errors"])
@@ -441,6 +446,7 @@ def test_validate_output_file_large_file(tmp_path):
         content += f"=-=-=-=-=-=-=-= End File: 'file{i}.txt' =-=-=-=-=-=-=-=\n"
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -465,6 +471,7 @@ def test_validate_output_file_empty_files(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -489,6 +496,7 @@ def test_validate_output_file_with_blank_lines(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -547,6 +555,7 @@ def test_validate_output_file_multiple_files_complex(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -571,6 +580,7 @@ def test_validate_output_file_malformed_timestamp(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -589,6 +599,7 @@ def test_validate_output_file_missing_version(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -607,6 +618,7 @@ def test_validate_output_file_mismatched_header_footer(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is False
     assert len(result["errors"]) == 2
     assert "Footer for 'file2.txt' does not match open header 'file1.txt'" in result["errors"][0]
@@ -626,6 +638,7 @@ def test_validate_output_file_partial_content(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is False
     assert len(result["errors"]) == 1
     assert "Header for 'test.txt' has no matching footer" in result["errors"][0]
@@ -647,6 +660,7 @@ def test_validate_output_file_lenient_delimiters(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -665,6 +679,7 @@ def test_validate_output_file_lenient_delimiters_with_extra_whitespace(tmp_path)
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -679,16 +694,17 @@ def test_validate_output_file_mixed_lenient_malformed_delimiters(tmp_path):
         "Base directory is '/test'\n"
         "=== Begin File: 'test.txt' ===\n"  # Valid lenient delimiter
         "content\n"
-        "=== End File: 'test.txt' ==\n"  # Valid lenient delimiter (shorter)
+        "=== End File: 'test.txt' =--=\n"  # Valid lenient delimiters
         "==- Begin File:\n"  # Malformed header (no filename) - expect this to generate an error
         "malformed content\n"
         "--==-- End File: 'other.txt' ---\n"  # Valid footer but no matching header  - expect this to generate an error
         "===== Begin File: 'valid.txt' ====-\n"  # Valid lenient delimiter
         "valid content\n"
-        "=== End File: 'valid.txt' ===\n"  # Valid lenient delimiter
+        "=== End File: 'valid.txt' ---\n"  # Valid lenient delimiter
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     print(f"{result['errors']=}")
     print(f"{result['warnings']=}")
 
@@ -712,6 +728,7 @@ def test_validate_output_file_lenient_header_variations(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -724,16 +741,17 @@ def test_validate_output_file_single_character_delimiters(tmp_path):
     content = (
         "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
         "Base directory is '/test'\n"
-        "= Begin File: 'test.txt' =\n"  # Single = delimiter
+        "= Begin File: 'test.txt' =\n"  # Single = delimiter is not recognized
         "content\n"
-        "- End File: 'test.txt' -\n"  # Single - delimiter
+        "- End File: 'test.txt' -\n"  # Single - delimiter is not recognized
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
-    assert result["is_valid"] is True
+    print(f"result is:\n{json.dumps(result, indent=4)}")
+    assert result["is_valid"] is False
     assert result["errors"] == []
     assert result["warnings"] == []
-    assert result["files"] == {"test.txt": "content"}
+    assert result["files"] == {} 
 
 
 def test_validate_output_file_first_line_header(tmp_path):
@@ -742,6 +760,7 @@ def test_validate_output_file_first_line_header(tmp_path):
     content = "=== Begin File: 'test.txt' ===\ncontent\n=== End File: 'test.txt' ===\n"
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert any(
@@ -762,6 +781,7 @@ def test_validate_output_file_creation_complete_header(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
@@ -781,21 +801,50 @@ def test_validate_output_file_creation_no_version(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert result["warnings"] == []
     assert result["files"] == {"test.txt": "content"}
     assert result["creation"] == {"date": "2025-06-16 01:36:06", "creator": "some-tool", "version": "unknown"}
 
+def test_validate_output_file_creation_starts_with_basedir(tmp_path):
+    """Test validate_output_file parses header with base dir header but no main header line into creation dict."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "Base directory is '/test'\n"
+        "=== Begin File: 'test.txt' ===\n"
+        "content\n"
+        "=== End File: 'test.txt' ===\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert len(result['warnings']) == 1
+    assert any("Missing or invalid file listing header" in warning for warning in result["warnings"])
+    assert result["files"] == {"test.txt": "content"}
+    assert result["creation"] == {
+        "date": "unknown",
+        "creator": "unknown",
+        "version": "unknown"
+    }
 
-def test_validate_output_file_creation_no_header(tmp_path):
+
+def test_validate_output_file_creation_no_header(tmp_path): # PRW current fails
     """Test validate_output_file with no generated header returns empty creation dict."""
     output_file = tmp_path / "output.txt"
     content = "=== Begin File: 'test.txt' ===\ncontent\n=== End File: 'test.txt' ===\n"
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+    print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
     assert any("Missing or invalid file listing header" in warning for warning in result["warnings"])
     assert result["files"] == {"test.txt": "content"}
-    assert result["creation"] == {}
+    assert result["creation"] ==  {
+        "date": "unknown",
+        "creator": "unknown",
+        "version": "unknown"
+    }

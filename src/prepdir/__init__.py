@@ -7,7 +7,6 @@ from .main import configure_logging
 from .core import (
     run,
     init_config,
-    validate_output_file,
     traverse_directory,
     display_file_content,
     is_valid_uuid,
@@ -17,6 +16,8 @@ from .core import (
     is_excluded_file,
     __version__,
 )
+
+from .validate_output_file import validate_output_file
 
 __all__ = [
     "__version__",
