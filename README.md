@@ -6,7 +6,7 @@
 [![Downloads](https://pepy.tech/badge/prepdir)](https://pepy.tech/project/prepdir)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A lightweight CLI and library utility to prepare your code project for AI assistants, formatting file contents with clear separators for easy sharing. **Get Started**: [Quick Start](#-quick-start)
+`prepdir` is a light weight directory traversal utility designed to prepare project contents for review, particularly for sharing with AI assistants for code analysis and improvement suggestions. It traverses directories, prints relative file paths and contents, and supports features like UUID scrubbing, file exclusion, and output validation. **Get Started**: [Quick Start](#-quick-start)
 
 ## Contents
 ```
@@ -68,8 +68,16 @@ prepdir
 from prepdir import run
 
 # Generate content for Python files
-content = run(directory="/path/to/project", extensions=["py"])
+content, _ = run(directory="/path/to/project", extensions=["py"])
 print(content)  # Use the content directly
+```
+
+```python
+from prepdir import run
+
+# Enable unique UUID placeholders (new in 0.14.0, requires programmatic use for mapping access):
+content, uuid_mapping = run(directory="/path/to/project", use_unique_placeholders=True)
+print("UUID Mapping:", uuid_mapping)
 ```
 
 ## 📦 Installation

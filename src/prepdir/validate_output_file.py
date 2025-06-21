@@ -1,6 +1,7 @@
 import re
 import os
 import logging
+from typing import List, Tuple, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -8,7 +9,7 @@ logger = logging.getLogger(__name__)
 LENIENT_DELIM_PATTERN = r"[-=]{3,}"
 
 
-def _process_header_lines(lines: list[str], first_non_blank_index: int) -> tuple[dict, list, int]:
+def _process_header_lines(lines: List[str], first_non_blank_index: int) -> Tuple[Dict, List, int]:
     """
     Process potential header lines (file listing and base directory).
 
@@ -36,7 +37,7 @@ def _process_header_lines(lines: list[str], first_non_blank_index: int) -> tuple
         re.IGNORECASE,
     )
     if initial_header_match:
-        creation["date"] = initial_header_match.group(1)
+        creation["date"] = initial_header_match.group(1) or "unknown"
         creation["creator"] = initial_header_match.group(2) or "unknown"
         creation["version"] = initial_header_match.group(3) or "unknown"
         next_index += 1
@@ -60,7 +61,7 @@ def _process_header_lines(lines: list[str], first_non_blank_index: int) -> tuple
     return creation, warnings, next_index
 
 
-def _parse_file_sections(lines: list[str], start_index: int) -> tuple[dict, list, list, set]:
+def _parse_file_sections(lines: List[str], start_index: int) -> Tuple[Dict, List, List, set]:
     """
     Parse file sections from lines starting at given index.
 
@@ -172,7 +173,7 @@ def _parse_file_sections(lines: list[str], start_index: int) -> tuple[dict, list
     return files_content, errors, warnings, seen_file_paths
 
 
-def validate_output_file(file_path: str) -> dict:
+def validate_output_file(file_path: str) -> Dict:
     """
     Validate a prepdir-generated or LLM-edited output file to ensure it has correct structure.
 
@@ -180,52 +181,54 @@ def validate_output_file(file_path: str) -> dict:
         file_path (str): Path to the output file to validate.
 
     Returns:
-        dict: Validation result with keys:
+        Dict: Validation result with keys:
             - is_valid (bool): True if the file is valid, False otherwise.
-            - errors (list): List of error messages for invalid structure.
-            - warnings (list): List of warning messages for minor issues.
-            - files (dict): Dictionary mapping file paths to their contents.
-            - creation (dict): Dictionary containing creator, date, and version from the header.
+            - errors (List): List of error messages for invalid structure.
+            - warnings (List): List of warning messages for minor issues.
+            - files (Dict): Dictionary mapping file paths to their contents.
+            - creation (Dict): Dictionary containing creator, date, and version from the header.
 
     Raises:
         FileNotFoundError: If the file does not exist.
         UnicodeDecodeError: If the file cannot be read as text.
     """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File '{file_path}' does not exist.")
+
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
+    except UnicodeDecodeError:
+        raise UnicodeDecodeError("File cannot be read as text.", b"", 0, 0, "Invalid encoding")
 
-        if not lines:
-            return {
-                "is_valid": False,
-                "errors": ["File is empty."],
-                "warnings": [],
-                "files": {},
-                "creation": {},
-            }
-
-        # Find first non-blank line
-        first_non_blank_index = 0
-        while first_non_blank_index < len(lines) and not lines[first_non_blank_index].strip():
-            first_non_blank_index += 1
-
-        # Process header lines
-        creation, warnings, next_index = _process_header_lines(lines, first_non_blank_index)
-
-        # Parse file sections
-        files_content, errors, section_warnings, _ = _parse_file_sections(lines, next_index)
-        warnings.extend(section_warnings)
-
-        is_valid = len(errors) == 0 and len(files_content) > 0
+    if not lines:
         return {
-            "is_valid": is_valid,
-            "errors": errors,
-            "warnings": warnings,
-            "files": files_content,
-            "creation": creation,
+            "is_valid": False,
+            "errors": ["File is empty."],
+            "warnings": [],
+            "files": {},
+            "creation": {"date": "unknown", "creator": "unknown", "version": "unknown"},
         }
 
-    except FileNotFoundError:
-        raise FileNotFoundError(f"File '{file_path}' does not exist.")
-    except UnicodeDecodeError:
-        raise UnicodeDecodeError(f"File '{file_path}' cannot be read as text.", b"", 0, 0, "Invalid encoding")
+    # Find first non-blank line
+    first_non_blank_index = 0
+    while first_non_blank_index < len(lines) and not lines[first_non_blank_index].strip():
+        first_non_blank_index += 1
+
+    # Process header lines (file listing and base directory)
+    creation, warnings, next_index = _process_header_lines(lines, first_non_blank_index)
+
+    # Parse file sections
+    files_content, errors, section_warnings, _ = _parse_file_sections(lines, next_index)
+    warnings.extend(section_warnings)
+
+    # Determine validity
+    is_valid = len(errors) == 0 and len(files_content) > 0
+
+    return {
+        "is_valid": is_valid,
+        "errors": errors,
+        "warnings": warnings,
+        "files": files_content,
+        "creation": creation,
+    }
