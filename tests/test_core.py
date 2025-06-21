@@ -388,11 +388,10 @@ def test_validate_output_file_malformed_delimiters(tmp_path):
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
-    assert result["is_valid"] is True
-    assert result["errors"] == []
-    assert len(result["warnings"]) == 2
-    assert any("Malformed header" in warning for warning in result["warnings"])
-    assert any("Malformed footer" in warning for warning in result["warnings"])
+    assert result["is_valid"] is False
+    assert any("Line 2: Malformed header" in error for error in result["errors"])
+    assert any("Malformed footer" in error for error in result["errors"])
+    assert len(result["warnings"]) == 0
     assert result["files"] == {"good.txt": "good content"}
 
 def test_validate_output_file_large_file(tmp_path):
@@ -589,3 +588,123 @@ def test_validate_output_file_partial_content(tmp_path):
     assert len(result["errors"]) == 1
     assert "Header for 'test.txt' has no matching footer" in result["errors"][0]
     assert result["files"] == {"test.txt": "partial content\nincomplete delimiter =-=-=-"}
+
+def test_validate_output_file_lenient_delimiters(tmp_path):
+    """Test validate_output_file with lenient delimiters (various =/- combinations and whitespace)."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "=== Begin File: 'file1.txt' ===\n"  # Short delimiter, equal signs
+        "Content of file1\n"
+        "--- End File: 'file1.txt' ---\n"    # Short delimiter, dashes
+        "=-=-=  Begin File: 'file2.py'  =-=-=\n"  # Mixed delimiter with extra whitespace
+        "print('hello')\n"
+        "===== End File: 'file2.py' =====\n"  # Equal signs only
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert result["files"] == {
+        "file1.txt": "Content of file1",
+        "file2.py": "print('hello')"
+    }
+
+def test_validate_output_file_lenient_delimiters_with_extra_whitespace(tmp_path):
+    """Test validate_output_file with lenient delimiters and excessive whitespace."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "==-==-==   Begin File: 'test.txt'    ==--==\n"  # Mixed delimiter, extra spaces
+        "content\n"
+        "--==--   End File: 'test.txt'   --==--\n"      # Mixed delimiter, extra spaces
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert result["files"] == {"test.txt": "content"}
+
+def test_validate_output_file_mixed_lenient_malformed_delimiters(tmp_path):
+    """Test validate_output_file with a mix of lenient and malformed delimiters."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "=== Begin File: 'test.txt' ===\n"  # Valid lenient delimiter
+        "content\n"
+        "=== End File: 'test.txt' ==\n"     # Valid lenient delimiter (shorter)
+        "==- Begin File:\n"                   # Malformed header (no filename) - expect this to generate an error
+        "malformed content\n"
+        "--==-- End File: 'other.txt' ---\n"  # Valid footer but no matching header  - expect this to generate an error
+        "===== Begin File: 'valid.txt' ====-\n"  # Valid lenient delimiter
+        "valid content\n"
+        "=== End File: 'valid.txt' ===\n"    # Valid lenient delimiter
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    print(f"{result['errors']=}")
+    print(f"{result['warnings']=}")
+
+    assert result["is_valid"] is False
+    assert len(result["errors"]) == 2
+    assert any("Footer for 'other.txt' without matching header" in error for error in result["errors"])
+    assert any("Malformed header" in error for error in result["errors"])
+    assert len(result["warnings"]) == 0
+    assert result["files"] == {
+        "test.txt": "content",
+        "valid.txt": "valid content"
+    }
+
+def test_validate_output_file_lenient_header_variations(tmp_path):
+    """Test validate_output_file with variations in generated header."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010\n"  # No version or pip
+        "Base directory is '/test'\n"
+        "==-== Begin File: 'test.txt' ==-==\n"
+        "content\n"
+        "==--== End File: 'test.txt' ==--==\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert result["files"] == {"test.txt": "content"}
+
+def test_validate_output_file_single_character_delimiters(tmp_path):
+    """Test validate_output_file with single-character delimiters."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
+        "Base directory is '/test'\n"
+        "= Begin File: 'test.txt' =\n"  # Single = delimiter
+        "content\n"
+        "- End File: 'test.txt' -\n"    # Single - delimiter
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert result["files"] == {"test.txt": "content"}
+
+def test_validate_output_file_first_line_header(tmp_path):
+    """Test validate_output_file with a header on the first line."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "=== Begin File: 'test.txt' ===\n"
+        "content\n"
+        "=== End File: 'test.txt' ===\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert any("Missing or invalid file listing header" in warning for warning in result["warnings"])  # No generated header
+    assert result["files"] == {"test.txt": "content"}

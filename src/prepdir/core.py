@@ -41,11 +41,14 @@ UUID_PATTERN_NO_HYPHENS = re.compile(
 
 # File delimiter and header/footer patterns
 DELIMITER = "=-=-=-=-=-=-=-="
-HEADER_PATTERN = re.compile(rf"^{DELIMITER} Begin File: '(.*?)' {DELIMITER}$")
-FOOTER_PATTERN = re.compile(rf"^{DELIMITER} End File: '(.*?)' {DELIMITER}$")
-GENERATED_HEADER_PATTERN = re.compile(r"^File listing generated \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+.*$")
-PARTIAL_HEADER_PATTERN = re.compile(rf"^{DELIMITER} Begin File:")
-PARTIAL_FOOTER_PATTERN = re.compile(rf"^{DELIMITER} End File:")
+LENIENT_DELIM_PATTERN = "[=-]+"
+HEADER_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+Begin File: '(.*?)'\s+{LENIENT_DELIM_PATTERN}$")
+FOOTER_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+End File: '(.*?)'\s+{LENIENT_DELIM_PATTERN}$")
+GENERATED_HEADER_PATTERN = re.compile(
+    r"^File listing generated (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)?(?: by (.*)(?: version ([0-9.]+))?(?: \(pip install prepdir\))?)?$"
+)
+PARTIAL_HEADER_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+Begin File:")
+PARTIAL_FOOTER_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+End File:")
 
 def is_valid_uuid(value: str) -> bool:
     """Check if a string is a valid UUID."""
@@ -163,7 +166,7 @@ def init_config(config_path=".prepdir/config.yaml", force=False, stdout=sys.stdo
 
 def validate_output_file(file_path: str) -> dict:
     """
-    Validate a prepdir-generated output file to ensure it has correct structure.
+    Validate a prepdir-generated or LLM-edited output file to ensure it has correct structure.
 
     Args:
         file_path (str): Path to the output file to validate.
@@ -174,6 +177,7 @@ def validate_output_file(file_path: str) -> dict:
             - errors (list): List of error messages for invalid structure.
             - warnings (list): List of warning messages for minor issues.
             - files (dict): Dictionary mapping file paths to their contents.
+            - creation (dict): Dictionary containing creator, date, and version from the header.
 
     Raises:
         FileNotFoundError: If the file does not exist.
@@ -183,49 +187,100 @@ def validate_output_file(file_path: str) -> dict:
     warnings = []
     open_headers = []
     files_content = {}
+    creation = {}
     current_file = None
     current_content = []
     line_number = 0
-    
+    seen_file_paths = set()
+
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         
         if not lines:
             errors.append("File is empty.")
-            return {"is_valid": False, "errors": errors, "warnings": warnings, "files": files_content}
+            return {"is_valid": False, "errors": errors, "warnings": warnings, "files": files_content, "creation": creation}
 
-        # Check the generated header (first line)
-        first_line = lines[0].strip()
-        if not GENERATED_HEADER_PATTERN.match(first_line):
-            errors.append(f"Line 1: Missing or invalid file listing header. Got: '{first_line}'")
+        # Skip initial blank lines
+        first_non_blank_index = 0
+        while first_non_blank_index < len(lines) and not lines[first_non_blank_index].strip():
+            first_non_blank_index += 1
+
+        if first_non_blank_index >= len(lines):
+            warnings.append("File contains only blank lines, but no valid file content.")
         else:
-            # Check the second line (Base directory)
-            if len(lines) < 2 or not lines[1].strip().startswith("Base directory is"):
-                warnings.append("Line 2: Missing or invalid base directory line.")
+            # Check the generated header (first non-blank line)
+            first_line = lines[first_non_blank_index].strip()
+            initial_header_match = re.match(
+                r"^\s*file\s+listing\s+generated\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s*"
+                r"(?:by\s+([^\s]+)\s*(?:version\s+([\d.]+))?)?(?:\s*\(pip\s+install\s+[^\)]+\))?\s*$",
+                first_line,
+                re.IGNORECASE
+            )
+            if initial_header_match:
+                creation["date"] = initial_header_match.group(1)
+                creation["creator"] = initial_header_match.group(2) or "unknown"
+                creation["version"] = initial_header_match.group(3) or "unknown"
+                # Check for base directory line
+                next_line_index = first_non_blank_index + 1
+                while next_line_index < len(lines) and not lines[next_line_index].strip():
+                    next_line_index += 1
+                if next_line_index >= len(lines) or not re.match(
+                    r"^\s*base\s+directory\s+is\s+.*$", lines[next_line_index].strip(), re.IGNORECASE
+                ):
+                    warnings.append(f"Line {next_line_index + 1}: Missing or invalid base directory line.")
+            else:
+                warnings.append(f"Line {first_non_blank_index + 1}: Missing or invalid file listing header. Got: '{first_line}'")
+                # Proceed without header, assuming file sections might still be valid
 
-        for line_number, line in enumerate(lines, 1):
+        for line_number, line in enumerate(lines,1):
             stripped_line = line.rstrip('\n')
             if not stripped_line:
                 if current_file:
                     current_content.append(stripped_line)
                 continue
 
-            # Check for header
-            header_match = HEADER_PATTERN.match(stripped_line)
+            # Check for header (case-insensitive)
+            header_match = re.match(
+                rf"^{LENIENT_DELIM_PATTERN}\s+begin\s+file\s*:\s*['\"](.*?)['\"]\s*{LENIENT_DELIM_PATTERN}$",
+                stripped_line,
+                re.IGNORECASE
+            )
             if header_match:
-                file_path = header_match.group(1)
+                file_path = header_match.group(1).strip()  # Trim whitespace from file path
+                if not file_path:
+                    errors.append(f"Line {line_number}: Empty file path in header.")
+                    continue
+                # Check for duplicate file paths
+                if file_path in seen_file_paths:
+                    warnings.append(f"Line {line_number}: Duplicate file path '{file_path}' detected.")
+                else:
+                    seen_file_paths.add(file_path)
+                # Validate file path (basic check for suspicious characters or absolute paths)
+                if os.path.isabs(file_path) or '..' in os.path.split(file_path):
+                    warnings.append(f"Line {line_number}: Suspicious file path '{file_path}' (absolute or contains '..').")
+                elif not re.match(r'^[\w\-\./]+$', file_path):
+                    warnings.append(f"Line {line_number}: File path '{file_path}' contains unusual characters.")
                 if current_file:
                     files_content[current_file] = '\n'.join(current_content)
                     current_content = []
                 open_headers.append((file_path, line_number))
                 current_file = file_path
+                
+                logger.debug(f"Header found in stripped_line: {stripped_line}")
                 continue
 
-            # Check for footer
-            footer_match = FOOTER_PATTERN.match(stripped_line)
+            # Check for footer (case-insensitive)
+            footer_match = re.match(
+                rf"^{LENIENT_DELIM_PATTERN}\s+end\s+file\s*:\s*['\"](.*?)['\"]\s*{LENIENT_DELIM_PATTERN}$",
+                stripped_line,
+                re.IGNORECASE
+            )
             if footer_match:
-                file_path = footer_match.group(1)
+                file_path = footer_match.group(1).strip()  # Trim whitespace from file path
+                if not file_path:
+                    errors.append(f"Line {line_number}: Empty file path in footer.")
+                    continue
                 if not open_headers:
                     errors.append(f"Line {line_number}: Footer for '{file_path}' without matching header.")
                 else:
@@ -241,18 +296,23 @@ def validate_output_file(file_path: str) -> dict:
                             current_content = []
                             current_file = None
                         open_headers.pop()
+                logger.debug(f"Footer found in stripped_line: {stripped_line}")
                 continue
 
             # Check for partial header or footer
-            if PARTIAL_HEADER_PATTERN.match(stripped_line) and not HEADER_PATTERN.match(stripped_line):
-                warnings.append(f"Line {line_number}: Malformed header: '{stripped_line}'")
+            if re.match(rf"^{LENIENT_DELIM_PATTERN}\s+begin\s+file\s*:", stripped_line, re.IGNORECASE) and not header_match:
+                errors.append(f"Line {line_number}: Malformed header: '{stripped_line}' (missing or invalid file path).")
                 if current_file:
                     current_content.append(stripped_line)
-                continue
-            if PARTIAL_FOOTER_PATTERN.match(stripped_line) and not FOOTER_PATTERN.match(stripped_line):
-                warnings.append(f"Line {line_number}: Malformed footer: '{stripped_line}'")
+                logger.debug(f"Malformed header found in stripped_line: {stripped_line}")
+                continue  # Presumption is that if it matches begin file it will not match end file (below)
+
+            if re.match(rf"^{LENIENT_DELIM_PATTERN}\s+end\s+file\s*:", stripped_line, re.IGNORECASE) and not footer_match:
+                errors.append(f"Line {line_number}: Malformed footer: '{stripped_line}'")
                 if current_file:
                     current_content.append(stripped_line)
+                    
+                logger.debug(f"Malformed footer found in stripped_line: {stripped_line}")
                 continue
 
             # Collect content for the current file
@@ -268,7 +328,7 @@ def validate_output_file(file_path: str) -> dict:
             errors.append(f"Line {header_line}: Header for '{file_path}' has no matching footer.")
 
         is_valid = len(errors) == 0
-        return {"is_valid": is_valid, "errors": errors, "warnings": warnings, "files": files_content}
+        return {"is_valid": is_valid, "errors": errors, "warnings": warnings, "files": files_content, "creation": creation}
 
     except FileNotFoundError:
         raise FileNotFoundError(f"File '{file_path}' does not exist.")
