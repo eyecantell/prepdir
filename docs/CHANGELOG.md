@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - [PyPI](https://pypi.org/project/prepdir/)
 - [Dynaconf Documentation](https://dynaconf.com)
 
+## [0.14.1] - 2025-06-20
+
+### Fixed
+- Corrected REAMDE.md and CHANGELOG.md 
+
 ## [0.14.0] - 2025-06-20
 
 ### Added
@@ -76,7 +81,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added automatic scrubbing of UUIDs in file contents, replacing them with the nil UUID (`00000000-0000-0000-0000-000000000000`) by default. UUIDs are matched as standalone tokens (using word boundaries) to avoid false positives. Use `--no-scrub-uuids` to disable or `--replacement-uuid` to specify a custom UUID. Configure via `SCRUB_UUIDS` and `REPLACEMENT_UUID` in `config.yaml`.
 - Shortened file delimiter from 31 to 15 characters to reduce token usage in AI model inputs.
 
-## [0.11.0]
+## [0.11.0] - 2025-06-01
+
+### Added
 - Added automatic exclusion of `prepdir`-generated files (e.g., `prepped_dir.txt`) by default, with new `--include-prepdir-files` option to include them.
 
-See [CHANGELOG.md](docs/CHANGELOG.md) for the complete version history.
+## [0.10.1] - 2025-05-20
+
+### Added
+- Added validation for uppercase configuration keys (`EXCLUDE`, `DIRECTORIES`, `FILES`) with guidance for users upgrading from older versions.
+
+## [0.10.0] - 2025-05-15
+
+### Changed
+- Switched to `Dynaconf` for configuration management, requiring uppercase configuration keys (`EXCLUDE`, `DIRECTORIES`, `FILES`) in `config.yaml`.
+- Configuration precedence: `--config` > `.prepdir/config.yaml` > `~/.prepdir/config.yaml` > bundled `src/prepdir/config.yaml`.
+
+## [0.9.0] - 2025-04-10
+
+### Added
+- Support for `.gitignore`-style glob patterns in `config.yaml` for file and directory exclusions.
+
+## [0.8.0] - 2025-03-05
+
+### Changed
+- Improved performance for large directories by optimizing file traversal logic.
+
+## [0.7.0] - 2025-02-01
+
+### Added
+- Verbose mode (`-v`) to log skipped files and reasons (e.g., excluded by config).
+
+## [0.6.0] - 2025-01-10
+
+### Changed
+- Moved default config to `.prepdir/config.yaml` from `config.yaml` for better organization.
+
+## [0.5.0] - 2024-12-15
+
+### Added
+- Support for custom output file via `-o` or `--output` option.
+
+## [0.4.0] - 2024-11-20
+
+### Fixed
+- Fixed handling of non-text files to avoid encoding errors during traversal.
+
+## [0.3.0] - 2024-10-05
+
+### Added
+- Support for specific file extensions via `-e` or `--extensions`.
+
+## [0.2.0] - 2024-09-01
+
+### Changed
+- Improved output formatting with clearer file separators and timestamps.
+
+## [0.1.0] - 2024-08-01
+
+### Added
+- Initial release of `prepdir` with basic directory traversal and file content output.
