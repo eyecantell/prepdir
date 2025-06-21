@@ -218,7 +218,7 @@ def validate_output_file(file_path: str) -> dict:
                 re.IGNORECASE
             )
             if initial_header_match:
-                creation["date"] = initial_header_match.group(1)
+                creation["date"] = initial_header_match.group(1) or "unknown"
                 creation["creator"] = initial_header_match.group(2) or "unknown"
                 creation["version"] = initial_header_match.group(3) or "unknown"
                 # Check for base directory line

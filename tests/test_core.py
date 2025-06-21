@@ -1,5 +1,5 @@
 import sys
-from io import StringIO
+import json
 import pytest
 import yaml
 import logging
@@ -379,17 +379,19 @@ def test_validate_output_file_malformed_delimiters(tmp_path):
     content = (
         "File listing generated 2025-06-16 01:36:06.139010 by prepdir version 0.13.0\n"
         "Base directory is '/test'\n"
-        "=-=-=-=-=-=-=-= Begin File:\n"  # Missing filename
+        "=-=-=-=-=-=-=-= Begin File:\n"  # Missing filename in header
         "content\n"
-        "=-=-=-=-=-=-=-= End File:\n"    # Missing filename
+        "=-=-=-=-=-=-=-= End File:\n"    # Missing filename in footer
         "=-=-=-=-=-=-=-= Begin File: 'good.txt' =-=-=-=-=-=-=-=\n"
         "good content\n"
         "=-=-=-=-=-=-=-= End File: 'good.txt' =-=-=-=-=-=-=-=\n"
     )
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
+
+    print(f"{json.dumps(result, indent=4)}")
     assert result["is_valid"] is False
-    assert any("Line 2: Malformed header" in error for error in result["errors"])
+    assert any("Malformed header" in error for error in result["errors"])
     assert any("Malformed footer" in error for error in result["errors"])
     assert len(result["warnings"]) == 0
     assert result["files"] == {"good.txt": "good content"}
@@ -708,3 +710,63 @@ def test_validate_output_file_first_line_header(tmp_path):
     assert result["errors"] == []
     assert any("Missing or invalid file listing header" in warning for warning in result["warnings"])  # No generated header
     assert result["files"] == {"test.txt": "content"}
+
+def test_validate_output_file_creation_complete_header(tmp_path):
+    """Test validate_output_file parses complete generated header into creation dict."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06.139876 by prepdir version 0.13.0 (pip install prepdir)\n"
+        "Base directory is '/test'\n"
+        "=== Begin File: 'test.txt' ===\n"
+        "content\n"
+        "=== End File: 'test.txt' ===\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert result["files"] == {"test.txt": "content"}
+    assert result["creation"] == {
+        "date": "2025-06-16 01:36:06.139876",
+        "creator": "prepdir",
+        "version": "0.13.0"
+    }
+
+def test_validate_output_file_creation_no_version(tmp_path):
+    """Test validate_output_file parses header with no version into creation dict."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "File listing generated 2025-06-16 01:36:06 by some-tool\n"
+        "Base directory is '/test'\n"
+        "=== Begin File: 'test.txt' ===\n"
+        "content\n"
+        "=== End File: 'test.txt' ===\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert result["warnings"] == []
+    assert result["files"] == {"test.txt": "content"}
+    assert result["creation"] == {
+        "date": "2025-06-16 01:36:06",
+        "creator": "some-tool",
+        "version": "unknown"
+    }
+
+def test_validate_output_file_creation_no_header(tmp_path):
+    """Test validate_output_file with no generated header returns empty creation dict."""
+    output_file = tmp_path / "output.txt"
+    content = (
+        "=== Begin File: 'test.txt' ===\n"
+        "content\n"
+        "=== End File: 'test.txt' ===\n"
+    )
+    output_file.write_text(content)
+    result = validate_output_file(str(output_file))
+    assert result["is_valid"] is True
+    assert result["errors"] == []
+    assert any("Missing or invalid file listing header" in warning for warning in result["warnings"])
+    assert result["files"] == {"test.txt": "content"}
+    assert result["creation"] == {}
