@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 try:
     __version__ = version("prepdir")
 except PackageNotFoundError:
-    __version__ = "0.13.0"  # Fallback to hardcoded version
+    __version__ = "0.0.0"  # Fallback to hardcoded version
 
 # UUID regex pattern (8-4-4-4-12 hexadecimal characters, case-insensitive, with word boundaries)
 UUID_PATTERN = re.compile(
