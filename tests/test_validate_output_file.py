@@ -3,6 +3,7 @@ import pytest
 import os
 from prepdir import validate_output_file
 
+
 def test_validate_output_file_empty_file(tmp_path):
     """Test validate_output_file with an empty file."""
     output_file = tmp_path / "empty.txt"
@@ -14,6 +15,7 @@ def test_validate_output_file_empty_file(tmp_path):
     assert "File is empty." in result["errors"][0]
     assert result["warnings"] == []
     assert result["files"] == {}
+
 
 def test_validate_output_file_valid_complete(tmp_path):
     """Test validate_output_file with a valid, complete prepdir output."""
@@ -37,6 +39,7 @@ def test_validate_output_file_valid_complete(tmp_path):
     assert result["warnings"] == []
     assert result["files"] == {"file1.txt": "Content of file1\nLine 2", "file2.py": "print('hello')"}
 
+
 def test_validate_output_file_missing_base_directory(tmp_path):
     """Test validate_output_file with missing base directory line."""
     output_file = tmp_path / "output.txt"
@@ -55,6 +58,7 @@ def test_validate_output_file_missing_base_directory(tmp_path):
     assert "Missing or invalid base directory line" in result["warnings"][0]
     assert result["files"] == {"test.txt": "content"}
 
+
 def test_validate_output_file_unmatched_footer(tmp_path):
     """Test validate_output_file with footer without matching header."""
     output_file = tmp_path / "invalid.txt"
@@ -70,6 +74,7 @@ def test_validate_output_file_unmatched_footer(tmp_path):
     assert len(result["errors"]) == 1
     assert "Footer for 'test.txt' without matching header" in result["errors"][0]
     assert result["files"] == {}
+
 
 def test_validate_output_file_unclosed_header(tmp_path):
     """Test validate_output_file with header that has no matching footer."""
@@ -87,6 +92,7 @@ def test_validate_output_file_unclosed_header(tmp_path):
     assert len(result["errors"]) == 1
     assert "Header for 'test.txt' has no matching footer" in result["errors"][0]
     assert result["files"] == {"test.txt": "content without footer"}
+
 
 def test_validate_output_file_malformed_delimiters(tmp_path):
     """Test validate_output_file with malformed header/footer delimiters."""
@@ -110,6 +116,7 @@ def test_validate_output_file_malformed_delimiters(tmp_path):
     assert len(result["warnings"]) == 0
     assert result["files"] == {"good.txt": "good content"}
 
+
 def test_validate_output_file_large_file(tmp_path):
     """Test validate_output_file with a large file to ensure performance."""
     output_file = tmp_path / "large.txt"
@@ -129,6 +136,7 @@ def test_validate_output_file_large_file(tmp_path):
     for i in range(10):
         assert f"file{i}.txt" in result["files"]
         assert result["files"][f"file{i}.txt"].count("\n") == 999  # 1000 lines minus one for joining
+
 
 def test_validate_output_file_empty_files(tmp_path):
     """Test validate_output_file with files that have no content."""
@@ -151,6 +159,7 @@ def test_validate_output_file_empty_files(tmp_path):
     assert result["warnings"] == []
     assert result["files"]["empty.txt"] == ""
     assert result["files"]["whitespace.txt"] == "   \n\t"
+
 
 def test_validate_output_file_with_blank_lines(tmp_path):
     """Test validate_output_file preserves blank lines within file content."""
@@ -177,6 +186,7 @@ def test_validate_output_file_with_blank_lines(tmp_path):
     assert result["files"]["test.txt"] == expected_content
     assert result["files"]["test.txt"].count("\n") == 5
 
+
 def test_validate_output_file_unicode_error(tmp_path):
     """Test validate_output_file handles UnicodeDecodeError."""
     output_file = tmp_path / "invalid.bin"
@@ -184,10 +194,12 @@ def test_validate_output_file_unicode_error(tmp_path):
     with pytest.raises(UnicodeDecodeError, match="Invalid encoding"):
         validate_output_file(str(output_file))
 
+
 def test_validate_output_file_file_not_found(tmp_path):
     """Test validate_output_file with non-existent file."""
     with pytest.raises(FileNotFoundError, match="File '.*' does not exist"):
         validate_output_file(str(tmp_path / "nonexistent.txt"))
+
 
 def test_validate_output_file_multiple_files_complex(tmp_path):
     """Test validate_output_file with multiple files and complex content."""
@@ -237,6 +249,7 @@ def test_validate_output_file_multiple_files_complex(tmp_path):
     assert result["files"]["README.md"].count("\n") == 8
     assert result["files"]["config.json"].count("\n") == 3
 
+
 def test_validate_output_file_malformed_timestamp(tmp_path):
     """Test validate_output_file with a malformed timestamp in header."""
     output_file = tmp_path / "output.txt"
@@ -255,6 +268,7 @@ def test_validate_output_file_malformed_timestamp(tmp_path):
     assert result["warnings"] == []
     assert result["files"] == {"test.txt": "content"}
 
+
 def test_validate_output_file_missing_version(tmp_path):
     """Test validate_output_file with missing version in header."""
     output_file = tmp_path / "output.txt"
@@ -272,6 +286,7 @@ def test_validate_output_file_missing_version(tmp_path):
     assert result["errors"] == []
     assert result["warnings"] == []
     assert result["files"] == {"test.txt": "content"}
+
 
 def test_validate_output_file_mismatched_header_footer(tmp_path):
     """Test validate_output_file with mismatched header and footer."""
@@ -292,6 +307,7 @@ def test_validate_output_file_mismatched_header_footer(tmp_path):
     assert "Header for 'file1.txt' has no matching footer" in result["errors"][1]
     assert result["files"] == {"file1.txt": "content"}
 
+
 def test_validate_output_file_partial_content(tmp_path):
     """Test validate_output_file with partial file content (incomplete delimiters)."""
     output_file = tmp_path / "output.txt"
@@ -309,6 +325,7 @@ def test_validate_output_file_partial_content(tmp_path):
     assert len(result["errors"]) == 1
     assert "Header for 'test.txt' has no matching footer" in result["errors"][0]
     assert result["files"] == {"test.txt": "partial content\nincomplete delimiter =-=-=-"}
+
 
 def test_validate_output_file_lenient_delimiters(tmp_path):
     """Test validate_output_file with lenient delimiters (various =/- combinations and whitespace)."""
@@ -331,6 +348,7 @@ def test_validate_output_file_lenient_delimiters(tmp_path):
     assert result["warnings"] == []
     assert result["files"] == {"file1.txt": "Content of file1", "file2.py": "print('hello')"}
 
+
 def test_validate_output_file_lenient_delimiters_with_extra_whitespace(tmp_path):
     """Test validate_output_file with lenient delimiters and excessive whitespace."""
     output_file = tmp_path / "output.txt"
@@ -348,6 +366,7 @@ def test_validate_output_file_lenient_delimiters_with_extra_whitespace(tmp_path)
     assert result["errors"] == []
     assert result["warnings"] == []
     assert result["files"] == {"test.txt": "content"}
+
 
 def test_validate_output_file_mixed_lenient_malformed_delimiters(tmp_path):
     """Test validate_output_file with a mix of lenient and malformed delimiters."""
@@ -377,6 +396,7 @@ def test_validate_output_file_mixed_lenient_malformed_delimiters(tmp_path):
     assert len(result["warnings"]) == 0
     assert result["files"] == {"test.txt": "content", "valid.txt": "valid content"}
 
+
 def test_validate_output_file_lenient_header_variations(tmp_path):
     """Test validate_output_file with variations in generated header."""
     output_file = tmp_path / "output.txt"
@@ -394,6 +414,7 @@ def test_validate_output_file_lenient_header_variations(tmp_path):
     assert result["errors"] == []
     assert result["warnings"] == []
     assert result["files"] == {"test.txt": "content"}
+
 
 def test_validate_output_file_single_character_delimiters(tmp_path):
     """Test validate_output_file with single-character delimiters."""
@@ -413,6 +434,7 @@ def test_validate_output_file_single_character_delimiters(tmp_path):
     assert result["warnings"] == []
     assert result["files"] == {}
 
+
 def test_validate_output_file_first_line_header(tmp_path):
     """Test validate_output_file with a header on the first line."""
     output_file = tmp_path / "output.txt"
@@ -426,6 +448,7 @@ def test_validate_output_file_first_line_header(tmp_path):
         "Missing or invalid file listing header" in warning for warning in result["warnings"]
     )  # No generated header
     assert result["files"] == {"test.txt": "content"}
+
 
 def test_validate_output_file_creation_complete_header(tmp_path):
     """Test validate_output_file parses complete generated header into creation dict."""
@@ -446,6 +469,7 @@ def test_validate_output_file_creation_complete_header(tmp_path):
     assert result["files"] == {"test.txt": "content"}
     assert result["creation"] == {"date": "2025-06-16 01:36:06.139876", "creator": "prepdir", "version": "0.13.0"}
 
+
 def test_validate_output_file_creation_no_version(tmp_path):
     """Test validate_output_file parses header with no version into creation dict."""
     output_file = tmp_path / "output.txt"
@@ -465,28 +489,21 @@ def test_validate_output_file_creation_no_version(tmp_path):
     assert result["files"] == {"test.txt": "content"}
     assert result["creation"] == {"date": "2025-06-16 01:36:06", "creator": "some-tool", "version": "unknown"}
 
+
 def test_validate_output_file_creation_starts_with_basedir(tmp_path):
     """Test validate_output_file parses header with base dir header but no main header line into creation dict."""
     output_file = tmp_path / "output.txt"
-    content = (
-        "Base directory is '/test'\n"
-        "=== Begin File: 'test.txt' ===\n"
-        "content\n"
-        "=== End File: 'test.txt' ===\n"
-    )
+    content = "Base directory is '/test'\n=== Begin File: 'test.txt' ===\ncontent\n=== End File: 'test.txt' ===\n"
     output_file.write_text(content)
     result = validate_output_file(str(output_file))
     print(f"result is:\n{json.dumps(result, indent=4)}")
     assert result["is_valid"] is True
     assert result["errors"] == []
-    assert len(result['warnings']) == 1
+    assert len(result["warnings"]) == 1
     assert any("Missing or invalid file listing header" in warning for warning in result["warnings"])
     assert result["files"] == {"test.txt": "content"}
-    assert result["creation"] == {
-        "date": "unknown",
-        "creator": "unknown",
-        "version": "unknown"
-    }
+    assert result["creation"] == {"date": "unknown", "creator": "unknown", "version": "unknown"}
+
 
 def test_validate_output_file_creation_no_header(tmp_path):
     """Test validate_output_file with no generated header returns empty creation dict."""
@@ -499,8 +516,4 @@ def test_validate_output_file_creation_no_header(tmp_path):
     assert result["errors"] == []
     assert any("Missing or invalid file listing header" in warning for warning in result["warnings"])
     assert result["files"] == {"test.txt": "content"}
-    assert result["creation"] == {
-        "date": "unknown",
-        "creator": "unknown",
-        "version": "unknown"
-    }
+    assert result["creation"] == {"date": "unknown", "creator": "unknown", "version": "unknown"}

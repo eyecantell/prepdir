@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 # Pattern for lenient delimiter (3 or more - or = characters)
 LENIENT_DELIM_PATTERN = r"[-=]{3,}"
 
+
 def _process_header_lines(lines: list[str], first_non_blank_index: int) -> tuple[dict, list, int]:
     """
     Process potential header lines (file listing and base directory).
@@ -40,7 +41,9 @@ def _process_header_lines(lines: list[str], first_non_blank_index: int) -> tuple
         creation["version"] = initial_header_match.group(3) or "unknown"
         next_index += 1
     else:
-        warnings.append(f"Line {first_non_blank_index + 1}: Missing or invalid file listing header. Got: '{first_line}'")
+        warnings.append(
+            f"Line {first_non_blank_index + 1}: Missing or invalid file listing header. Got: '{first_line}'"
+        )
 
     # Skip blank lines after potential header
     while next_index < len(lines) and not lines[next_index].strip():
@@ -55,6 +58,7 @@ def _process_header_lines(lines: list[str], first_non_blank_index: int) -> tuple
             warnings.append(f"Line {next_index + 1}: Missing or invalid base directory line. Got: '{base_dir_line}'")
 
     return creation, warnings, next_index
+
 
 def _parse_file_sections(lines: list[str], start_index: int) -> tuple[dict, list, list, set]:
     """
@@ -166,6 +170,7 @@ def _parse_file_sections(lines: list[str], start_index: int) -> tuple[dict, list
         errors.append(f"Line {header_line}: Header for '{file_path}' has no matching footer.")
 
     return files_content, errors, warnings, seen_file_paths
+
 
 def validate_output_file(file_path: str) -> dict:
     """

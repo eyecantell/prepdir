@@ -176,6 +176,7 @@ def init_config(config_path=".prepdir/config.yaml", force=False, stdout=sys.stdo
         print(f"Error: Failed to create '{config_path}': {str(e)}", file=stderr)
         raise SystemExit(1)
 
+
 def is_excluded_dir(dirname, root, directory, excluded_dirs):
     """Check if directory should be excluded from traversal using glob patterns."""
     relative_path = os.path.relpath(os.path.join(root, dirname), directory)
@@ -184,6 +185,7 @@ def is_excluded_dir(dirname, root, directory, excluded_dirs):
         if fnmatch.fnmatch(dirname, pattern) or fnmatch.fnmatch(relative_path, pattern):
             return True
     return False
+
 
 def is_excluded_file(filename, root, directory, excluded_files, output_file, include_prepdir_files):
     """Check if file should be excluded from traversal using glob patterns, if it's the output file, or if it's prepdir-generated."""

@@ -17,10 +17,12 @@ from prepdir import (
 from prepdir.main import configure_logging
 from prepdir.core import init_config, __version__
 
+
 @pytest.fixture(autouse=True)
 def set_test_env(monkeypatch):
     """Set TEST_ENV=true for all tests to skip real config loading."""
     monkeypatch.setenv("TEST_ENV", "true")
+
 
 @pytest.fixture
 def uuid_test_file(tmp_path):
@@ -28,6 +30,7 @@ def uuid_test_file(tmp_path):
     file = tmp_path / "test.txt"
     file.write_text("UUID: 12345678-1234-5678-1234-567812345678\nHyphenless: 12345678123456781234567812345678")
     return file
+
 
 def test_run_loglevel_debug(tmp_path, monkeypatch, caplog):
     """Test run() function with LOGLEVEL=DEBUG, ensuring debug logs are recorded."""
@@ -41,6 +44,7 @@ def test_run_loglevel_debug(tmp_path, monkeypatch, caplog):
     assert "Running prepdir on directory: " in logs
     assert "Set logging level to DEBUG" in logs
     assert "Hello, world!" in content
+
 
 def test_run_with_config(tmp_path):
     """Test run() function with a custom config file overriding default settings."""
@@ -61,6 +65,7 @@ REPLACEMENT_UUID: 123e4567-e89b-12d3-a456-426614174000
     assert test_uuid in content
     assert "123e4567-e89b-12d3-a456-426614174000" not in content
 
+
 def test_scrub_hyphenless_uuids():
     """Test UUID scrubbing for hyphen-less UUIDs."""
     content = """
@@ -74,6 +79,7 @@ def test_scrub_hyphenless_uuids():
     result_str, result_bool, _, _ = scrub_uuids(content, "00000000-0000-0000-0000-000000000000", scrub_hyphenless=True)
     assert result_str.strip() == expected.strip()
     assert result_bool is True
+
 
 def test_run_excludes_global_config(tmp_path, monkeypatch):
     """Test that ~/.prepdir/config.yaml is excluded by default."""
@@ -99,6 +105,7 @@ REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
         content, _ = run(directory=str(home_dir), config_path=str(config_file))
     assert "sensitive: data" not in content
     assert ".prepdir/config.yaml" not in content
+
 
 def test_run_excludes_global_config_bundled(tmp_path, monkeypatch):
     """Test that ~/.prepdir/config.yaml is excluded using bundled config."""
@@ -129,10 +136,12 @@ def test_run_excludes_global_config_bundled(tmp_path, monkeypatch):
     assert "sensitive: data" not in content
     assert ".prepdir/config.yaml" not in content
 
+
 def test_run_invalid_directory(tmp_path):
     """Test run() with a non-existent directory raises ValueError."""
     with pytest.raises(ValueError, match="Directory '.*' does not exist"):
         run(directory=str(tmp_path / "nonexistent"))
+
 
 def test_run_non_directory(tmp_path):
     """Test run() with a file instead of a directory raises ValueError."""
@@ -141,10 +150,12 @@ def test_run_non_directory(tmp_path):
     with pytest.raises(ValueError, match="'.*' is not a directory"):
         run(directory=str(test_file))
 
+
 def test_run_empty_directory(tmp_path):
     """Test run() with an empty directory outputs 'No files found'."""
     content, _ = run(directory=str(tmp_path))
     assert "No files found." in content
+
 
 def test_run_with_extensions_no_match(tmp_path):
     """Test run() with extensions that don't match any files."""
@@ -153,6 +164,7 @@ def test_run_with_extensions_no_match(tmp_path):
     content, _ = run(directory=str(tmp_path), extensions=["py", "txt"])
     assert "No files with extension(s) py, txt found." in content
 
+
 def test_version_fallback(monkeypatch):
     """Test __version__ fallback when package metadata is unavailable."""
     monkeypatch.setattr("prepdir.core.version", lambda *args, **kwargs: (_ for _ in ()).throw(PackageNotFoundError))
@@ -160,6 +172,7 @@ def test_version_fallback(monkeypatch):
 
     importlib.reload(sys.modules["prepdir.core"])
     assert sys.modules["prepdir.core"].__version__ == "0.13.0"
+
 
 def test_scrub_uuids_verbose_logs(caplog, uuid_test_file):
     """Test UUID scrubbing logs with verbose=True."""
@@ -174,12 +187,14 @@ def test_scrub_uuids_verbose_logs(caplog, uuid_test_file):
     assert "Scrubbed 1 hyphenated UUID(s): ['12345678-1234-5678-1234-567812345678']" in logs
     assert "Scrubbed 1 hyphen-less UUID(s): ['12345678123456781234567812345678']" in logs
 
+
 def test_scrub_uuids_no_matches():
     """Test scrub_uuids() with content containing no UUIDs."""
     content = "No UUIDs here"
     result_str, result_bool, _, _ = scrub_uuids(content, "00000000-0000-0000-0000-000000000000")
     assert result_str == content
     assert result_bool is False
+
 
 def test_is_prepdir_generated_exceptions(tmp_path, monkeypatch):
     """Test is_prepdir_generated handles exceptions."""
@@ -189,6 +204,7 @@ def test_is_prepdir_generated_exceptions(tmp_path, monkeypatch):
     with monkeypatch.context() as m:
         m.setattr("builtins.open", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("Permission denied")))
         assert is_prepdir_generated(str(test_file)) is False
+
 
 def test_init_config_permission_denied(tmp_path, capfd, monkeypatch):
     """Test init_config handles permission errors."""
@@ -204,6 +220,7 @@ def test_init_config_permission_denied(tmp_path, capfd, monkeypatch):
     sys.stderr.flush()
     captured = capfd.readouterr()
     assert f"Error: Failed to create '{config_path}': No access" in captured.err
+
 
 def test_traverse_directory_uuid_notes(tmp_path, capsys):
     """Test traverse_directory prints UUID scrubbing notes."""
@@ -226,6 +243,7 @@ def test_traverse_directory_uuid_notes(tmp_path, capsys):
         in captured.out
     )
 
+
 def test_run_uuid_mapping_unique_placeholders(tmp_path):
     """Test run() returns correct UUID mapping with unique placeholders."""
     test_file = tmp_path / "test.txt"
@@ -241,6 +259,7 @@ def test_run_uuid_mapping_unique_placeholders(tmp_path):
     }
     assert content.count("PREPDIR_UUID_PLACEHOLDER_1") == 1
     assert content.count("PREPDIR_UUID_PLACEHOLDER_2") == 1
+
 
 def test_run_uuid_mapping_no_placeholders(tmp_path):
     """Test run() with use_unique_placeholders=False uses replacement_uuid."""
@@ -262,6 +281,7 @@ def test_run_uuid_mapping_no_placeholders(tmp_path):
     assert file_content.count(replacement_uuid) == 1  # Hyphenated UUID replacement in file content
     assert file_content.count(replacement_uuid.replace("-", "")) == 1  # Hyphen-less UUID replacement in file content
 
+
 def test_run_uuid_mapping_no_uuids(tmp_path):
     """Test run() returns empty UUID mapping when no UUIDs are found."""
     test_file = tmp_path / "test.txt"
@@ -274,6 +294,7 @@ def test_run_uuid_mapping_no_uuids(tmp_path):
     assert not any(
         f"PREPDIR_UUID_PLACEHOLDER_{i}" in content for i in range(1, 10)
     )  # Check no placeholders in file content
+
 
 def test_run_uuid_mapping_multiple_files(tmp_path):
     """Test run() correctly maps UUIDs across multiple files."""
