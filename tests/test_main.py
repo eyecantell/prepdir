@@ -42,6 +42,7 @@ def test_main_version(capsys):
         assert exc.value.code == 0
     captured = capsys.readouterr()
     from importlib.metadata import version
+
     assert "prepdir " + version("prepdir") in captured.out
 
 

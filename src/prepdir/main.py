@@ -105,6 +105,7 @@ def main():
 
     # Run prepdir programmatically
     try:
+        print(f"Preparing files from {args.directory} in '{args.output}'")
         run(
             directory=args.directory,
             extensions=args.extensions,
@@ -117,6 +118,7 @@ def main():
             scrub_hyphenless_uuids=None if not args.no_scrub_hyphenless_uuids else False,
             replacement_uuid=args.replacement_uuid,
         )
+        print("Finished.")
     except ValueError as e:
         print(f"Error: {str(e)}", file=sys.stderr)
         sys.exit(1)
