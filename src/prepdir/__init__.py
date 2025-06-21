@@ -2,9 +2,7 @@
 prepdir - Directory traversal utility to prepare project contents for review
 """
 
-from .main import (
-    configure_logging
-)
+from .main import configure_logging
 
 from .core import (
     run,

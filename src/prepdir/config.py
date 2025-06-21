@@ -12,14 +12,15 @@ else:
 
 logger = logging.getLogger(__name__)
 
+
 def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
     settings_files = []
     if config_path:
         settings_files = [config_path]
         logger.debug(f"Using custom config path: {config_path}")
-    elif os.getenv('TEST_ENV') != 'true':
-        home_config = Path(os.path.expanduser('~/.prepdir/config.yaml')).resolve()
-        local_config = Path('.prepdir/config.yaml').resolve()
+    elif os.getenv("TEST_ENV") != "true":
+        home_config = Path(os.path.expanduser("~/.prepdir/config.yaml")).resolve()
+        local_config = Path(".prepdir/config.yaml").resolve()
         # Prioritize global config first, then local config to ensure local overrides
         if home_config.exists():
             settings_files.append(str(home_config))
@@ -39,15 +40,17 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
         logger.debug("Skipping default config files due to TEST_ENV=true")
 
     bundled_config_path = None
-    if os.getenv('TEST_ENV') == 'true' or config_path or settings_files:
-        logger.debug("Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files")
+    if os.getenv("TEST_ENV") == "true" or config_path or settings_files:
+        logger.debug(
+            "Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files"
+        )
     else:
         try:
-            bundled_config = files(namespace) / 'config.yaml'
+            bundled_config = files(namespace) / "config.yaml"
             logger.debug(f"Attempting to load bundled config from: {bundled_config}")
-            with bundled_config.open('r', encoding='utf-8') as f:
+            with bundled_config.open("r", encoding="utf-8") as f:
                 temp_bundled_path = Path(f"/tmp/{namespace}_bundled_config.yaml")
-                temp_bundled_path.write_text(f.read(), encoding='utf-8')
+                temp_bundled_path.write_text(f.read(), encoding="utf-8")
                 settings_files.append(str(temp_bundled_path))
                 bundled_config_path = temp_bundled_path
                 logger.debug(f"Loaded bundled config into temporary file: {temp_bundled_path}")
@@ -67,7 +70,9 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
         )
         # Force loading to catch YAML errors early
         config._wrapped  # Access internal storage to trigger loading
-        logger.debug(f"Final config values: REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}, SCRUB_UUIDS={config.get('SCRUB_UUIDS', 'Not set')}")
+        logger.debug(
+            f"Final config values: REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}, SCRUB_UUIDS={config.get('SCRUB_UUIDS', 'Not set')}"
+        )
     except Exception as e:
         logger.error(f"Invalid YAML in config file(s): {str(e)}")
         raise ValueError(f"Invalid YAML in config file(s): {str(e)}")
