@@ -2,6 +2,7 @@ import os
 import tempfile
 from pathlib import Path
 import logging
+from unittest.mock import patch, Mock
 from pydantic import ValidationError
 from prepdir import PrepdirFileEntry
 
@@ -9,17 +10,21 @@ from prepdir import PrepdirFileEntry
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-def create_temp_file(content: str, suffix: str = ".txt") -> Path:
+def create_temp_file(content: str | bytes, suffix: str = ".txt") -> Path:
     """Create a temporary file with given content."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False) as f:
-        f.write(content)
+    with tempfile.NamedTemporaryFile(mode="wb" if isinstance(content, bytes) else "w", suffix=suffix, delete=False) as f:
+        if isinstance(content, bytes):
+            f.write(content)
+        else:
+            f.write(content)
     return Path(f.name)
 
 def test_from_file_path_success():
     """Test successful file reading and UUID scrubbing."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         base_dir = Path(tmp_dir)
-        file_path = create_temp_file("Content with UUID 123e4567-e89b-12d3-a456-426614174000")
+        file_path = base_dir / "test.txt"
+        file_path.write_text("Content with UUID 123e4567-e89b-12d3-a456-426614174000")
         entry, uuid_mapping, counter = PrepdirFileEntry.from_file_path(
             file_path=file_path,
             base_directory=str(base_dir),
@@ -29,7 +34,7 @@ def test_from_file_path_success():
             verbose=True
         )
         assert isinstance(entry, PrepdirFileEntry)
-        assert entry.relative_path == str(file_path.relative_to(base_dir))
+        assert entry.relative_path == "test.txt"  # Direct child, no relpath issue
         assert entry.absolute_path == file_path
         assert entry.is_scrubbed
         assert not entry.is_binary
@@ -42,8 +47,8 @@ def test_from_file_path_binary():
     """Test handling of binary files."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         base_dir = Path(tmp_dir)
-        # Create a binary file (e.g., a JPEG header)
-        file_path = create_temp_file(b"\xff\xd8\xff".decode("utf-8", errors="ignore"), suffix=".jpg")
+        file_path = base_dir / "test.jpg"
+        file_path.write_bytes(b"\xff\xd8\xff")  # Raw binary JPEG header
         entry, uuid_mapping, counter = PrepdirFileEntry.from_file_path(
             file_path=file_path,
             base_directory=str(base_dir),
@@ -61,7 +66,6 @@ def test_from_file_path_error():
     """Test handling of file read errors."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         base_dir = Path(tmp_dir)
-        # Use a non-existent file
         file_path = base_dir / "nonexistent.txt"
         try:
             PrepdirFileEntry.from_file_path(
@@ -79,7 +83,8 @@ def test_restore_uuids():
     """Test UUID restoration with valid and invalid uuid_mapping."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         base_dir = Path(tmp_dir)
-        file_path = create_temp_file("Content with PREPDIR_UUID_PLACEHOLDER_1")
+        file_path = base_dir / "test.txt"
+        file_path.write_text("Content with PREPDIR_UUID_PLACEHOLDER_1")
         entry, _, _ = PrepdirFileEntry.from_file_path(
             file_path=file_path,
             base_directory=str(base_dir),
@@ -102,7 +107,8 @@ def test_apply_changes():
     """Test applying changes to a file."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         base_dir = Path(tmp_dir)
-        file_path = create_temp_file("Original content with PREPDIR_UUID_PLACEHOLDER_1")
+        file_path = base_dir / "test.txt"
+        file_path.write_text("Original content with PREPDIR_UUID_PLACEHOLDER_1")
         entry, _, _ = PrepdirFileEntry.from_file_path(
             file_path=file_path,
             base_directory=str(base_dir),
@@ -116,7 +122,8 @@ def test_apply_changes():
         with open(file_path, "r", encoding="utf-8") as f:
             assert "123e4567-e89b-12d3-a456-426614174000" in f.read()
         # Binary file skip
-        binary_file = create_temp_file(b"\xff\xd8\xff".decode("utf-8", errors="ignore"), suffix=".jpg")
+        binary_file = base_dir / "test.jpg"
+        binary_file.write_bytes(b"\xff\xd8\xff")
         binary_entry, _, _ = PrepdirFileEntry.from_file_path(
             file_path=binary_file,
             base_directory=str(base_dir),
@@ -143,5 +150,5 @@ def test_validation_errors():
         pass
 
 if __name__ == "__main__":
-    import unittest
-    unittest.main()
+    import pytest
+    pytest.main([__file__])
