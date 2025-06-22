@@ -33,12 +33,13 @@ RUN python -m ensurepip --default-pip && \
 
 # Install development tools
 RUN pip install --no-cache-dir \
-    pdm \
     build \
-    twine \
-    ruff \
     GitPython \
-    pytest
+    pdm \
+    pydantic \
+    pytest \
+    ruff \
+    twine
 
 # Copy and install project requirements (note we need to keep requirements.txt and pyproject.toml in sync)
 #COPY --chown=developer:developer requirements.txt .

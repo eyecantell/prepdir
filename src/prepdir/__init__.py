@@ -10,7 +10,6 @@ from .core import (
     traverse_directory,
     display_file_content,
     is_valid_uuid,
-    scrub_uuids,
     is_prepdir_generated,
     is_excluded_dir,
     is_excluded_file,
@@ -18,6 +17,7 @@ from .core import (
 )
 
 from .validate_output_file import validate_output_file
+from .scrub_uuids import scrub_uuids, restore_uuids
 
 __all__ = [
     "__version__",
@@ -28,6 +28,7 @@ __all__ = [
     "is_excluded_file",
     "is_prepdir_generated",
     "is_valid_uuid",
+    "restore_uuids",
     "run",
     "scrub_uuids",
     "traverse_directory",
