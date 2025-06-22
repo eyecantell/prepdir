@@ -82,23 +82,25 @@ class PrepdirFileEntry(BaseModel):
         uuid_mapping = uuid_mapping if uuid_mapping is not None else {}
         
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
-                if scrub_hyphenated_uuids or scrub_hyphenless_uuids:
-                    content, is_scrubbed, updated_uuid_mapping, updated_counter = scrub_uuids(
-                        content=content,
-                        use_unique_placeholders=use_unique_placeholders,
-                        replacement_uuid=replacement_uuid,
-                        scrub_hyphenated_uuids=scrub_hyphenated_uuids,
-                        scrub_hyphenless_uuids=scrub_hyphenless_uuids,
-                        verbose=verbose,
-                        placeholder_counter=placeholder_counter,
-                        uuid_mapping=uuid_mapping,
-                    )
-                    uuid_mapping.update(updated_uuid_mapping)
-        except UnicodeDecodeError:
-            is_binary = True
-            content = "[Binary file or encoding not supported]"
+            with open(file_path, "rb") as f:  # Read as binary first
+                raw_content = f.read()
+                try:
+                    content = raw_content.decode("utf-8")
+                    if scrub_hyphenated_uuids or scrub_hyphenless_uuids:
+                        content, is_scrubbed, updated_uuid_mapping, updated_counter = scrub_uuids(
+                            content=content,
+                            use_unique_placeholders=use_unique_placeholders,
+                            replacement_uuid=replacement_uuid,
+                            scrub_hyphenated_uuids=scrub_hyphenated_uuids,
+                            scrub_hyphenless_uuids=scrub_hyphenless_uuids,
+                            verbose=verbose,
+                            placeholder_counter=placeholder_counter,
+                            uuid_mapping=uuid_mapping,
+                        )
+                        uuid_mapping.update(updated_uuid_mapping)
+                except UnicodeDecodeError:
+                    is_binary = True
+                    content = "[Binary file or encoding not supported]"
         except Exception as e:
             error = str(e)
             content = f"[Error reading file: {error}]"
@@ -130,7 +132,7 @@ class PrepdirFileEntry(BaseModel):
         """
         if format != "text":
             raise ValueError(f"Unsupported output format: {format}")
-        dashes = "=-" * 7 + "="  # See LENIENT_DELIM_PATTERN for requirments here if considering changing this
+        dashes = "=-" * 7 + "="  # See LENIENT_DELIM_PATTERN for requirements here if considering changing this
         output = [
             f"{dashes} Begin File: '{self.relative_path}' {dashes}",
             self.content,

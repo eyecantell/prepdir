@@ -18,6 +18,7 @@ from .core import (
 
 from .validate_output_file import validate_output_file
 from .scrub_uuids import scrub_uuids, restore_uuids
+from .prepdir_file_entry import PrepdirFileEntry
 
 __all__ = [
     "__version__",
@@ -28,6 +29,7 @@ __all__ = [
     "is_excluded_file",
     "is_prepdir_generated",
     "is_valid_uuid",
+    "PrepdirFileEntry",
     "restore_uuids",
     "run",
     "scrub_uuids",
