@@ -153,7 +153,7 @@ def test_from_file_path_separate_paths():
     """Test handling of separate relative and absolute paths."""
     with tempfile.TemporaryDirectory() as tmp_dir1, tempfile.TemporaryDirectory() as tmp_dir2:
         base_dir = Path(tmp_dir1)  # Base directory
-        file_path = create_temp_file("Content with UUID", suffix=".txt")  # File in a different temp dir
+        file_path = create_temp_file("Content with UUID 123e4567-e89b-12d3-a456-426614174000", suffix=".txt")  # File in a different temp dir
         # Ensure file_path is outside base_dir but exists
         entry, uuid_mapping, counter = PrepdirFileEntry.from_file_path(
             file_path=file_path,
@@ -167,7 +167,7 @@ def test_from_file_path_separate_paths():
         expected_rel_path = os.path.relpath(file_path, base_dir)
         assert entry.relative_path == expected_rel_path
         assert entry.absolute_path == file_path
-        assert entry.is_scrubbed
+        assert entry.is_scrubbed  # Should be True due to valid UUID
         assert not entry.is_binary
         assert entry.error is None
         assert isinstance(uuid_mapping, dict)
