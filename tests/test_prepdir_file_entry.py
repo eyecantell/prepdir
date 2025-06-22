@@ -4,7 +4,7 @@ from pathlib import Path
 import logging
 from unittest.mock import patch, Mock
 from pydantic import ValidationError
-from prepdir import PrepdirFileEntry
+from prepdir.prepdir_file_entry import PrepdirFileEntry
 
 # Configure logging for testing
 logging.basicConfig(level=logging.DEBUG)
@@ -34,7 +34,7 @@ def test_from_file_path_success():
             verbose=True
         )
         assert isinstance(entry, PrepdirFileEntry)
-        assert entry.relative_path == "test.txt"  # Direct child, no relpath issue
+        assert entry.relative_path == "test.txt"
         assert entry.absolute_path == file_path
         assert entry.is_scrubbed
         assert not entry.is_binary
@@ -48,7 +48,7 @@ def test_from_file_path_binary():
     with tempfile.TemporaryDirectory() as tmp_dir:
         base_dir = Path(tmp_dir)
         file_path = base_dir / "test.jpg"
-        file_path.write_bytes(b"\xff\xd8\xff")  # Raw binary JPEG header
+        file_path.write_bytes(b"\xff\xd8\xff")
         entry, uuid_mapping, counter = PrepdirFileEntry.from_file_path(
             file_path=file_path,
             base_directory=str(base_dir),
@@ -148,6 +148,31 @@ def test_validation_errors():
         assert False, "Should raise ValidationError"
     except ValidationError:
         pass
+
+def test_from_file_path_separate_paths():
+    """Test handling of separate relative and absolute paths."""
+    with tempfile.TemporaryDirectory() as tmp_dir1, tempfile.TemporaryDirectory() as tmp_dir2:
+        base_dir = Path(tmp_dir1)  # Base directory
+        file_path = create_temp_file("Content with UUID", suffix=".txt")  # File in a different temp dir
+        # Ensure file_path is outside base_dir but exists
+        entry, uuid_mapping, counter = PrepdirFileEntry.from_file_path(
+            file_path=file_path,
+            base_directory=str(base_dir),
+            scrub_hyphenated_uuids=True,
+            scrub_hyphenless_uuids=False,
+            use_unique_placeholders=True
+        )
+        assert isinstance(entry, PrepdirFileEntry)
+        # relative_path should be the full path relative to base_dir
+        expected_rel_path = os.path.relpath(file_path, base_dir)
+        assert entry.relative_path == expected_rel_path
+        assert entry.absolute_path == file_path
+        assert entry.is_scrubbed
+        assert not entry.is_binary
+        assert entry.error is None
+        assert isinstance(uuid_mapping, dict)
+        assert counter > 0
+        os.unlink(file_path)
 
 if __name__ == "__main__":
     import pytest
