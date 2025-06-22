@@ -19,7 +19,7 @@ class PrepdirFileEntry(BaseModel):
     @field_validator("absolute_path", mode="before")
     @classmethod
     def validate_path(cls, v):
-        """Convert string to Path if necessary."""
+        """Convert string to Path if necessary and ensure it's absolute."""
         abs_path = Path(v) if isinstance(v, str) else v
         if not abs_path.is_absolute():
             raise ValueError("absolute_path must be an absolute path")
@@ -45,7 +45,7 @@ class PrepdirFileEntry(BaseModel):
         verbose: bool = False,
         placeholder_counter: int = 1,
         uuid_mapping: Dict[str, str] = None,
-    ) -> Tuple['PrepdirFileEntry', int]:
+    ) -> Tuple['PrepdirFileEntry', Dict[str, str], int]:
         """Create a PrepdirFileEntry by reading a file, optionally scrubbing UUIDs.
         
         Args:
@@ -60,7 +60,7 @@ class PrepdirFileEntry(BaseModel):
             uuid_mapping: Shared mapping of placeholders to original UUIDs for reuse.
         
         Returns:
-            Tuple of (PrepdirFileEntry instance, updated placeholder_counter).
+            Tuple of (PrepdirFileEntry instance, updated uuid_mapping, updated placeholder_counter).
         
         Raises:
             FileNotFoundError: If file_path does not exist.
@@ -85,7 +85,7 @@ class PrepdirFileEntry(BaseModel):
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
                 if scrub_hyphenated_uuids or scrub_hyphenless_uuids:
-                    content, is_scrubbed, uuid_mapping, placeholder_counter = scrub_uuids(
+                    content, is_scrubbed, updated_uuid_mapping, updated_counter = scrub_uuids(
                         content=content,
                         use_unique_placeholders=use_unique_placeholders,
                         replacement_uuid=replacement_uuid,
@@ -95,6 +95,7 @@ class PrepdirFileEntry(BaseModel):
                         placeholder_counter=placeholder_counter,
                         uuid_mapping=uuid_mapping,
                     )
+                    uuid_mapping.update(updated_uuid_mapping)
         except UnicodeDecodeError:
             is_binary = True
             content = "[Binary file or encoding not supported]"
@@ -111,7 +112,8 @@ class PrepdirFileEntry(BaseModel):
                 is_binary=is_binary,
                 error=error,
             ),
-            placeholder_counter,
+            uuid_mapping,
+            updated_counter if is_scrubbed else placeholder_counter,
         )
     
     def to_output(self, format: str = "text") -> str:
@@ -128,7 +130,7 @@ class PrepdirFileEntry(BaseModel):
         """
         if format != "text":
             raise ValueError(f"Unsupported output format: {format}")
-        dashes = "=-" * 7 + "="
+        dashes = "=-" * 7 + "="  # See LENIENT_DELIM_PATTERN for requirments here if considering changing this
         output = [
             f"{dashes} Begin File: '{self.relative_path}' {dashes}",
             self.content,
@@ -136,33 +138,49 @@ class PrepdirFileEntry(BaseModel):
         ]
         return "\n".join(output)
     
-    def restore_uuids(self, uuid_mapping: Dict[str, str] = None) -> str:
+    def restore_uuids(self, uuid_mapping: Dict[str, str]) -> str:
         """Restore original UUIDs in content using uuid_mapping.
+        
+        Args:
+            uuid_mapping: Dictionary mapping placeholders to original UUIDs.
         
         Returns:
             Content with placeholders replaced by original UUIDs.
+        
+        Raises:
+            ValueError: If uuid_mapping is None or empty when is_scrubbed is True.
         """
-        self.content = restore_uuids(
+        if self.is_scrubbed and (not uuid_mapping or not isinstance(uuid_mapping, dict)):
+            logger.error(f"No valid uuid_mapping provided for {self.relative_path}")
+            raise ValueError("uuid_mapping must be a non-empty dictionary when is_scrubbed is True")
+        restored_content = restore_uuids(
             content=self.content,
             uuid_mapping=uuid_mapping,
             is_scrubbed=self.is_scrubbed,
         )
-        self.is_scrubbed = False
-        return self.content
+        return restored_content  # Return new content instead of modifying in-place
     
-    def apply_changes(self) -> None:
+    def apply_changes(self, uuid_mapping: Dict[str, str]) -> bool:
         """Write restored content to absolute_path.
+        
+        Args:
+            uuid_mapping: Dictionary mapping placeholders to original UUIDs.
+        
+        Returns:
+            True if successful, False otherwise.
         
         Raises:
             Exception: If writing to file fails.
         """
         if self.is_binary or self.error:
             logger.warning(f"Skipping apply_changes for {self.relative_path}: {'binary' if self.is_binary else 'error'}")
-            return
+            return False
         try:
-            content = self.restore_uuids()
-            self.absolute_path.write_text(content, encoding="utf-8")
+            restored_content = self.restore_uuids(uuid_mapping)
+            self.absolute_path.write_text(restored_content, encoding="utf-8")
             logger.info(f"Applied changes to {self.relative_path}")
+            return True
         except Exception as e:
             logger.error(f"Failed to apply changes to {self.relative_path}: {str(e)}")
-            raise
+            self.error = str(e)
+            return False
