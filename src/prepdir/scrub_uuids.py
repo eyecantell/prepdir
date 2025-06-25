@@ -4,6 +4,12 @@ import re
 
 logger = logging.getLogger(__name__)
 
+HYPHENATED_UUID_PATTERN = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+)
+UNHYPHENATED_UUID_PATTERN = re.compile(r'\b[0-9a-fA-F]{32}\b')
+EITHER_UUID_PATTERN = re.compile(f"{HYPHENATED_UUID_PATTERN.pattern}|{UNHYPHENATED_UUID_PATTERN.pattern}")
+
 def scrub_uuids(
     content: str,
     use_unique_placeholders: bool = False,
@@ -45,9 +51,8 @@ def scrub_uuids(
         placeholder_counter = max(max_counter + 1, placeholder_counter)
     
     # Validate replacement_uuid
-    hyphenated_pattern = r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-    if not re.match(hyphenated_pattern, replacement_uuid):
-        raise ValueError("replacement_uuid must be a valid UUID (e.g., 123e4567-e89b-12d3-a456-426614174000)")
+    if not HYPHENATED_UUID_PATTERN.fullmatch(replacement_uuid):
+        raise ValueError("replacement_uuid must be a valid UUID with hyphens (e.g., 123e4567-e89b-12d3-a456-426614174000)")
     
     def replacement_uuid_to_use(match):
         nonlocal is_scrubbed, placeholder_counter
@@ -67,22 +72,17 @@ def scrub_uuids(
         if verbose:
             logger.info(f"Scrubbed UUID: {original_uuid} -> {placeholder}")
         return placeholder
-    
+
     new_content = content
-    
-    # Define patterns
-    hyphenated_pattern = r'\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b'
-    hyphenless_pattern = r'\b[0-9a-fA-F]{32}\b'
     
     # Apply scrubbing only for enabled flags
     if scrub_hyphenated_uuids and scrub_hyphenless_uuids:
-        combined_pattern = fr'{hyphenated_pattern}|{hyphenless_pattern}'
-        new_content = re.sub(combined_pattern, replacement_uuid_to_use, new_content)
+        new_content = EITHER_UUID_PATTERN.sub(replacement_uuid_to_use, new_content)
     else:
         if scrub_hyphenated_uuids:
-            new_content = re.sub(hyphenated_pattern, replacement_uuid_to_use, new_content)
+            new_content = HYPHENATED_UUID_PATTERN.sub(replacement_uuid_to_use, new_content)
         if scrub_hyphenless_uuids:
-            new_content = re.sub(hyphenless_pattern, replacement_uuid_to_use, new_content)
+            new_content = UNHYPHENATED_UUID_PATTERN.sub(replacement_uuid_to_use, new_content)
     
     return new_content, is_scrubbed, uuid_mapping, placeholder_counter
 
