@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 LENIENT_DELIM_PATTERN = r"[=-]{3,}"
 HEADER_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+Begin File: '(.*?)'\s+{LENIENT_DELIM_PATTERN}$")
 FOOTER_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+End File: '(.*?)'\s+{LENIENT_DELIM_PATTERN}$")
+GENERATED_HEADER_PATTERN = re.compile(
+    r"^File listing generated (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)?(?: by (.*)(?: version ([0-9.]+))?(?: \(pip install prepdir\))?)?$"
+)
+BASE_DIR_PATTERN = re.compile(r"^Base directory is '(.*?)'$")
 
 class PrepdirOutputFile(BaseModel):
     """Represents the prepdir output file (e.g., prepped_dir.txt) with metadata and file entries."""
@@ -111,11 +115,32 @@ class PrepdirOutputFile(BaseModel):
             raise FileNotFoundError(f"File {path} does not exist")
         
         content = path_obj.read_text(encoding="utf-8")
-        header_match = re.search(r"^File listing generated (.*?)(?: by (.*?)(?: version (.*?))?(?: \(pip install prepdir\))?)", content, re.MULTILINE)
+        lines = content.splitlines()
+        
+        # Extract output_file_header up to the first HEADER_PATTERN line
+        output_file_header = []
+        header_found = False
+        for line in lines:
+            if HEADER_PATTERN.match(line):
+                header_found = True
+                break
+            output_file_header.append(line)
+        output_file_header = "\n".join(output_file_header)
+
+        # Search header section with re.MULTILINE if it exists
+        header_match = GENERATED_HEADER_PATTERN.search(output_file_header, re.MULTILINE) if output_file_header else None
+        base_dir_match = BASE_DIR_PATTERN.search(output_file_header, re.MULTILINE) if output_file_header else None
+
+        # Use original base_directory if no base_dir_match, log warning
+        effective_base_dir = base_dir_match.group(1) if base_dir_match else base_directory
+        if not base_dir_match:
+            logger.warning("No base directory found in file, using original base directory: %s", base_directory)
+
+        # Use header metadata if available, otherwise keep defaults
         metadata = {
             "version": header_match.group(3) if header_match and header_match.group(3) else "unknown",
             "date": header_match.group(1) if header_match and header_match.group(1) else "unknown",
-            "base_directory": re.search(r"Base directory is '(.*?)'", content, re.MULTILINE).group(1) if re.search(r"Base directory is '(.*?)'", content, re.MULTILINE) else ".",
+            "base_directory": effective_base_dir,
             "creator": header_match.group(2) if header_match and header_match.group(2) else "unknown",
             "scrub_hyphenated_uuids": "true",  # Default values, adjust based on config if needed
             "scrub_hyphenless_uuids": "true",
@@ -123,9 +148,11 @@ class PrepdirOutputFile(BaseModel):
             "validation_errors": [],
             "binary_files": []
         }
-        
+        if not header_match:
+            logger.warning("No header found in file, using default metadata")
+
         instance = cls(path=path_obj, content=content, metadata=metadata)
-        instance.parse(base_directory)
+        instance.parse(effective_base_dir)
         return instance
 
     def get_changed_files(self, original: 'PrepdirOutputFile') -> List[PrepdirFileEntry]:
