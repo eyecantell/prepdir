@@ -8,6 +8,11 @@ import re
 
 logger = logging.getLogger(__name__)
 
+# Compiled regex patterns for performance
+LENIENT_DELIM_PATTERN = r"[=-]{3,}"
+HEADER_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+Begin File: '(.*?)'\s+{LENIENT_DELIM_PATTERN}$")
+FOOTER_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+End File: '(.*?)'\s+{LENIENT_DELIM_PATTERN}$")
+
 class PrepdirOutputFile(BaseModel):
     """Represents the prepdir output file (e.g., prepped_dir.txt) with metadata and file entries."""
     
@@ -58,8 +63,8 @@ class PrepdirOutputFile(BaseModel):
         current_file = None
 
         for line in lines:
-            header_match = re.match(rf"^[-=]{3,}\s+Begin File: '(.*?)'\s+[-=]{3,}", line)
-            footer_match = re.match(rf"^[-=]{3,}\s+End File: '(.*?)'\s+[-=]{3,}", line)
+            header_match = HEADER_PATTERN.match(line)
+            footer_match = FOOTER_PATTERN.match(line)
 
             if header_match:
                 if current_file:
