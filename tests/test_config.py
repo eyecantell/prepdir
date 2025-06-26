@@ -9,12 +9,26 @@ from pathlib import Path
 from dynaconf import Dynaconf
 from prepdir.config import load_config
 
+# Set up logging for capturing output
+logger = logging.getLogger("prepdir.config")
+logger.setLevel(logging.DEBUG)
 
-@pytest.fixture(autouse=True)
-def set_test_env(monkeypatch):
-    """Set TEST_ENV=true for all tests to skip real config loading."""
-    monkeypatch.setenv("TEST_ENV", "true")
+@pytest.fixture
+def capture_log():
+    """Capture log output during tests."""
+    log_stream = StringIO()
+    handler = logging.StreamHandler(log_stream)
+    logger.addHandler(handler)
+    yield log_stream
+    logger.removeHandler(handler)
 
+@pytest.fixture
+def clean_cwd(tmp_path):
+    """Change working directory to a clean temporary path to avoid loading real configs."""
+    original_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    yield
+    os.chdir(original_cwd)
 
 @pytest.fixture
 def sample_config_content():
@@ -24,61 +38,37 @@ def sample_config_content():
             "DIRECTORIES": [".git", "__pycache__"],
             "FILES": ["*.pyc", "*.log"],
         },
+        "REPLACEMENT_UUID": "12345678-1234-1234-4321-4321432143214321",
         "SCRUB_UUIDS": True,
-        "REPLACEMENT_UUID": "00000000-0000-0000-0000-000000000000",
+        "SCRUB_HYPHENLESS_UUIDS": False,
     }
 
+def show_config_lines(config_file_path):
+    with open(config_file_path, "r") as f:
+        config_lines = f.read()
+    print(f"Config lines in '{config_file_path}':\n--\n{config_lines}\n--\n")
 
-@pytest.fixture
-def capture_log():
-    """Capture log output during tests."""
-    log_stream = StringIO()
-    handler = logging.StreamHandler(log_stream)
-    logger = logging.getLogger("prepdir.config")
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
-    yield log_stream
-    logger.removeHandler(handler)
-
-
-@pytest.fixture
-def clean_cwd(tmp_path):
-    """Change working directory to a clean temporary path to avoid loading real configs."""
-    original_cwd = os.getcwd()
-    prepdir_path = tmp_path / ".prepdir"
-    if prepdir_path.exists():
-        import shutil
-
-        shutil.rmtree(prepdir_path)
-    os.chdir(tmp_path)
-    yield
-    os.chdir(original_cwd)
-
-
-def test_load_config_local(sample_config_content, capture_log, tmp_path, clean_cwd):
+def test_load_config_from_specific_path(sample_config_content, capture_log, tmp_path, clean_cwd):
     """Test loading local configuration from .prepdir/config.yaml."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
     config_path.parent.mkdir()
     config_path.write_text(yaml.safe_dump(sample_config_content))
+    show_config_lines(config_path)
 
-    with patch.dict(os.environ, {"TEST_ENV": "true"}):
+    with patch.dict(os.environ, {"PREPDIR_SKIP_CONFIG_LOAD": "false"}):
+        print(f"PREPDIR_SKIP_CONFIG_LOAD is " + str(os.environ.get("PREPDIR_SKIP_CONFIG_LOAD")))
         config = load_config("prepdir", str(config_path))
 
-    assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == sample_config_content["EXCLUDE"]["DIRECTORIES"]
-    assert config.get("EXCLUDE", {}).get("FILES", []) == sample_config_content["EXCLUDE"]["FILES"]
-    assert config.get("SCRUB_UUIDS", True) == sample_config_content["SCRUB_UUIDS"]
-    assert (
-        config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000")
-        == sample_config_content["REPLACEMENT_UUID"]
-    )
-
+    print(f"{config=}")
+    assert config.get("EXCLUDE.DIRECTORIES") == sample_config_content["EXCLUDE"]["DIRECTORIES"]
+    assert config.get("EXCLUDE.FILES") == sample_config_content["EXCLUDE"]["FILES"]
+    assert config.get("REPLACEMENT_UUID") == sample_config_content["REPLACEMENT_UUID"]
+    assert config.get("SCRUB_UUIDS") == sample_config_content["SCRUB_UUIDS"]
+    assert config.get("SCRUB_HYPHENLESS_UUIDS") == sample_config_content["SCRUB_HYPHENLESS_UUIDS"]
+    
     log_output = capture_log.getvalue()
-    assert f"Attempted config files for prepdir: ['{config_path}']" in log_output
-    assert (
-        "Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files"
-        in log_output
-    )
-
+    assert f"Loaded config for prepdir from: ['{config_path}']" in log_output
+    assert "Using custom config path" in log_output
 
 def test_load_config_home(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test loading configuration from ~/.prepdir/config.yaml."""
@@ -87,38 +77,36 @@ def test_load_config_home(sample_config_content, capture_log, tmp_path, monkeypa
     config_path = home_dir / ".prepdir" / "config.yaml"
     config_path.parent.mkdir()
     config_path.write_text(yaml.safe_dump(sample_config_content))
+    show_config_lines(config_path)
 
     monkeypatch.setenv("HOME", str(home_dir))
-    with patch.dict(os.environ, {"TEST_ENV": "false"}):
-        config = load_config("prepdir")
+    monkeypatch.setenv("PREPDIR_SKIP_CONFIG_LOAD", "false")
+    print(f"HOME is " + str(os.environ.get("HOME")))
+    print(f"PREPDIR_SKIP_CONFIG_LOAD is " + str(os.environ.get("PREPDIR_SKIP_CONFIG_LOAD")))
 
-    assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == sample_config_content["EXCLUDE"]["DIRECTORIES"]
-    assert config.get("EXCLUDE", {}).get("FILES", []) == sample_config_content["EXCLUDE"]["FILES"]
-    assert config.get("SCRUB_UUIDS", True) is sample_config_content["SCRUB_UUIDS"]
-    assert (
-        config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000")
-        == sample_config_content["REPLACEMENT_UUID"]
-    )
+    config = load_config("prepdir")
 
+    assert config.get("EXCLUDE.DIRECTORIES") == sample_config_content["EXCLUDE"]["DIRECTORIES"]
+    assert config.get("EXCLUDE.FILES") == sample_config_content["EXCLUDE"]["FILES"]
+    assert config.get("SCRUB_UUIDS") == sample_config_content["SCRUB_UUIDS"]
+    assert config.get("REPLACEMENT_UUID") == sample_config_content["REPLACEMENT_UUID"]
     log_output = capture_log.getvalue()
-    assert f"Attempted config files for prepdir: ['{config_path}']" in log_output
+    print(f"log_output is:\n{log_output}")
     assert f"Found home config: {config_path}" in log_output
-
+    assert f"Loaded config for prepdir from: ['{config_path}']" in log_output
 
 def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
     """Test loading bundled configuration."""
     bundled_path = tmp_path / "src" / "prepdir" / "config.yaml"
     bundled_path.parent.mkdir(parents=True)
     bundled_config_content = {
-        "EXCLUDE": {
-            "DIRECTORIES": ["bundled_dir"],
-            "FILES": ["*.py"],
-        },
+        "EXCLUDE": {"DIRECTORIES": ["bundled_dir"], "FILES": ["*.py"]},
         "SCRUB_UUIDS": False,
         "REPLACEMENT_UUID": "11111111-1111-1111-1111-111111111111",
     }
     bundled_path.write_text(yaml.safe_dump(bundled_config_content))
-
+    show_config_lines(bundled_path)
+    
     mock_files = MagicMock()
     mock_resource = MagicMock()
     mock_resource.__str__.return_value = str(bundled_path)
@@ -129,114 +117,71 @@ def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
     mock_context.__exit__.return_value = None
     mock_resource.open.return_value = mock_context
     mock_files.__truediv__.return_value = mock_resource
-
     with patch("prepdir.config.files", return_value=mock_files):
-        with patch.dict(os.environ, {"TEST_ENV": "false"}):
+        with patch.dict(os.environ, {"PREPDIR_SKIP_CONFIG_LOAD": "false"}):
             config = load_config("prepdir")
-
-    assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == ["bundled_dir"]
-    assert config.get("EXCLUDE", {}).get("FILES", []) == ["*.py"]
-    assert config.get("SCRUB_UUIDS", True) is False
-    assert (
-        config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000") == "11111111-1111-1111-1111-111111111111"
-    )
-
+    assert config.get("EXCLUDE.DIRECTORIES") == ["bundled_dir"]
+    assert config.get("EXCLUDE.FILES") == ["*.py"]
+    assert config.get("SCRUB_UUIDS") is False
+    assert config.get("REPLACEMENT_UUID") == "11111111-1111-1111-1111-111111111111"
     log_output = capture_log.getvalue()
-    assert f"Attempted config files for prepdir: ['/tmp/prepdir_bundled_config.yaml']" in log_output
-    assert f"Attempting to load bundled config from: {bundled_path}" in log_output
-
+    assert "_prepdir_bundled_config.yaml" in log_output  # Check for dynamic temp file name
+    assert "Attempting to load bundled config" in log_output
+    assert "Loaded config for prepdir" in log_output
 
 def test_load_config_bundled_missing(capture_log, tmp_path, clean_cwd):
     """Test handling missing bundled config."""
     with patch("prepdir.config.files", side_effect=Exception("Resource error")):
-        with patch.dict(os.environ, {"TEST_ENV": "true"}):
-            config = load_config("prepdir")
-
-    assert isinstance(config, Dynaconf)
-    assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == []
-    assert config.get("EXCLUDE", {}).get("FILES", []) == []
-    assert config.get("SCRUB_UUIDS", True) is True
-    assert (
-        config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000") == "00000000-0000-0000-0000-000000000000"
-    )
-
-    log_output = capture_log.getvalue()
-    assert "Failed to load bundled config for prepdir: Resource error" not in log_output
-    assert f"Attempted config files for prepdir: []" in log_output
-    assert "Skipping default config files due to TEST_ENV=true" in log_output
-    assert (
-        "Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files"
-        in log_output
-    )
-
+        with patch.dict(os.environ, {"PREPDIR_SKIP_CONFIG_LOAD": "false"}):
+            with pytest.raises(ValueError, match="Failed to load bundled config"):
+                load_config("prepdir")
 
 def test_load_config_bundled_failure(capture_log, tmp_path, clean_cwd):
     """Test failure to load bundled config logs warning."""
     with patch("prepdir.config.files", side_effect=Exception("Resource not found")):
-        with patch.dict(os.environ, {"TEST_ENV": "false"}):
-            config = load_config("prepdir")
-    assert isinstance(config, Dynaconf)
+        with patch.dict(os.environ, {"PREPDIR_SKIP_CONFIG_LOAD": "false"}):
+            with pytest.raises(ValueError, match="Failed to load bundled config"):
+                load_config("prepdir")
     log_output = capture_log.getvalue()
     assert "Failed to load bundled config for prepdir: Resource not found" in log_output
-
 
 def test_load_config_custom_path_excludes_bundled(sample_config_content, capture_log, tmp_path, clean_cwd):
     """Test that a custom config path excludes the bundled config."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
     config_path.parent.mkdir()
     config_path.write_text(yaml.safe_dump(sample_config_content))
-
     with patch("prepdir.config.files") as mock_files:
-        with patch.dict(os.environ, {"TEST_ENV": "true"}):
+        with patch.dict(os.environ, {"PREPDIR_SKIP_CONFIG_LOAD": "false"}):
             config = load_config("prepdir", str(config_path))
-
-    assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == sample_config_content["EXCLUDE"]["DIRECTORIES"]
-    assert config.get("EXCLUDE", {}).get("FILES", []) == sample_config_content["EXCLUDE"]["FILES"]
-    assert config.get("SCRUB_UUIDS", True) == sample_config_content["SCRUB_UUIDS"]
-    assert (
-        config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000")
-        == sample_config_content["REPLACEMENT_UUID"]
-    )
-
+    assert config.get("EXCLUDE.DIRECTORIES") == sample_config_content["EXCLUDE"]["DIRECTORIES"]
+    assert config.get("EXCLUDE.FILES") == sample_config_content["EXCLUDE"]["FILES"]
+    assert config.get("SCRUB_UUIDS") == sample_config_content["SCRUB_UUIDS"]
+    assert config.get("REPLACEMENT_UUID") == sample_config_content["REPLACEMENT_UUID"]
     log_output = capture_log.getvalue()
     assert f"Attempted config files for prepdir: ['{config_path}']" in log_output
-    assert (
-        "Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files"
-        in log_output
-    )
+    assert "Skipping bundled config" in log_output
     mock_files.assert_not_called()
 
-
-def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp_path, clean_cwd):
-    """Test that real config files are ignored when TEST_ENV=true."""
+def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
+    """Test that real config files are ignored when PREPDIR_SKIP_CONFIG_LOAD=true."""
     real_config_path = tmp_path / ".prepdir" / "config.yaml"
     real_config_path.parent.mkdir()
     real_config_path.write_text(yaml.safe_dump(sample_config_content))
-
     home_dir = tmp_path / "home"
     home_dir.mkdir()
     home_config_path = home_dir / ".prepdir" / "config.yaml"
     home_config_path.parent.mkdir()
     home_config_path.write_text(yaml.safe_dump(sample_config_content))
-
-    with patch.dict(os.environ, {"HOME": str(home_dir), "TEST_ENV": "true"}):
+    monkeypatch.setenv("HOME", str(home_dir))
+    with patch.dict(os.environ, {"PREPDIR_SKIP_CONFIG_LOAD": "true"}):
         config = load_config("prepdir")
-
-    assert config.get("EXCLUDE", {}).get("DIRECTORIES", []) == []
-    assert config.get("EXCLUDE", {}).get("FILES", []) == []
-    assert config.get("SCRUB_UUIDS", True) is True
-    assert (
-        config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000") == "00000000-0000-0000-0000-000000000000"
-    )
-
+    assert config.get("EXCLUDE.DIRECTORIES") == []
+    assert config.get("EXCLUDE.FILES") == []
+    assert config.get("SCRUB_UUIDS") is True
+    assert config.get("REPLACEMENT_UUID") == "00000000-0000-0000-0000-000000000000"
     log_output = capture_log.getvalue()
-    assert f"Attempted config files for prepdir: []" in log_output
-    assert "Skipping default config files due to TEST_ENV=true" in log_output
-    assert (
-        "Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files"
-        in log_output
-    )
-
+    assert "Attempted config files for prepdir: []" in log_output
+    assert "Skipping default config files" in log_output
 
 def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test configuration precedence: custom > local > global > bundled using non-list fields."""
@@ -288,7 +233,7 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
     mock_resource.open.return_value = mock_context
     mock_files.__truediv__.return_value = mock_resource
     with patch("prepdir.config.files", return_value=mock_files):
-        with patch.dict(os.environ, {"HOME": str(home_dir), "TEST_ENV": "false"}):
+        with patch.dict(os.environ, {"HOME": str(home_dir), "PREPDIR_SKIP_CONFIG_LOAD": "false"}):
             config = load_config("prepdir", str(custom_config_path))
             assert config.get("SCRUB_UUIDS") is True
             assert config.get("REPLACEMENT_UUID") == "33333333-3333-3333-3333-333333333333"
@@ -303,23 +248,19 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
             assert config.get("REPLACEMENT_UUID") == "11111111-1111-1111-1111-111111111111"
 
             global_config_path.unlink()
-            with open(bundled_path, "r") as f:
-                bundled_config_content = yaml.safe_load(f)
             config = load_config("prepdir")
             assert config.get("SCRUB_UUIDS") is False
             assert config.get("REPLACEMENT_UUID") == "00000000-0000-0000-0000-000000000000"
-
 
 def test_load_config_invalid_yaml(tmp_path, capture_log, clean_cwd):
     """Test loading a config with invalid YAML raises an error and logs."""
     config_path = tmp_path / "invalid.yaml"
     config_path.write_text("invalid: yaml: : :")
     with pytest.raises(ValueError, match="Invalid YAML"):
-        load_config("prepdir", str(config_path))
+        load_config("prepdir", str(config_path), allow_missing=False)
     log_output = capture_log.getvalue()
     assert f"Using custom config path: {config_path}" in log_output
     assert "Invalid YAML in config file(s)" in log_output
-
 
 def test_load_config_empty_yaml(tmp_path, capture_log, clean_cwd):
     """Test loading an empty YAML config file."""
@@ -332,13 +273,12 @@ def test_load_config_empty_yaml(tmp_path, capture_log, clean_cwd):
     log_output = capture_log.getvalue()
     assert f"Using custom config path: {config_path}" in log_output
 
-
 def test_load_config_missing_file(tmp_path, capture_log, clean_cwd):
     """Test loading a non-existent config file."""
     config_path = tmp_path / "nonexistent.yaml"
-    config = load_config("prepdir", str(config_path))
+    config = load_config("prepdir", str(config_path), allow_missing=True)
     assert config.get("EXCLUDE.DIRECTORIES", []) == []
     assert config.get("EXCLUDE.FILES", []) == []
     assert config.get("SCRUB_UUIDS", True) is True
     log_output = capture_log.getvalue()
-    assert f"Using custom config path: {config_path}" in log_output
+    assert f"Custom config path '{config_path}' does not exist, skipping" in log_output

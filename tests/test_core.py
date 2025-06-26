@@ -20,8 +20,8 @@ from prepdir.core import init_config, __version__
 
 @pytest.fixture(autouse=True)
 def set_test_env(monkeypatch):
-    """Set TEST_ENV=true for all tests to skip real config loading."""
-    monkeypatch.setenv("TEST_ENV", "true")
+    """Set PREPDIR_SKIP_CONFIG_LOAD=true for all tests to skip real config loading."""
+    monkeypatch.setenv("PREPDIR_SKIP_CONFIG_LOAD", "true")
 
 
 @pytest.fixture
@@ -101,7 +101,7 @@ SCRUB_UUIDS: True
 REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
 """)
     with monkeypatch.context() as m:
-        m.setenv("TEST_ENV", "true")
+        m.setenv("PREPDIR_SKIP_CONFIG_LOAD", "true")
         content, _ = run(directory=str(home_dir), config_path=str(config_file))
     assert "sensitive: data" not in content
     assert ".prepdir/config.yaml" not in content
@@ -115,7 +115,7 @@ def test_run_excludes_global_config_bundled(tmp_path, monkeypatch):
     global_config_path.parent.mkdir()
     global_config_path.write_text(yaml.safe_dump({"sensitive": "data"}))
     monkeypatch.setenv("HOME", str(home_dir))
-    monkeypatch.setenv("TEST_ENV", "true")
+    monkeypatch.setenv("PREPDIR_SKIP_CONFIG_LOAD", "true")
     bundled_config_dir = tmp_path / "src" / "prepdir"
     bundled_config_dir.mkdir(parents=True)
     bundled_path = bundled_config_dir / "config.yaml"

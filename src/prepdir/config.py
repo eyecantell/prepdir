@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import yaml
 from typing import Optional
+import tempfile
 from importlib.metadata import version, PackageNotFoundError
 
 if sys.version_info < (3, 9):
@@ -19,50 +20,77 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0"  # Fallback to hardcoded version
 
+def load_config(namespace: str, config_path: Optional[str] = None, allow_missing: bool = False) -> Dynaconf:
+    """
+    Load configuration settings using Dynaconf from various sources.
 
-def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
+    Args:
+        namespace (str): The package namespace (e.g., "prepdir", "applydir", "vibedir") for bundled config.
+        config_path (Optional[str]): Custom path to a configuration file, overriding defaults if provided.
+        allow_missing (bool): If True, allows config_path to be missing without raising an error.
+
+    Returns:
+        Dynaconf: Config object with loaded settings.
+
+    Raises:
+        ValueError: If no valid config files are found, YAML is invalid, or config_path is missing and allow_missing=False.
+
+    Notes:
+        - Priority: custom_config > local_config (./{namespace}/config.yaml) > home_config (~/{namespace}/config.yaml) > bundled_config.
+        - In PREPDIR_SKIP_CONFIG_LOAD=true, only custom_config is used.
+    """
     settings_files = []
+
+    # Use custom config path if provided
     if config_path:
-        settings_files = [config_path]
-        logger.debug(f"Using custom config path: {config_path}")
-    elif os.getenv("TEST_ENV") != "true":
-        home_config = Path(os.path.expanduser("~/.prepdir/config.yaml")).resolve()
-        local_config = Path(".prepdir/config.yaml").resolve()
-        # Prioritize global config first, then local config to ensure local overrides
-        if home_config.exists():
-            settings_files.append(str(home_config))
-            logger.debug(f"Found home config: {home_config}")
+        config_path = Path(config_path).resolve()
+        if not config_path.exists() and not allow_missing:
+            logger.error(f"Custom config path '{config_path}' does not exist")
+            raise ValueError(f"Custom config path '{config_path}' does not exist")
+        elif not config_path.exists():
+            logger.warning(f"Custom config path '{config_path}' does not exist, skipping")
         else:
-            logger.debug(f"No home config found at: {home_config}")
+            settings_files.append(str(config_path))
+            logger.debug(f"Using custom config path: {config_path}")
+
+    # Skip default config search in test environment
+    elif os.getenv("PREPDIR_SKIP_CONFIG_LOAD") == "true":
+        logger.debug("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true")
+    else:
+        # Check local config first, then home config
+        local_config = Path(f".{namespace}/config.yaml").resolve()
+        home_config = Path(os.path.expanduser(f"~/.{namespace}/config.yaml")).resolve()
+        
         if local_config.exists():
             settings_files.append(str(local_config))
             logger.debug(f"Found local config: {local_config}")
         else:
             logger.debug(f"No local config found at: {local_config}")
-        if not settings_files:
-            logger.debug("No local or home config found, will attempt bundled config")
+        
+        if home_config.exists():
+            settings_files.append(str(home_config))
+            logger.debug(f"Found home config: {home_config}")
         else:
-            logger.debug(f"Loading default config files in order: {settings_files}")
-    else:
-        logger.debug("Skipping default config files due to TEST_ENV=true")
+            logger.debug(f"No home config found at: {home_config}")
 
-    bundled_config_path = None
-    if os.getenv("TEST_ENV") == "true" or config_path or settings_files:
-        logger.debug(
-            "Skipping bundled config loading due to TEST_ENV=true, custom config_path, or existing config files"
-        )
-    else:
-        try:
-            bundled_config = files(namespace) / "config.yaml"
-            logger.debug(f"Attempting to load bundled config from: {bundled_config}")
-            with bundled_config.open("r", encoding="utf-8") as f:
-                temp_bundled_path = Path(f"/tmp/{namespace}_bundled_config.yaml")
-                temp_bundled_path.write_text(f.read(), encoding="utf-8")
+        # Fallback to bundled config if no files found
+        if not settings_files:
+            try:
+                bundled_config = files(namespace) / "config.yaml"
+                logger.debug(f"Attempting to load bundled config from: {bundled_config}")
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{namespace}_bundled_config.yaml") as f:
+                    with bundled_config.open("r", encoding="utf-8") as src:
+                        f.write(src.read().encode("utf-8"))
+                    temp_bundled_path = Path(f.name)
                 settings_files.append(str(temp_bundled_path))
                 bundled_config_path = temp_bundled_path
                 logger.debug(f"Loaded bundled config into temporary file: {temp_bundled_path}")
-        except Exception as e:
-            logger.warning(f"Failed to load bundled config for {namespace}: {str(e)}")
+            except Exception as e:
+                logger.warning(f"Failed to load bundled config for {namespace}: {str(e)}")
+                raise ValueError(f"Failed to load bundled config: {str(e)}")
+
+    if not settings_files:
+        raise ValueError("No configuration files found and no bundled config available")
 
     logger.debug(f"Initializing Dynaconf with settings files: {settings_files}")
     try:
@@ -84,23 +112,23 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
         logger.error(f"Invalid YAML in config file(s): {str(e)}")
         raise ValueError(f"Invalid YAML in config file(s): {str(e)}")
 
-    if bundled_config_path and bundled_config_path.exists():
+    # Clean up temporary bundled config if it exists
+    if 'bundled_config_path' in locals() and bundled_config_path.exists():
         try:
             bundled_config_path.unlink()
             logger.debug(f"Removed temporary bundled config: {bundled_config_path}")
         except Exception as e:
             logger.debug(f"Failed to remove temporary bundled config: {str(e)}")
 
-    logger.debug(f"Attempted config files for {namespace}: {settings_files}")
+    logger.debug(f"Loaded config for {namespace} from: {settings_files}")
     return config
-
 
 def init_config(config_path=".prepdir/config.yaml", force=False, stdout=sys.stdout, stderr=sys.stderr):
     """
     Initialize a local config.yaml with the package's default config.
 
     Args:
-        config_path (str): Path to the configuration file to create.
+        config_path (str): Path to the configuration file to create (defaults to .prepdir/config.yaml).
         force (bool): If True, overwrite existing config file.
         stdout (file-like): Stream for success messages (default: sys.stdout).
         stderr (file-like): Stream for error messages (default: sys.stderr).
@@ -117,7 +145,7 @@ def init_config(config_path=".prepdir/config.yaml", force=False, stdout=sys.stdo
         raise SystemExit(1)
 
     try:
-        config = load_config("prepdir")
+        config = load_config("prepdir")  # Use "prepdir" as the default namespace for this function
         with config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(config.as_dict(), f)
         print(f"Created '{config_path}' with default configuration.", file=stdout)
