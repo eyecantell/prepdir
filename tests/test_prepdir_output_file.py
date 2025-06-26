@@ -100,6 +100,21 @@ def test_from_file_no_headers(temp_file):
         PrepdirOutputFile.from_file(str(file_path), "test_dir")
 
 
+def test_from_file_noseconds_date(temp_file):
+    content = """File listing generated 2025-06-26 01:02 by Grok 3
+Base directory is '/test_dir'
+
+=-=-= Begin File: 'file1.txt' =-=-=
+Content
+=-=-= End File: 'file1.txt' =-=-=
+"""
+    file_path = temp_file(content)
+    
+    instance = PrepdirOutputFile.from_file(str(file_path), None)
+    assert instance.metadata["date"] == "2025-06-26 01:02"
+    assert instance.metadata["creator"] == "Grok 3"
+
+
 def test_from_file_base_dir_mismatch(temp_file):
     content = """File listing generated 2025-06-26 09:51:00 by prepdir
 Base directory is '/invalid_dir'

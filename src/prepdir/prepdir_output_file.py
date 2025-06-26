@@ -14,7 +14,7 @@ LENIENT_DELIM_PATTERN = r"[=-]{3,}"
 BEGIN_FILE_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+Begin File: '(.*?)'\s+{LENIENT_DELIM_PATTERN}$")
 END_FILE_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+End File: '(.*?)'\s+{LENIENT_DELIM_PATTERN}$")
 GENERATED_HEADER_PATTERN = re.compile(
-    r"^File listing generated (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)?(?: by (.*))$", re.MULTILINE
+    r"^File listing generated (\d{4}-\d{2}-\d{2} [\d\:\.\s]+\d)?(?:\s+by\s+(.*))?$", re.MULTILINE
 )
 BASE_DIR_PATTERN = re.compile(r"^Base directory is '(.*?)'$", re.MULTILINE)
 
