@@ -14,9 +14,9 @@ LENIENT_DELIM_PATTERN = r"[=-]{3,}"
 HEADER_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+Begin File: '(.*?)'\s+{LENIENT_DELIM_PATTERN}$")
 FOOTER_PATTERN = re.compile(rf"^{LENIENT_DELIM_PATTERN}\s+End File: '(.*?)'\s+{LENIENT_DELIM_PATTERN}$")
 GENERATED_HEADER_PATTERN = re.compile(
-    r"^File listing generated (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)?(?: by (.*)(?: version ([0-9.]+))?(?: \(pip install prepdir\))?)?$"
+    r"^File listing generated (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)?(?: by (.*))$", re.MULTILINE
 )
-BASE_DIR_PATTERN = re.compile(r"^Base directory is '(.*?)'$")
+BASE_DIR_PATTERN = re.compile(r"^Base directory is '(.*?)'$", re.MULTILINE)
 
 class PrepdirOutputFile(BaseModel):
     """Represents the prepdir output file (e.g., prepped_dir.txt) with metadata and file entries."""
@@ -81,7 +81,7 @@ class PrepdirOutputFile(BaseModel):
                 else:
                     if current_content:
                         file_path = Path(current_file)
-                        abs_path = Path(base_directory) / file_path
+                        abs_path = Path(base_directory).absolute() / file_path
                         entry = PrepdirFileEntry(
                             relative_path=current_file,
                             absolute_path=abs_path,
@@ -132,37 +132,42 @@ class PrepdirOutputFile(BaseModel):
             raise ValueError("No file headers found!")
 
         # Search header section with re.MULTILINE if it exists
-        header_match = GENERATED_HEADER_PATTERN.search(output_file_header, re.MULTILINE) if output_file_header else None
-        base_dir_match = BASE_DIR_PATTERN.search(output_file_header, re.MULTILINE) if output_file_header else None
+        gen_header_match = GENERATED_HEADER_PATTERN.search(output_file_header) if output_file_header else None
+        base_dir_match = BASE_DIR_PATTERN.search(output_file_header) if output_file_header else None
 
         # Determine effective base directory
-        effective_base_dir = "."  # Default if no base directory is specified
-        if base_dir_match and expected_base_directory is not None:
+        if base_dir_match:
+            # Got a base directory ifrom the file
             file_base_dir = Path(base_dir_match.group(1))
-            expected_base_path = Path(expected_base_directory)
-            if not (file_base_dir == expected_base_path or file_base_dir.is_relative_to(expected_base_path)):
-                logger.error(f"File-defined base directory '{file_base_dir}' is not the same as or relative to expected base directory '{expected_base_path}'")
-                raise ValueError("Base directory mismatch")
             effective_base_dir = str(file_base_dir)
+
+            if expected_base_directory is not None:
+                # Test to see that the base directory agrees with the passed expected base dir
+                expected_base_path = Path(expected_base_directory)
+                if not (file_base_dir == expected_base_path or file_base_dir.is_relative_to(expected_base_path)):
+                    raise ValueError(f"Base directory mismatch: File-defined base directory '{file_base_dir}' is not the same as or relative to expected base directory '{expected_base_path}'")
+                
         elif expected_base_directory is not None:
             logger.warning("No base directory found in file, using expected base directory: %s", expected_base_directory)
             effective_base_dir = expected_base_directory
+        else:
+            raise ValueError("Cannot determine base directory: not in file and no expected base dir passed")
 
         # Use header metadata if available, otherwise keep defaults
         metadata = {
-            "version": header_match.group(3) if header_match and header_match.group(3) else "unknown",
-            "date": header_match.group(1) if header_match and header_match.group(1) else "unknown",
+            
+            "date": gen_header_match.group(1) if gen_header_match and gen_header_match.group(1) else "unknown",
             "base_directory": effective_base_dir,
-            "creator": header_match.group(2) if header_match and header_match.group(2) else "unknown",
+            "creator": gen_header_match.group(2) if gen_header_match and gen_header_match.group(2) else "unknown",
             "scrub_hyphenated_uuids": "true",  # Default values, adjust based on config if needed
             "scrub_hyphenless_uuids": "true",
             "use_unique_placeholders": "false"
         }
-        if not header_match and expected_base_directory is not None:
+        if not gen_header_match:
             logger.warning("No header found in file, using default metadata")
 
         instance = cls(path=path_obj, content=content, metadata=metadata)
-        if expected_base_directory is not None:
+        if effective_base_dir is not None:
             instance.parse(effective_base_dir)
         return instance
 
