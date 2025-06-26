@@ -87,8 +87,6 @@ class PrepdirOutputFile(BaseModel):
                             relative_path=current_file,
                             absolute_path=abs_path,
                             content="\n".join(current_content) + "\n",
-                            uuid_mapping=self.uuid_mapping,
-                            placeholder_counter=self.placeholder_counter
                         )
                         entries[abs_path] = entry
                     current_file = None
@@ -106,7 +104,7 @@ class PrepdirOutputFile(BaseModel):
         return entries
 
     @classmethod
-    def from_file(cls, path: str, expected_base_directory: str) -> 'PrepdirOutputFile':
+    def from_file(cls, path: str, expected_base_directory: Optional[str] = None) -> 'PrepdirOutputFile':
         """Create a PrepdirOutputFile instance from a file on disk."""
         path_obj = Path(path)
         if not path_obj.exists():
@@ -115,7 +113,7 @@ class PrepdirOutputFile(BaseModel):
         return cls.from_content(content, expected_base_directory, path_obj)
 
     @classmethod
-    def from_content(cls, content: str, expected_base_directory: str, path_obj: Optional[Path] = None) -> 'PrepdirOutputFile':
+    def from_content(cls, content: str, expected_base_directory: Optional[str] = None, path_obj: Optional[Path] = None) -> 'PrepdirOutputFile':
         """Create a PrepdirOutputFile instance from content already read from file."""
         lines = content.splitlines()
         
@@ -137,16 +135,20 @@ class PrepdirOutputFile(BaseModel):
         base_dir_match = BASE_DIR_PATTERN.search(output_file_header, re.MULTILINE) if output_file_header else None
 
         # Determine effective base directory
-        effective_base_dir = expected_base_directory
+        effective_base_dir = "."  # Default if no base directory is specified
         if base_dir_match:
             file_base_dir = Path(base_dir_match.group(1))
-            expected_base_path = Path(expected_base_directory)
-            if not (file_base_dir == expected_base_path or file_base_dir.is_relative_to(expected_base_path)):
-                logger.error(f"File-defined base directory '{file_base_dir}' is not the same as or relative to expected base directory '{expected_base_path}'")
-                raise ValueError("Base directory mismatch")
-            effective_base_dir = str(file_base_dir)
-        else:
+            if expected_base_directory is not None:
+                expected_base_path = Path(expected_base_directory)
+                if not (file_base_dir == expected_base_path or file_base_dir.is_relative_to(expected_base_path)):
+                    logger.error(f"File-defined base directory '{file_base_dir}' is not the same as or relative to expected base directory '{expected_base_path}'")
+                    raise ValueError("Base directory mismatch")
+                effective_base_dir = str(file_base_dir)
+            else:
+                effective_base_dir = str(file_base_dir)
+        elif expected_base_directory is not None:
             logger.warning("No base directory found in file, using expected base directory: %s", expected_base_directory)
+            effective_base_dir = expected_base_directory
 
         # Use header metadata if available, otherwise keep defaults
         metadata = {
@@ -160,11 +162,12 @@ class PrepdirOutputFile(BaseModel):
             "validation_errors": [],
             "binary_files": []
         }
-        if not header_match:
+        if not header_match and expected_base_directory is not None:
             logger.warning("No header found in file, using default metadata")
 
         instance = cls(path=path_obj, content=content, metadata=metadata)
-        instance.parse(effective_base_dir)
+        if expected_base_directory is not None:
+            instance.parse(effective_base_dir)
         return instance
 
     def get_changed_files(self, original: 'PrepdirOutputFile') -> List[PrepdirFileEntry]:

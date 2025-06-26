@@ -189,19 +189,19 @@ class PrepdirFileEntry(BaseModel):
             return False
         
     @staticmethod
-    def is_prepdir_outputfile_format(content: str, base_directory: str) -> bool:
+    def is_prepdir_outputfile_format(content: str, expected_base_directory: Optional[str] = None) -> bool:
         """Return true if the given content matches the format prescribed for a prepdir output file.
         
         Args:
             content: The file content to check.
-            base_directory: The base directory for resolving relative paths (set to "/" for format-only check).
+            expected_base_directory: The base directory for resolving relative paths (optional, defaults to None for format-only check).
         
         Returns:
             bool: True if the content matches the prepdir output format, False otherwise.
         """
         try:
             from .prepdir_output_file import PrepdirOutputFile
-            PrepdirOutputFile.from_content(content, base_directory)
+            PrepdirOutputFile.from_content(content, expected_base_directory)
             return True
         except ValueError:
             return False
