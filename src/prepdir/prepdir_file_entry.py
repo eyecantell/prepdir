@@ -14,6 +14,7 @@ class PrepdirFileEntry(BaseModel):
     content: str = Field(..., description="File content, possibly scrubbed")
     is_scrubbed: bool = Field(default=False, description="Whether UUIDs are scrubbed in the current content")
     is_binary: bool = Field(default=False, description="Whether the file is binary")
+    is_prepdir_outputfile_format: bool = Field(default=False, description="Whether the file has the format specified by prepdir for an output file")
     error: Optional[str] = Field(default=None, description="Error message if file read failed")
     
     @field_validator("absolute_path", mode="before")
@@ -185,4 +186,14 @@ class PrepdirFileEntry(BaseModel):
         except Exception as e:
             logger.error(f"Failed to apply changes to {self.relative_path}: {str(e)}")
             self.error = str(e)
+            return False
+        
+    
+    def is_prepdir_outputfile_format(self) -> bool:
+        """Return true if this file matches the format prescribed for a prepdir output file"""
+        try:
+            from .prepdir_output_file import PrepdirOutputFile
+            PrepdirOutputFile.from_content(self.content, self.absolute_path)
+            return True
+        except ValueError:
             return False
