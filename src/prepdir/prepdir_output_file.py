@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Dict, Optional, List
 from prepdir.prepdir_file_entry import PrepdirFileEntry
+from prepdir.config import __version__
 import logging
 import re
 
@@ -24,15 +25,13 @@ class PrepdirOutputFile(BaseModel):
     content: str
     files: Dict[Path, PrepdirFileEntry] = Field(default_factory=dict)
     metadata: Dict[str, str] = Field(default_factory=lambda: {
-        "version": "0.14.1",
+        "version": __version__,
         "date": datetime.now().isoformat(),
         "base_directory": ".",
         "creator": "prepdir",
         "scrub_hyphenated_uuids": "true",
         "scrub_hyphenless_uuids": "true",
-        "use_unique_placeholders": "false",
-        "validation_errors": [],
-        "binary_files": []
+        "use_unique_placeholders": "false"
     })
     uuid_mapping: Dict[str, str] = Field(default_factory=dict)
     placeholder_counter: int = 0
@@ -87,6 +86,8 @@ class PrepdirOutputFile(BaseModel):
                             relative_path=current_file,
                             absolute_path=abs_path,
                             content="\n".join(current_content) + "\n",
+                            is_binary=False,  # Explicitly set to satisfy validation
+                            is_scrubbed=False,
                         )
                         entries[abs_path] = entry
                     current_file = None
@@ -136,16 +137,13 @@ class PrepdirOutputFile(BaseModel):
 
         # Determine effective base directory
         effective_base_dir = "."  # Default if no base directory is specified
-        if base_dir_match:
+        if base_dir_match and expected_base_directory is not None:
             file_base_dir = Path(base_dir_match.group(1))
-            if expected_base_directory is not None:
-                expected_base_path = Path(expected_base_directory)
-                if not (file_base_dir == expected_base_path or file_base_dir.is_relative_to(expected_base_path)):
-                    logger.error(f"File-defined base directory '{file_base_dir}' is not the same as or relative to expected base directory '{expected_base_path}'")
-                    raise ValueError("Base directory mismatch")
-                effective_base_dir = str(file_base_dir)
-            else:
-                effective_base_dir = str(file_base_dir)
+            expected_base_path = Path(expected_base_directory)
+            if not (file_base_dir == expected_base_path or file_base_dir.is_relative_to(expected_base_path)):
+                logger.error(f"File-defined base directory '{file_base_dir}' is not the same as or relative to expected base directory '{expected_base_path}'")
+                raise ValueError("Base directory mismatch")
+            effective_base_dir = str(file_base_dir)
         elif expected_base_directory is not None:
             logger.warning("No base directory found in file, using expected base directory: %s", expected_base_directory)
             effective_base_dir = expected_base_directory
@@ -158,9 +156,7 @@ class PrepdirOutputFile(BaseModel):
             "creator": header_match.group(2) if header_match and header_match.group(2) else "unknown",
             "scrub_hyphenated_uuids": "true",  # Default values, adjust based on config if needed
             "scrub_hyphenless_uuids": "true",
-            "use_unique_placeholders": "false",
-            "validation_errors": [],
-            "binary_files": []
+            "use_unique_placeholders": "false"
         }
         if not header_match and expected_base_directory is not None:
             logger.warning("No header found in file, using default metadata")
