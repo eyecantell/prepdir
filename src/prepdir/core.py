@@ -29,6 +29,7 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0"  # Fallback to hardcoded version
 
+
 def is_valid_uuid(value: str) -> bool:
     """Check if a string is a valid UUID."""
     try:

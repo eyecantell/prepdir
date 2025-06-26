@@ -6,16 +6,17 @@ from .scrub_uuids import scrub_uuids, restore_uuids
 
 logger = logging.getLogger(__name__)
 
+
 class PrepdirFileEntry(BaseModel):
     """Represents a single project file's metadata, content, and UUID mappings for prepdir processing."""
-    
+
     relative_path: str = Field(..., description="Path relative to base directory")
     absolute_path: Path = Field(..., description="Absolute path to the file")
     content: str = Field(..., description="File content, possibly scrubbed")
     is_scrubbed: bool = Field(default=False, description="Whether UUIDs are scrubbed in the current content")
     is_binary: bool = Field(default=False, description="Whether the file is binary")
     error: Optional[str] = Field(default=None, description="Error message if file read failed")
-    
+
     @field_validator("absolute_path", mode="before")
     @classmethod
     def validate_path(cls, v):
@@ -24,7 +25,7 @@ class PrepdirFileEntry(BaseModel):
         if not abs_path.is_absolute():
             raise ValueError("absolute_path must be an absolute path")
         return abs_path
-    
+
     @field_validator("relative_path")
     @classmethod
     def validate_relative_path(cls, v):
@@ -32,22 +33,22 @@ class PrepdirFileEntry(BaseModel):
         if Path(v).is_absolute():
             raise ValueError("relative_path must not be an absolute path")
         return v
-    
+
     @classmethod
     def from_file_path(
         cls,
         file_path: Path,
         base_directory: str,
-        scrub_hyphenated_uuids: bool, 
+        scrub_hyphenated_uuids: bool,
         scrub_hyphenless_uuids: bool,
         replacement_uuid: str = "00000000-0000-0000-0000-000000000000",
         use_unique_placeholders: bool = False,
         verbose: bool = False,
         placeholder_counter: int = 1,
         uuid_mapping: Dict[str, str] = None,
-    ) -> Tuple['PrepdirFileEntry', Dict[str, str], int]:
+    ) -> Tuple["PrepdirFileEntry", Dict[str, str], int]:
         """Create a PrepdirFileEntry by reading a file, optionally scrubbing UUIDs.
-        
+
         Args:
             file_path: Path to the input file (absolute or relative to base_directory).
             base_directory: Base directory for resolving relative paths.
@@ -58,29 +59,30 @@ class PrepdirFileEntry(BaseModel):
             verbose: If True, log scrubbing details.
             placeholder_counter: Starting counter for unique placeholders.
             uuid_mapping: Shared mapping of placeholders to original UUIDs for reuse.
-        
+
         Returns:
             Tuple of (PrepdirFileEntry instance, updated uuid_mapping, updated placeholder_counter).
-        
+
         Raises:
             FileNotFoundError: If file_path does not exist.
             ValueError: If replacement_uuid is invalid or paths are invalid.
         """
         import os
+
         # Ensure file_path is absolute
         file_path = file_path if file_path.is_absolute() else Path(base_directory) / file_path
         file_path = file_path.resolve()
-        
+
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
-        
+
         relative_path = os.path.relpath(file_path, base_directory)
         content = ""
         is_binary = False
         error = None
         is_scrubbed = False
         uuid_mapping = uuid_mapping if uuid_mapping is not None else {}
-        
+
         try:
             with open(file_path, "rb") as f:  # Read as binary first
                 raw_content = f.read()
@@ -104,8 +106,7 @@ class PrepdirFileEntry(BaseModel):
         except Exception as e:
             error = str(e)
             content = f"[Error reading file: {error}]"
-        
-        
+
         return (
             cls(
                 relative_path=relative_path,
@@ -118,16 +119,16 @@ class PrepdirFileEntry(BaseModel):
             uuid_mapping,
             updated_counter if is_scrubbed else placeholder_counter,
         )
-    
+
     def to_output(self, format: str = "text") -> str:
         """Generate formatted output for prepped_dir.txt.
-        
+
         Args:
             format: Output format (only 'text' supported).
-        
+
         Returns:
             Formatted string for the file entry.
-        
+
         Raises:
             ValueError: If format is unsupported.
         """
@@ -140,16 +141,16 @@ class PrepdirFileEntry(BaseModel):
             f"{dashes} End File: '{self.relative_path}' {dashes}",
         ]
         return "\n".join(output)
-    
+
     def restore_uuids(self, uuid_mapping: Dict[str, str]) -> str:
         """Restore original UUIDs in content using uuid_mapping.
-        
+
         Args:
             uuid_mapping: Dictionary mapping placeholders to original UUIDs.
-        
+
         Returns:
             Content with placeholders replaced by original UUIDs.
-        
+
         Raises:
             ValueError: If uuid_mapping is None or empty when is_scrubbed is True.
         """
@@ -162,21 +163,23 @@ class PrepdirFileEntry(BaseModel):
             is_scrubbed=self.is_scrubbed,
         )
         return restored_content  # Return new content instead of modifying in-place
-    
+
     def apply_changes(self, uuid_mapping: Dict[str, str]) -> bool:
         """Write restored content to absolute_path.
-        
+
         Args:
             uuid_mapping: Dictionary mapping placeholders to original UUIDs.
-        
+
         Returns:
             True if successful, False otherwise.
-        
+
         Raises:
             Exception: If writing to file fails.
         """
         if self.is_binary or self.error:
-            logger.warning(f"Skipping apply_changes for {self.relative_path}: {'binary' if self.is_binary else 'error'}")
+            logger.warning(
+                f"Skipping apply_changes for {self.relative_path}: {'binary' if self.is_binary else 'error'}"
+            )
             return False
         try:
             restored_content = self.restore_uuids(uuid_mapping)
@@ -187,20 +190,21 @@ class PrepdirFileEntry(BaseModel):
             logger.error(f"Failed to apply changes to {self.relative_path}: {str(e)}")
             self.error = str(e)
             return False
-        
+
     @staticmethod
     def is_prepdir_outputfile_format(content: str, expected_base_directory: Optional[str] = None) -> bool:
         """Return true if the given content matches the format prescribed for a prepdir output file.
-        
+
         Args:
             content: The file content to check.
             expected_base_directory: The base directory for resolving relative paths (optional, defaults to None for format-only check).
-        
+
         Returns:
             bool: True if the content matches the prepdir output format, False otherwise.
         """
         try:
             from .prepdir_output_file import PrepdirOutputFile
+
             PrepdirOutputFile.from_content(content, expected_base_directory)
             return True
         except ValueError:

@@ -19,6 +19,7 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0"  # Fallback to hardcoded version
 
+
 def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
     settings_files = []
     if config_path:
@@ -92,6 +93,7 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
 
     logger.debug(f"Attempted config files for {namespace}: {settings_files}")
     return config
+
 
 def init_config(config_path=".prepdir/config.yaml", force=False, stdout=sys.stdout, stderr=sys.stderr):
     """

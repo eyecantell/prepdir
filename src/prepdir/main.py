@@ -10,6 +10,7 @@ from .core import __version__
 
 logger = logging.getLogger(__name__)
 
+
 def configure_logging(verbose: bool = False, loglevel: Optional[str] = None) -> None:
     """Configure logging based on environment variable or verbose flag."""
     loglevel = loglevel or (os.environ.get("LOGLEVEL", "INFO") if not verbose else "DEBUG")
@@ -18,6 +19,7 @@ def configure_logging(verbose: bool = False, loglevel: Optional[str] = None) -> 
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     logger.debug("Set logging level to %s", loglevel)
+
 
 def run(
     directory: str = ".",
@@ -57,7 +59,7 @@ def run(
     """
     configure_logging(verbose=verbose)
     logger.debug("Running prepdir on directory: %s", directory)
-    
+
     processor = PrepdirProcessor(
         directory=directory,
         extensions=extensions,
@@ -72,10 +74,10 @@ def run(
         include_prepdir_files=include_prepdir_files,
         verbose=verbose,
     )
-    
+
     output = processor.generate_output()
     processor.save_output(output, output_file)
-    
+
     if return_raw:
         return (
             output.content,
@@ -85,11 +87,10 @@ def run(
         )
     return output
 
+
 def main():
     """Command-line interface for prepdir."""
-    parser = argparse.ArgumentParser(
-        description="Directory traversal utility to prepare project contents for review."
-    )
+    parser = argparse.ArgumentParser(description="Directory traversal utility to prepare project contents for review.")
     parser.add_argument(
         "directory",
         nargs="?",
@@ -164,18 +165,18 @@ def main():
         help="Show version and exit",
         version=f"prepdir {__version__}",
     )
-    
+
     args = parser.parse_args()
-    
+
     if args.init:
         PrepdirProcessor.init_config(config_path=args.config, force=False)
         return
-    
+
     configure_logging(verbose=args.verbose)
-    
+
     scrub_uuids = not args.no_scrub_uuids
     scrub_hyphenless = not args.no_scrub_hyphenless_uuids
-    
+
     try:
         output = run(
             directory=args.directory,
@@ -200,6 +201,7 @@ def main():
     except Exception as e:
         logger.error("Unexpected error: %s", str(e))
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

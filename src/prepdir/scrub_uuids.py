@@ -4,11 +4,10 @@ import re
 
 logger = logging.getLogger(__name__)
 
-HYPHENATED_UUID_PATTERN = re.compile(
-    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
-)
-UNHYPHENATED_UUID_PATTERN = re.compile(r'\b[0-9a-fA-F]{32}\b')
+HYPHENATED_UUID_PATTERN = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
+UNHYPHENATED_UUID_PATTERN = re.compile(r"\b[0-9a-fA-F]{32}\b")
 EITHER_UUID_PATTERN = re.compile(f"{HYPHENATED_UUID_PATTERN.pattern}|{UNHYPHENATED_UUID_PATTERN.pattern}")
+
 
 def scrub_uuids(
     content: str,
@@ -21,7 +20,7 @@ def scrub_uuids(
     uuid_mapping: Dict[str, str] = None,
 ) -> Tuple[str, bool, Dict[str, str], int]:
     """Scrub UUIDs in content, replacing with a fixed UUID or unique placeholders.
-    
+
     Args:
         content: The input string to process.
         use_unique_placeholders: If True, use unique placeholders (e.g., PREPDIR_UUID_PLACEHOLDER_n).
@@ -31,29 +30,30 @@ def scrub_uuids(
         verbose: If True, log scrubbing details.
         placeholder_counter: Starting counter for unique placeholders.
         uuid_mapping: Optional existing mapping of placeholders to original UUIDs for reuse.
-    
+
     Returns:
         Tuple of (scrubbed content, is_scrubbed flag, UUID mapping, updated placeholder counter).
-    
+
     Raises:
         ValueError: If replacement_uuid is invalid.
     """
     is_scrubbed = False
     uuid_mapping = {} if uuid_mapping is None else uuid_mapping.copy()  # Use copy to avoid modifying input
     reverse_uuid_mapping = {v: k for k, v in uuid_mapping.items()}  # Reverse lookup for O(1) checks
-    
+
     # Initialize placeholder_counter to avoid collisions with existing placeholders
     if use_unique_placeholders and uuid_mapping:
         max_counter = max(
-            (int(k.split('_')[-1]) for k in uuid_mapping if k.startswith("PREPDIR_UUID_PLACEHOLDER_")),
-            default=0
+            (int(k.split("_")[-1]) for k in uuid_mapping if k.startswith("PREPDIR_UUID_PLACEHOLDER_")), default=0
         )
         placeholder_counter = max(max_counter + 1, placeholder_counter)
-    
+
     # Validate replacement_uuid
     if not HYPHENATED_UUID_PATTERN.fullmatch(replacement_uuid):
-        raise ValueError("replacement_uuid must be a valid UUID with hyphens (e.g., 123e4567-e89b-12d3-a456-426614174000)")
-    
+        raise ValueError(
+            "replacement_uuid must be a valid UUID with hyphens (e.g., 123e4567-e89b-12d3-a456-426614174000)"
+        )
+
     def replacement_uuid_to_use(match):
         nonlocal is_scrubbed, placeholder_counter
         original_uuid = match.group(0)
@@ -66,7 +66,7 @@ def scrub_uuids(
                 placeholder = f"PREPDIR_UUID_PLACEHOLDER_{placeholder_counter}"
                 placeholder_counter += 1
             else:
-                placeholder = replacement_uuid if '-' in original_uuid else replacement_uuid.replace('-', '')
+                placeholder = replacement_uuid if "-" in original_uuid else replacement_uuid.replace("-", "")
             uuid_mapping[placeholder] = original_uuid
             reverse_uuid_mapping[original_uuid] = placeholder
         if verbose:
@@ -74,7 +74,7 @@ def scrub_uuids(
         return placeholder
 
     new_content = content
-    
+
     # Apply scrubbing only for enabled flags
     if scrub_hyphenated_uuids and scrub_hyphenless_uuids:
         new_content = EITHER_UUID_PATTERN.sub(replacement_uuid_to_use, new_content)
@@ -83,17 +83,18 @@ def scrub_uuids(
             new_content = HYPHENATED_UUID_PATTERN.sub(replacement_uuid_to_use, new_content)
         if scrub_hyphenless_uuids:
             new_content = UNHYPHENATED_UUID_PATTERN.sub(replacement_uuid_to_use, new_content)
-    
+
     return new_content, is_scrubbed, uuid_mapping, placeholder_counter
+
 
 def restore_uuids(content: str, uuid_mapping: Dict[str, str], is_scrubbed: bool = False) -> str:
     """Restore original UUIDs in content using the provided UUID mapping.
-    
+
     Args:
         content: The input string with placeholders.
         uuid_mapping: Mapping of placeholders to original UUIDs.
         is_scrubbed: If True, indicates UUIDs were scrubbed.
-    
+
     Returns:
         Content with placeholders replaced by original UUIDs.
     """
@@ -101,6 +102,6 @@ def restore_uuids(content: str, uuid_mapping: Dict[str, str], is_scrubbed: bool 
         return content
     result = content
     for placeholder, original_uuid in uuid_mapping.items():
-        pattern = fr'\b{re.escape(placeholder)}\b'
+        pattern = rf"\b{re.escape(placeholder)}\b"
         result = re.sub(pattern, original_uuid, result)
     return result
