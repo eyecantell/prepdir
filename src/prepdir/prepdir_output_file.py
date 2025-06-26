@@ -18,10 +18,9 @@ GENERATED_HEADER_PATTERN = re.compile(
 )
 BASE_DIR_PATTERN = re.compile(r"^Base directory is '(.*?)'$", re.MULTILINE)
 
-
 class PrepdirOutputFile(BaseModel):
     """Represents the prepdir output file (e.g., prepped_dir.txt) with metadata and file entries."""
-
+    
     path: Optional[Path] = None
     content: str
     files: Dict[Path, PrepdirFileEntry] = Field(default_factory=dict)
@@ -149,7 +148,7 @@ class PrepdirOutputFile(BaseModel):
 
         # Determine effective base directory
         if base_dir_match:
-            # Got a base directory ifrom the file
+            # Got a base directory from the file
             file_base_dir = Path(base_dir_match.group(1))
             effective_base_dir = str(file_base_dir)
 
@@ -186,13 +185,12 @@ class PrepdirOutputFile(BaseModel):
             instance.parse(effective_base_dir)
         return instance
 
-    def get_changed_files(self, original: "PrepdirOutputFile") -> List[PrepdirFileEntry]:
+    def get_changed_files(self, original: "PrepdirOutputFile") -> Dict[str, List[PrepdirFileEntry]]:
         """Identify files that have changed compared to an original PrepdirOutputFile.
-        Return dict {
-            'added': [List[PrepdirFileEntry], # files in current ouput file but not in original
-            'changed': [List[PrepdirFileEntry], # files in both but changes have been made
-            'removed': [List[PrepdirFileEntry], # files in original output file but not in current one
-            }
+        Returns a dictionary with:
+        - 'added': List of PrepdirFileEntry objects present in current but not in original.
+        - 'changed': List of PrepdirFileEntry objects present in both with modified content.
+        - 'removed': List of PrepdirFileEntry objects present in original but not in current.
         """
         added = []
         changed = []

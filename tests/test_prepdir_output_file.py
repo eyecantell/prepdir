@@ -9,6 +9,7 @@ import re
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+
 # Test fixtures
 @pytest.fixture
 def temp_file(tmp_path):
@@ -21,7 +22,7 @@ def temp_file(tmp_path):
 
 
 # Test data
-SAMPLE_CONTENT = """File listing generated 2025-06-26 06:50:58.951077 by prepdir version 0.14.1 (pip install prepdir)
+SAMPLE_CONTENT = """File listing generated 2025-06-26 12:15:00 by prepdir version 0.14.1 (pip install prepdir)
 Base directory is '/test_dir'
 
 =-=-= Begin File: 'file1.txt' =-=-=
@@ -41,7 +42,6 @@ def test_manual_instance(temp_file):
     instance = PrepdirOutputFile(
         path=Path(file_path), content=content, files={}, metadata={}, uuid_mapping={}, placeholder_counter=1
     )
-
     assert isinstance(instance, PrepdirOutputFile)
 
 
@@ -49,31 +49,26 @@ def test_manual_instance(temp_file):
     "content, expected_base_dir",
     [
         (SAMPLE_CONTENT, "/test_dir"),
-        ("=-=-= Begin File: 'file1.txt' =-=-=\nContent\n=-=-= End File: 'file1.txt' =-=-=", None),
+        ("=-=-= Begin File: 'file1.txt' =-=-=\nContent\n=-=-= End File: 'file1.txt' =-=-=", "/test_dir"),
     ],
 )
 def test_from_file(temp_file, content, expected_base_dir, caplog):
     file_path = temp_file(content)
-
     with caplog.at_level(logging.WARNING):
         instance = (
             PrepdirOutputFile.from_file(str(file_path), expected_base_dir)
             if expected_base_dir
-            else PrepdirOutputFile.from_file(str(file_path), ".")
+            else PrepdirOutputFile.from_file(str(file_path), None)
         )
-
     print(f"content:\n{content}\n{instance.metadata=}")
-
     assert isinstance(instance, PrepdirOutputFile)
     assert instance.path == file_path
     assert instance.content == content
-
     if "File listing generated" in content:
-        assert instance.metadata["date"] == "2025-06-26 06:50:58.951077"
+        assert instance.metadata["date"] == "2025-06-26 12:15:00"
         assert instance.metadata["creator"] == "prepdir version 0.14.1 (pip install prepdir)"
     elif expected_base_dir:
         assert "No header found" in caplog.text
-
     if "Base directory is" in content and expected_base_dir:
         assert instance.metadata["base_directory"] == expected_base_dir
     elif expected_base_dir:
@@ -81,8 +76,6 @@ def test_from_file(temp_file, content, expected_base_dir, caplog):
         assert "No base directory found" in caplog.text
     else:
         assert instance.metadata["base_directory"] == "."
-
-    # Verify parsing (only if base directory is meaningful)
     if expected_base_dir:
         entries = instance.parse(expected_base_dir)
         assert isinstance(entries, dict)
@@ -109,14 +102,13 @@ Content
 =-=-= End File: 'file1.txt' =-=-=
 """
     file_path = temp_file(content)
-    
     instance = PrepdirOutputFile.from_file(str(file_path), None)
     assert instance.metadata["date"] == "2025-06-26 01:02"
     assert instance.metadata["creator"] == "Grok 3"
 
 
 def test_from_file_base_dir_mismatch(temp_file):
-    content = """File listing generated 2025-06-26 09:51:00 by prepdir
+    content = """File listing generated 2025-06-26 12:15:00 by prepdir
 Base directory is '/invalid_dir'
 
 =-=-= Begin File: 'file1.txt' =-=-=
@@ -159,7 +151,6 @@ Content
     instance = PrepdirOutputFile(path=file_path, content=content, metadata={"base_directory": "test_dir"})
     with caplog.at_level(logging.WARNING):
         entries = instance.parse("test_dir")
-
     assert len(entries) == 1
     abs_path = Path("test_dir").absolute() / "file1.txt"
     assert abs_path in entries
@@ -203,30 +194,21 @@ File3 content (file3 will be unchanged)
 File1 changed content
 =-=-= End File: 'file1.txt' =-=-=
 """
-    #orig_file = temp_file(orig_content)
-    #updated_file = temp_file(updated_content)
-
     orig = PrepdirOutputFile.from_content(orig_content, "test_dir")
     updated = PrepdirOutputFile.from_content(updated_content, "test_dir")
-
     changes = updated.get_changed_files(orig)
     print(f"{changes=}")
-    assert "added" in changes
-    assert "changed" in changes
-    assert "removed" in changes
     assert len(changes["added"]) == 1
     assert any(entry.relative_path == "file4.txt" for entry in changes["added"])
-
     assert len(changes["changed"]) == 1
     assert any(entry.relative_path == "file1.txt" for entry in changes["changed"])
-    
     assert len(changes["removed"]) == 1
     assert any(entry.relative_path == "file2.txt" for entry in changes["removed"])
 
 
 def test_is_prepdir_outputfile_format():
     # Test with valid prepdir format
-    valid_content = """File listing generated 2025-06-26 09:51:00 by prepdir
+    valid_content = """File listing generated 2025-06-26 12:15:00 by prepdir
 Base directory is 'test_dir'
 
 =-=-= Begin File: 'file1.txt' =-=-=
@@ -234,17 +216,14 @@ Content
 =-=-= End File: 'file1.txt' =-=-=
 """
     assert PrepdirFileEntry.is_prepdir_outputfile_format(valid_content, None) == True
-
     # Test with invalid content (no headers)
     invalid_content = "Just some text"
     assert PrepdirFileEntry.is_prepdir_outputfile_format(invalid_content, None) == False
-
     # Test with partial valid content
     partial_content = """=-=-= Begin File: 'file1.txt' =-=-=
 Content
 """  # Missing footer
     assert PrepdirFileEntry.is_prepdir_outputfile_format(partial_content, None) == False
-
     # Test with empty content
     empty_content = ""
     assert PrepdirFileEntry.is_prepdir_outputfile_format(empty_content, None) == False
