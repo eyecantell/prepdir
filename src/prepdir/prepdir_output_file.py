@@ -1,7 +1,7 @@
 from pathlib import Path
 from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from prepdir.prepdir_file_entry import PrepdirFileEntry
 import logging
 import re

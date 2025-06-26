@@ -1,6 +1,6 @@
 import pytest
 from prepdir.main import main
-from prepdir.core import init_config
+from prepdir.config import init_config
 from unittest.mock import patch
 import sys
 from pathlib import Path

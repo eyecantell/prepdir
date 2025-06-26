@@ -14,7 +14,6 @@ class PrepdirFileEntry(BaseModel):
     content: str = Field(..., description="File content, possibly scrubbed")
     is_scrubbed: bool = Field(default=False, description="Whether UUIDs are scrubbed in the current content")
     is_binary: bool = Field(default=False, description="Whether the file is binary")
-    is_prepdir_outputfile_format: bool = Field(default=False, description="Whether the file has the format specified by prepdir for an output file")
     error: Optional[str] = Field(default=None, description="Error message if file read failed")
     
     @field_validator("absolute_path", mode="before")
@@ -106,6 +105,7 @@ class PrepdirFileEntry(BaseModel):
             error = str(e)
             content = f"[Error reading file: {error}]"
         
+        
         return (
             cls(
                 relative_path=relative_path,
@@ -188,12 +188,20 @@ class PrepdirFileEntry(BaseModel):
             self.error = str(e)
             return False
         
-    
-    def is_prepdir_outputfile_format(self) -> bool:
-        """Return true if this file matches the format prescribed for a prepdir output file"""
+    @staticmethod
+    def is_prepdir_outputfile_format(content: str, base_directory: str) -> bool:
+        """Return true if the given content matches the format prescribed for a prepdir output file.
+        
+        Args:
+            content: The file content to check.
+            base_directory: The base directory for resolving relative paths (set to "/" for format-only check).
+        
+        Returns:
+            bool: True if the content matches the prepdir output format, False otherwise.
+        """
         try:
             from .prepdir_output_file import PrepdirOutputFile
-            PrepdirOutputFile.from_content(self.content, self.absolute_path)
+            PrepdirOutputFile.from_content(content, base_directory)
             return True
         except ValueError:
             return False
