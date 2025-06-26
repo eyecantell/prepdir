@@ -1,7 +1,7 @@
 from pathlib import Path
 from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
-from typing import Dict, Optional, List
+from typing import Dict, Optional
 from prepdir.prepdir_file_entry import PrepdirFileEntry
 import logging
 import re
@@ -111,14 +111,13 @@ class PrepdirOutputFile(BaseModel):
         path_obj = Path(path)
         if not path_obj.exists():
             raise FileNotFoundError(f"File {path} does not exist")
-        
         content = path_obj.read_text(encoding="utf-8")
-        return cls.from_content(content, expected_base_directory)
+        return cls.from_content(content, expected_base_directory, path_obj)
 
     @classmethod
-    def from_content(cls, content: str, expected_base_directory: str) -> 'PrepdirOutputFile':
+    def from_content(cls, content: str, expected_base_directory: str, path_obj: Optional[Path] = None) -> 'PrepdirOutputFile':
         """Create a PrepdirOutputFile instance from content already read from file."""
-        lines = content.splitlines()  # PRW change to from_content()
+        lines = content.splitlines()
         
         # Extract output_file_header up to the first HEADER_PATTERN line
         output_file_header = []
@@ -148,8 +147,6 @@ class PrepdirOutputFile(BaseModel):
             effective_base_dir = str(file_base_dir)
         else:
             logger.warning("No base directory found in file, using expected base directory: %s", expected_base_directory)
-
-        path_obj = Path(effective_base_dir)
 
         # Use header metadata if available, otherwise keep defaults
         metadata = {
