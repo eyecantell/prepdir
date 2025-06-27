@@ -58,7 +58,7 @@ def test_run_with_config(tmp_path):
 EXCLUDE:
   DIRECTORIES: []
   FILES: ['.prepdir/config.yaml']
-SCRUB_UUIDS: False
+SCRUB_HYPHENATED_UUIDS: False
 REPLACEMENT_UUID: 123e4567-e89b-12d3-a456-426614174000
 """)
     content, _ = run(directory=str(tmp_path), config_path=str(config_file))
@@ -97,7 +97,7 @@ EXCLUDE:
   DIRECTORIES: []
   FILES:
     - ~/.prepdir/config.yaml
-SCRUB_UUIDS: True
+SCRUB_HYPHENATED_UUIDS: True
 REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
 """)
     with monkeypatch.context() as m:
@@ -123,7 +123,7 @@ def test_run_excludes_global_config_bundled(tmp_path, monkeypatch):
         yaml.safe_dump(
             {
                 "EXCLUDE": {"DIRECTORIES": [], "FILES": ["~/.prepdir/config.yaml"]},
-                "SCRUB_UUIDS": True,
+                "SCRUB_HYPHENATED_UUIDS": True,
                 "REPLACEMENT_UUID": "00000000-0000-0000-0000-000000000000",
             }
         )

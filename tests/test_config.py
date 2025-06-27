@@ -39,7 +39,7 @@ def sample_config_content():
             "FILES": ["*.pyc", "*.log"],
         },
         "REPLACEMENT_UUID": "12345678-1234-1234-4321-4321432143214321",
-        "SCRUB_UUIDS": True,
+        "SCRUB_HYPHENATED_UUIDS": True,
         "SCRUB_HYPHENLESS_UUIDS": False,
     }
 
@@ -63,7 +63,7 @@ def test_load_config_from_specific_path(sample_config_content, capture_log, tmp_
     assert config.get("EXCLUDE.DIRECTORIES") == sample_config_content["EXCLUDE"]["DIRECTORIES"]
     assert config.get("EXCLUDE.FILES") == sample_config_content["EXCLUDE"]["FILES"]
     assert config.get("REPLACEMENT_UUID") == sample_config_content["REPLACEMENT_UUID"]
-    assert config.get("SCRUB_UUIDS") == sample_config_content["SCRUB_UUIDS"]
+    assert config.get("SCRUB_HYPHENATED_UUIDS") == sample_config_content["SCRUB_HYPHENATED_UUIDS"]
     assert config.get("SCRUB_HYPHENLESS_UUIDS") == sample_config_content["SCRUB_HYPHENLESS_UUIDS"]
     
     log_output = capture_log.getvalue()
@@ -88,7 +88,7 @@ def test_load_config_home(sample_config_content, capture_log, tmp_path, monkeypa
 
     assert config.get("EXCLUDE.DIRECTORIES") == sample_config_content["EXCLUDE"]["DIRECTORIES"]
     assert config.get("EXCLUDE.FILES") == sample_config_content["EXCLUDE"]["FILES"]
-    assert config.get("SCRUB_UUIDS") == sample_config_content["SCRUB_UUIDS"]
+    assert config.get("SCRUB_HYPHENATED_UUIDS") == sample_config_content["SCRUB_HYPHENATED_UUIDS"]
     assert config.get("REPLACEMENT_UUID") == sample_config_content["REPLACEMENT_UUID"]
     log_output = capture_log.getvalue()
     print(f"log_output is:\n{log_output}")
@@ -101,7 +101,7 @@ def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
     bundled_path.parent.mkdir(parents=True)
     bundled_config_content = {
         "EXCLUDE": {"DIRECTORIES": ["bundled_dir"], "FILES": ["*.py"]},
-        "SCRUB_UUIDS": False,
+        "SCRUB_HYPHENATED_UUIDS": False,
         "REPLACEMENT_UUID": "11111111-1111-1111-1111-111111111111",
     }
     bundled_path.write_text(yaml.safe_dump(bundled_config_content))
@@ -122,7 +122,7 @@ def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
             config = load_config("prepdir")
     assert config.get("EXCLUDE.DIRECTORIES") == ["bundled_dir"]
     assert config.get("EXCLUDE.FILES") == ["*.py"]
-    assert config.get("SCRUB_UUIDS") is False
+    assert config.get("SCRUB_HYPHENATED_UUIDS") is False
     assert config.get("REPLACEMENT_UUID") == "11111111-1111-1111-1111-111111111111"
     log_output = capture_log.getvalue()
     assert "_prepdir_bundled_config.yaml" in log_output  # Check for dynamic temp file name
@@ -172,7 +172,7 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
     """Test configuration precedence: custom > local > global > bundled using non-list fields."""
     bundled_config = {
         "EXCLUDE": {"DIRECTORIES": ["bundled_dir"], "FILES": ["bundled_file"]},
-        "SCRUB_UUIDS": False,
+        "SCRUB_HYPHENATED_UUIDS": False,
         "SCRUB_HYPHENLESS_UUIDS": False,
         "REPLACEMENT_UUID": "00000000-0000-0000-0000-000000000000",
     }
@@ -187,7 +187,7 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
     global_config_path.parent.mkdir()
     global_config = {
         "EXCLUDE": {"DIRECTORIES": ["global_dir"], "FILES": ["global_file"]},
-        "SCRUB_UUIDS": False,
+        "SCRUB_HYPHENATED_UUIDS": False,
         "SCRUB_HYPHENLESS_UUIDS": True,
         "REPLACEMENT_UUID": "11111111-1111-1111-1111-111111111111",
     }
@@ -198,7 +198,7 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
     local_config_path.parent.mkdir()
     local_config = {
         "EXCLUDE": {"DIRECTORIES": ["local_dir"], "FILES": ["local_file"]},
-        "SCRUB_UUIDS": True,
+        "SCRUB_HYPHENATED_UUIDS": True,
         "SCRUB_HYPHENLESS_UUIDS": False,
         "REPLACEMENT_UUID": "22222222-2222-2222-2222-222222222222",
     }
@@ -208,7 +208,7 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
     custom_config_path = tmp_path / "custom.yaml"
     custom_config = {
         "EXCLUDE": {"DIRECTORIES": ["custom_dir"], "FILES": ["custom_file"]},
-        "SCRUB_UUIDS": True,
+        "SCRUB_HYPHENATED_UUIDS": True,
         "SCRUB_HYPHENLESS_UUIDS": True,
         "REPLACEMENT_UUID": "33333333-3333-3333-3333-333333333333",
     }
@@ -231,28 +231,28 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
             # First precedence should be the custom config file (passed)
             config = load_config("prepdir", str(custom_config_path))
             assert config.get("REPLACEMENT_UUID") == "33333333-3333-3333-3333-333333333333"
-            assert config.get("SCRUB_UUIDS") is True
+            assert config.get("SCRUB_HYPHENATED_UUIDS") is True
             assert config.get("SCRUB_HYPHENLESS_UUIDS") is True
 
             # Second precedence should be the local .prepdir/config (since no custom config file is passed)
             assert os.getcwd() == str(tmp_path.resolve())
             config = load_config("prepdir")
             assert config.get("REPLACEMENT_UUID") == "22222222-2222-2222-2222-222222222222"
-            assert config.get("SCRUB_UUIDS") is True
+            assert config.get("SCRUB_HYPHENATED_UUIDS") is True
             assert config.get("SCRUB_HYPHENLESS_UUIDS") is False
 
             # Third precedence should be the ~/.prepdir/config (since no custom config file is passed and no local config is avail)
             local_config_path.unlink()
             config = load_config("prepdir")
             assert config.get("REPLACEMENT_UUID") == "11111111-1111-1111-1111-111111111111"
-            assert config.get("SCRUB_UUIDS") is False
+            assert config.get("SCRUB_HYPHENATED_UUIDS") is False
             assert config.get("SCRUB_HYPHENLESS_UUIDS") is True
             
             # Last precedence should be the bundled config (since no custom config file is passed and no local or global configs avail)
             global_config_path.unlink()
             config = load_config("prepdir")
             assert config.get("REPLACEMENT_UUID") == "00000000-0000-0000-0000-000000000000"
-            assert config.get("SCRUB_UUIDS") is False
+            assert config.get("SCRUB_HYPHENATED_UUIDS") is False
             assert config.get("SCRUB_HYPHENLESS_UUIDS") is False
 
 def test_load_config_invalid_yaml(tmp_path, capture_log, clean_cwd):
@@ -272,7 +272,7 @@ def test_load_config_empty_yaml(tmp_path, capture_log, clean_cwd):
     config = load_config("prepdir", str(config_path))
     assert config.get("EXCLUDE.DIRECTORIES", []) == []
     assert config.get("EXCLUDE.FILES", []) == []
-    assert config.get("SCRUB_UUIDS", True) is True
+    assert config.get("SCRUB_HYPHENATED_UUIDS", True) is True
     log_output = capture_log.getvalue()
     assert f"Using custom config path: {config_path}" in log_output
 

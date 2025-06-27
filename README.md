@@ -179,7 +179,7 @@ EXCLUDE:
   FILES:
     - "*.pyc"
     - "*.log"
-SCRUB_UUIDS: true
+SCRUB_HYPHENATED_UUIDS: true
 SCRUB_HYPHENLESS_UUIDS: true
 REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
 EOF
@@ -210,7 +210,7 @@ user_id = "00000000-0000-0000-0000-000000000000"
 **Control UUID scrubbing:**
 - CLI: `--no-scrub-uuids` or `--replacement-uuid <uuid>`
 - Python: `scrub_uuids=False` or `replacement_uuid="custom-uuid"`
-- Config: Set `SCRUB_UUIDS: false` or `REPLACEMENT_UUID: "custom-uuid"`
+- Config: Set `SCRUB_HYPHENATED_UUIDS: false` or `REPLACEMENT_UUID: "custom-uuid"`
 
 ### Unique Placeholders (New in 0.14.0)
 Generate unique placeholders for each UUID to maintain relationships:

@@ -18,7 +18,7 @@ def custom_config(tmp_path):
             "DIRECTORIES": [],
             "FILES": ["*.pyc"],
         },
-        "SCRUB_UUIDS": True,
+        "SCRUB_HYPHENATED_UUIDS": True,
         "REPLACEMENT_UUID": "00000000-0000-0000-0000-000000000000",
         "SCRUB_HYPHENLESS_UUIDS": True,
     }

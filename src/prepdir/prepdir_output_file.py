@@ -55,8 +55,11 @@ class PrepdirOutputFile(BaseModel):
     def save(self):
         """Save the output to disk."""
         if self.path:
-            self.path.write_text(self.content, encoding="utf-8")
-            logger.debug(f"Saved output to {self.path}")
+            if self.content:
+                self.path.write_text(self.content, encoding="utf-8")
+                logger.info(f"Saved output to {self.path}")
+            else:
+                logger.warning("No content specified, content not saved")
         else:
             logger.warning("No path specified, content not saved")
 

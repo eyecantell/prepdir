@@ -16,6 +16,7 @@ EXCLUDE:
   - .eggs
   - .tox
   - '*.egg-info'
+  - .ruff_cache
   FILES:
   - .gitignore
   - .prepdir/config.yaml
@@ -37,4 +38,4 @@ EXCLUDE:
   - '**/*.log'
 REPLACEMENT_UUID: 00000000-0000-0000-0000-000000000000
 SCRUB_HYPHENLESS_UUIDS: false
-SCRUB_UUIDS: false
+SCRUB_HYPHENATED_UUIDS: false

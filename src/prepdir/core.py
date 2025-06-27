@@ -323,10 +323,10 @@ def run(
 
     # Log the loaded config values for debugging
     logger.debug(f"Loaded REPLACEMENT_UUID from config: {config.get('REPLACEMENT_UUID', 'Not set')}")
-    logger.debug(f"Loaded SCRUB_UUIDS from config: {config.get('SCRUB_UUIDS', 'Not set')}")
+    logger.debug(f"Loaded SCRUB_HYPHENATED_UUIDS from config: {config.get('SCRUB_HYPHENATED_UUIDS', 'Not set')}")
 
     # Use config values if arguments are not provided
-    scrub_uuids_enabled = config.get("SCRUB_UUIDS", True) if scrub_uuids is None else scrub_uuids
+    scrub_uuids_enabled = config.get("SCRUB_HYPHENATED_UUIDS", True) if scrub_uuids is None else scrub_uuids
     scrub_hyphenless_uuids_enabled = (
         config.get("SCRUB_HYPHENLESS_UUIDS", False) if scrub_hyphenless_uuids is None else scrub_hyphenless_uuids
     )

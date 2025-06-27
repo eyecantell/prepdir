@@ -103,7 +103,7 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
         # Force loading to catch YAML errors early
         config._wrapped  # Access internal storage to trigger loading
         logger.debug(
-            f"Final config values: REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}, SCRUB_UUIDS={config.get('SCRUB_UUIDS', 'Not set')}"
+            f"Final config values for UUIDS: REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}, SCRUB_HYPHENATED_UUIDS={config.get('SCRUB_HYPHENATED_UUIDS', 'Not set')}"
         )
     except Exception as e:
         logger.error(f"Invalid YAML in config file(s): {str(e)}")
