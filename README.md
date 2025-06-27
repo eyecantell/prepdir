@@ -1,6 +1,6 @@
 # 🗂️ prepdir
 
-[![CI](https://github.com/eyecantell/prepdir/actions/workflows/ci.yml/badge.svg)](https://github.com/eyecantell/prepdir/actions/workflows/ci.yml)
+[![CI](https://github.com/eyecantell/prepdir/actions/workflows/ci.yml/badge.svg)](https://github.com/eyecantell/prepdir/actions/runs/15799653478)
 [![PyPI version](https://badge.fury.io/py/prepdir.svg)](https://badge.fury.io/py/prepdir)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Downloads](https://pepy.tech/badge/prepdir)](https://pepy.tech/project/prepdir)
@@ -102,7 +102,7 @@ content, _ = run(
     directory="/path/to/project",
     extensions=["py"],
     output_file="review.txt", 
-    scrub_uuids=False
+    scrub_hyphenated_uuids=False
 )
 
 # Validate prepdir output
@@ -209,7 +209,7 @@ user_id = "00000000-0000-0000-0000-000000000000"
 
 **Control UUID scrubbing:**
 - CLI: `--no-scrub-uuids` or `--replacement-uuid <uuid>`
-- Python: `scrub_uuids=False` or `replacement_uuid="custom-uuid"`
+- Python: `scrub_hyphenated_uuids=False` or `replacement_uuid="custom-uuid"`
 - Config: Set `SCRUB_HYPHENATED_UUIDS: false` or `REPLACEMENT_UUID: "custom-uuid"`
 
 ### Unique Placeholders (New in 0.14.0)
@@ -250,8 +250,8 @@ content, uuid_mapping = run(
     directory="/path/to/project",           # Target directory
     extensions=["py", "js"],                # File extensions
     output_file="output.txt",               # Save to file
-    scrub_uuids=True,                       # Scrub UUIDs
-    scrub_hyphenless_uuids=True,           # Scrub hyphenless UUIDs
+    scrub_hyphenated_uuids=True,            # Scrub (hyphenated) UUIDs
+    scrub_hyphenless_uuids=True,            # Scrub hyphenless UUIDs
     replacement_uuid="custom-uuid",         # Custom replacement
     use_unique_placeholders=False,          # Unique placeholders
     include_all=False,                      # Ignore exclusions

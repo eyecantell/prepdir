@@ -85,8 +85,7 @@ class PrepdirProcessor:
         if not self.include_prepdir_files:
             try:
                 with open(full_path, "r", encoding="utf-8") as f:
-                    first_line = f.readline()
-                    if PrepdirFileEntry.is_prepdir_outputfile_format(first_line, "/"):
+                    if PrepdirFileEntry.is_prepdir_outputfile_format(f.read()):
                         return True
             except (IOError, UnicodeDecodeError):
                 pass  # Ignore errors and assume not prepdir-generated if unreadable
