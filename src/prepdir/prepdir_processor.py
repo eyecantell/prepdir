@@ -11,11 +11,15 @@ from dynaconf import Dynaconf
 from prepdir.config import load_config, __version__, init_config
 from prepdir.prepdir_file_entry import PrepdirFileEntry
 from prepdir.prepdir_output_file import PrepdirOutputFile
+from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
 
 logger = logging.getLogger(__name__)
 
 class PrepdirProcessor:
-    """Manages generation and parsing of prepdir output files."""
+    """Manages generation and parsing of prepdir output files.
+
+    Constructor parameters take precedence over configuration settings loaded from config files.
+    """
 
     def __init__(
         self,
@@ -32,7 +36,22 @@ class PrepdirProcessor:
         include_prepdir_files: bool = False,
         verbose: bool = False,
     ):
-        """Initialize PrepdirProcessor with configuration and parameters."""
+        """Initialize PrepdirProcessor with configuration and parameters.
+
+        Args:
+            directory: Starting directory path.
+            extensions: List of file extensions to include (without dot).
+            specific_files: List of specific file paths to process.
+            output_file: Path to save the output file.
+            config_path: Path to custom config file.
+            scrub_hyphenated_uuids: If True, scrub hyphenated UUIDs; if None, use config.
+            scrub_hyphenless_uuids: If True, scrub hyphen-less UUIDs; if None, use config.
+            replacement_uuid: UUID to replace detected UUIDs; if None, use config.
+            use_unique_placeholders: If True, use unique placeholders; defaults to config or False.
+            ignore_exclusions: If True, ignore exclusion lists; defaults to config or False.
+            include_prepdir_files: If True, include prepdir-generated files; defaults to config or False.
+            verbose: If True, enable verbose logging; defaults to config or False.
+        """
         self.directory = os.path.abspath(directory)
         if not os.path.exists(self.directory):
             raise ValueError(f"Directory '{self.directory}' does not exist")
@@ -40,27 +59,36 @@ class PrepdirProcessor:
             raise ValueError(f"'{self.directory}' is not a directory")
 
         self.config = self._load_config(config_path)
-        self.extensions = extensions or []
+        self.extensions = extensions or self.config.get("DEFAULT_EXTENSIONS", [])
         self.specific_files = specific_files or []
-        self.output_file = output_file
-        self.ignore_exclusions = ignore_exclusions
-        self.include_prepdir_files = include_prepdir_files
-        self.verbose = verbose
+        self.output_file = output_file or self.config.get("DEFAULT_OUTPUT_FILE", None)
+        self.ignore_exclusions = ignore_exclusions or self.config.get("IGNORE_EXCLUSIONS", False)
+        self.include_prepdir_files = include_prepdir_files or self.config.get("INCLUDE_PREPDIR_FILES", False)
+        self.verbose = verbose or self.config.get("VERBOSE", False)
 
-        self.scrub_hyphenated_uuids = scrub_hyphenated_uuids if scrub_hyphenated_uuids is not None else self.config.get("SCRUB_HYPHENATED_UUIDS", True)
+        self.scrub_hyphenated_uuids = (
+            scrub_hyphenated_uuids
+            if scrub_hyphenated_uuids is not None
+            else self.config.get("SCRUB_HYPHENATED_UUIDS", True)
+        )
         self.scrub_hyphenless_uuids = (
             scrub_hyphenless_uuids
             if scrub_hyphenless_uuids is not None
             else self.config.get("SCRUB_HYPHENLESS_UUIDS", True)
         )
+        if replacement_uuid is not None and not re.fullmatch(HYPHENATED_UUID_PATTERN, replacement_uuid):
+            logger.error(f"Invalid replacement UUID: '{replacement_uuid}'. Using config default.")
+            replacement_uuid = None
         self.replacement_uuid = (
             replacement_uuid
             if replacement_uuid is not None
             else self.config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000")
         )
-        self.use_unique_placeholders = use_unique_placeholders
+        self.use_unique_placeholders = use_unique_placeholders or self.config.get("USE_UNIQUE_PLACEHOLDERS", False)
 
         self.logger = logging.getLogger(__name__)
+        if self.verbose:
+            self.logger.setLevel(logging.DEBUG)
 
     def _load_config(self, config_path: Optional[str]) -> Dynaconf:
         """Load configuration with precedence handling."""
