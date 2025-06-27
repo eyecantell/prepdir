@@ -9,6 +9,16 @@ UNHYPHENATED_UUID_PATTERN = re.compile(r"\b[0-9a-fA-F]{32}\b")
 EITHER_UUID_PATTERN = re.compile(f"{HYPHENATED_UUID_PATTERN.pattern}|{UNHYPHENATED_UUID_PATTERN.pattern}")
 
 
+def is_valid_uuid(value: str) -> bool: # PRW consider making sure uuids that are scrubbed are actually valid UUIDs in additiona to matching the uuid pattern.
+    """Check if a string is a valid UUID."""
+    try:
+        import uuid
+        uuid.UUID(value)
+        return True
+    except ValueError:
+        return False
+    
+    
 def scrub_uuids(
     content: str,
     use_unique_placeholders: bool = False,
