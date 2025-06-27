@@ -20,20 +20,19 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0"  # Fallback to hardcoded version
 
-def load_config(namespace: str, config_path: Optional[str] = None, allow_missing: bool = False) -> Dynaconf:
+def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
     """
     Load configuration settings using Dynaconf from various sources.
 
     Args:
         namespace (str): The package namespace (e.g., "prepdir", "applydir", "vibedir") for bundled config.
         config_path (Optional[str]): Custom path to a configuration file, overriding defaults if provided.
-        allow_missing (bool): If True, allows config_path to be missing without raising an error.
 
     Returns:
         Dynaconf: Config object with loaded settings.
 
     Raises:
-        ValueError: If no valid config files are found, YAML is invalid, or config_path is missing and allow_missing=False.
+        ValueError: If no valid config files are found, YAML is invalid, or config_path is missing.
 
     Notes:
         - Priority: custom_config > local_config (./{namespace}/config.yaml) > home_config (~/{namespace}/config.yaml) > bundled_config.
@@ -44,34 +43,32 @@ def load_config(namespace: str, config_path: Optional[str] = None, allow_missing
     # Use custom config path if provided
     if config_path:
         config_path = Path(config_path).resolve()
-        if not config_path.exists() and not allow_missing:
+        if not config_path.exists():
             logger.error(f"Custom config path '{config_path}' does not exist")
             raise ValueError(f"Custom config path '{config_path}' does not exist")
-        elif not config_path.exists():
-            logger.warning(f"Custom config path '{config_path}' does not exist, skipping")
         else:
             settings_files.append(str(config_path))
             logger.debug(f"Using custom config path: {config_path}")
 
     # Skip default config search in test environment
     elif os.getenv("PREPDIR_SKIP_CONFIG_LOAD") == "true":
-        logger.debug("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true")
+        logger.warning("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true")
     else:
-        # Check local config first, then home config
+        # Check home config first, then local config. The order of the settings files matters (later override earlier)
         local_config = Path(f".{namespace}/config.yaml").resolve()
         home_config = Path(os.path.expanduser(f"~/.{namespace}/config.yaml")).resolve()
-        
-        if local_config.exists():
-            settings_files.append(str(local_config))
-            logger.debug(f"Found local config: {local_config}")
-        else:
-            logger.debug(f"No local config found at: {local_config}")
         
         if home_config.exists():
             settings_files.append(str(home_config))
             logger.debug(f"Found home config: {home_config}")
         else:
             logger.debug(f"No home config found at: {home_config}")
+
+        if local_config.exists():
+            settings_files.append(str(local_config))
+            logger.debug(f"Found local config: {local_config}")
+        else:
+            logger.debug(f"No local config found at: {local_config}")
 
         # Fallback to bundled config if no files found
         if not settings_files:
@@ -90,7 +87,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, allow_missing
                 raise ValueError(f"Failed to load bundled config: {str(e)}")
 
     if not settings_files:
-        raise ValueError("No configuration files found and no bundled config available")
+        raise ValueError(f"No configuration files found and no bundled config available. Note PREPDIR_SKIP_CONFIG_LOAD={os.environ.get('PREPDIR_SKIP_CONFIG_LOAD')}")
 
     logger.debug(f"Initializing Dynaconf with settings files: {settings_files}")
     try:
