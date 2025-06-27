@@ -15,6 +15,23 @@ from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
 
 logger = logging.getLogger(__name__)
 
+from pathlib import Path
+from typing import List, Optional, Iterator, Dict
+import os
+import logging
+import sys
+import fnmatch
+from datetime import datetime
+from io import StringIO
+from contextlib import redirect_stdout
+from dynaconf import Dynaconf
+from prepdir.config import load_config, __version__, init_config
+from prepdir.prepdir_file_entry import PrepdirFileEntry
+from prepdir.prepdir_output_file import PrepdirOutputFile
+from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
+
+logger = logging.getLogger(__name__)
+
 class PrepdirProcessor:
     """Manages generation and parsing of prepdir output files.
 
@@ -42,7 +59,7 @@ class PrepdirProcessor:
             directory: Starting directory path.
             extensions: List of file extensions to include (without dot).
             specific_files: List of specific file paths to process.
-            output_file: Path to save the output file.
+            output_file: Path to save the output file; defaults to config's DEFAULT_OUTPUT_FILE ("prepped_dir.txt").
             config_path: Path to custom config file.
             scrub_hyphenated_uuids: If True, scrub hyphenated UUIDs; if None, use config.
             scrub_hyphenless_uuids: If True, scrub hyphen-less UUIDs; if None, use config.
@@ -61,7 +78,7 @@ class PrepdirProcessor:
         self.config = self._load_config(config_path)
         self.extensions = extensions or self.config.get("DEFAULT_EXTENSIONS", [])
         self.specific_files = specific_files or []
-        self.output_file = output_file or self.config.get("DEFAULT_OUTPUT_FILE", None)
+        self.output_file = output_file or self.config.get("DEFAULT_OUTPUT_FILE", "prepped_dir.txt")
         self.ignore_exclusions = ignore_exclusions or self.config.get("IGNORE_EXCLUSIONS", False)
         self.include_prepdir_files = include_prepdir_files or self.config.get("INCLUDE_PREPDIR_FILES", False)
         self.verbose = verbose or self.config.get("VERBOSE", False)
@@ -89,6 +106,7 @@ class PrepdirProcessor:
         self.logger = logging.getLogger(__name__)
         if self.verbose:
             self.logger.setLevel(logging.DEBUG)
+
 
     def _load_config(self, config_path: Optional[str]) -> Dynaconf:
         """Load configuration with precedence handling."""
