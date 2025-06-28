@@ -10,7 +10,7 @@ from .config import (
 )
 
 from .validate_output_file import validate_output_file
-from .scrub_uuids import scrub_uuids, restore_uuids
+from .scrub_uuids import scrub_uuids, restore_uuids, is_valid_uuid
 from .prepdir_file_entry import PrepdirFileEntry
 from .prepdir_output_file import PrepdirOutputFile
 

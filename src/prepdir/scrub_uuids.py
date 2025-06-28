@@ -8,7 +8,6 @@ HYPHENATED_UUID_PATTERN = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-
 UNHYPHENATED_UUID_PATTERN = re.compile(r"\b[0-9a-fA-F]{32}\b")
 EITHER_UUID_PATTERN = re.compile(f"{HYPHENATED_UUID_PATTERN.pattern}|{UNHYPHENATED_UUID_PATTERN.pattern}")
 
-
 def is_valid_uuid(value: str) -> bool: # PRW consider making sure uuids that are scrubbed are actually valid UUIDs in additiona to matching the uuid pattern.
     """Check if a string is a valid UUID."""
     try:
@@ -17,8 +16,7 @@ def is_valid_uuid(value: str) -> bool: # PRW consider making sure uuids that are
         return True
     except ValueError:
         return False
-    
-    
+
 def scrub_uuids(
     content: str,
     use_unique_placeholders: bool = False,
@@ -70,15 +68,22 @@ def scrub_uuids(
         # Check if UUID is already mapped
         placeholder = reverse_uuid_mapping.get(original_uuid)
         if placeholder is None:
-            # New UUID, assign placeholder
             is_scrubbed = True
             if use_unique_placeholders:
+                # Ensure we don't reuse a placeholder by checking all existing ones
+                while f"PREPDIR_UUID_PLACEHOLDER_{placeholder_counter}" in uuid_mapping:
+                    placeholder_counter += 1
                 placeholder = f"PREPDIR_UUID_PLACEHOLDER_{placeholder_counter}"
+                logger.debug(f"Setting new unique mapping {placeholder} -> {original_uuid}")
+                uuid_mapping[placeholder] = original_uuid
+                reverse_uuid_mapping[original_uuid] = placeholder
                 placeholder_counter += 1
             else:
                 placeholder = replacement_uuid if "-" in original_uuid else replacement_uuid.replace("-", "")
-            uuid_mapping[placeholder] = original_uuid
-            reverse_uuid_mapping[original_uuid] = placeholder
+                if original_uuid not in reverse_uuid_mapping:
+                    logger.debug(f"Setting new regular replacement mapping {placeholder} -> {original_uuid}")
+                    uuid_mapping[placeholder] = original_uuid
+                    reverse_uuid_mapping[original_uuid] = placeholder
         if verbose:
             logger.info(f"Scrubbed UUID: {original_uuid} -> {placeholder}")
         return placeholder
@@ -95,7 +100,6 @@ def scrub_uuids(
             new_content = UNHYPHENATED_UUID_PATTERN.sub(replacement_uuid_to_use, new_content)
 
     return new_content, is_scrubbed, uuid_mapping, placeholder_counter
-
 
 def restore_uuids(content: str, uuid_mapping: Dict[str, str], is_scrubbed: bool = False) -> str:
     """Restore original UUIDs in content using the provided UUID mapping.

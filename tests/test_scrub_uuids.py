@@ -1,9 +1,11 @@
 import pytest
 import logging
-from prepdir.scrub_uuids import scrub_uuids, restore_uuids
-from unittest.mock import Mock
+from prepdir.scrub_uuids import scrub_uuids, restore_uuids, is_valid_uuid
 
-hyphenated_uuid = "12345678-1234-5678-1234-567812345678"
+logger = logging.getLogger("prepdir.scrub_uuids")
+logger.setLevel(logging.DEBUG)
+
+hyphenated_uuid = "12345678-abCD-5678-1234-567812345678"
 hyphenless_uuid = "aaaaaaaa111111111111111111111111"
 partial_uuid = "2345678-1234-5678-1234-567812345678"
 
@@ -351,3 +353,238 @@ def test_invalid_replacement_uuid(sample_content):
             verbose=True,
         )
         print(f"{content=}\n{is_scrubbed=}\n{uuid_mapping=}\n{counter=}")
+
+def test_duplicate_uuids_in_content():
+    """Test handling of duplicate UUIDs in the same content."""
+    shared_mapping = {}
+    content = (
+        f"UUID1: {hyphenated_uuid}\n"
+        f"UUID2: {hyphenated_uuid}\n"
+        f"UUID3: {hyphenated_uuid}"
+    )
+    content, is_scrubbed, uuid_mapping, counter = scrub_uuids(
+        content=content,
+        use_unique_placeholders=True,
+        replacement_uuid="00000000-0000-0000-0000-000000000000",
+        scrub_hyphenated_uuids=True,
+        scrub_hyphenless_uuids=False,
+        verbose=True,
+        uuid_mapping=shared_mapping,
+    )
+    print(f"{content=}\n{is_scrubbed=}\n{uuid_mapping=}\n{counter=}")
+    assert content.count("PREPDIR_UUID_PLACEHOLDER_1") == 3  # Same placeholder for all duplicates
+    assert is_scrubbed is True
+    assert uuid_mapping == {"PREPDIR_UUID_PLACEHOLDER_1": f"{hyphenated_uuid}"}
+    assert counter == 2  # Only one new placeholder created
+
+def test_uuid_mapping_consistency_across_calls():
+    """Test uuid_mapping consistency across multiple calls with different content."""
+    shared_mapping = {}
+    content1 = f"UUID1: {hyphenated_uuid}\nUUID2: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    content2 = f"UUID3: {hyphenated_uuid}\nUUID4: bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+    
+    content1, is_scrubbed1, mapping1, counter1 = scrub_uuids(
+        content=content1,
+        use_unique_placeholders=True,
+        replacement_uuid="00000000-0000-0000-0000-000000000000",
+        scrub_hyphenated_uuids=True,
+        scrub_hyphenless_uuids=False,
+        verbose=True,
+        uuid_mapping=shared_mapping,
+    )
+    content2, is_scrubbed2, mapping2, counter2 = scrub_uuids(
+        content=content2,
+        use_unique_placeholders=True,
+        replacement_uuid="00000000-0000-0000-0000-000000000000",
+        scrub_hyphenated_uuids=True,
+        scrub_hyphenless_uuids=False,
+        verbose=True,
+        uuid_mapping=mapping1,
+    )
+    print(f"{content1=}\n{is_scrubbed1=}\n{mapping1=}\n{counter1=}")
+    print(f"{content2=}\n{is_scrubbed2=}\n{mapping2=}\n{counter2=}")
+    assert "PREPDIR_UUID_PLACEHOLDER_1" in content1
+    assert "PREPDIR_UUID_PLACEHOLDER_2" in content1
+    assert "PREPDIR_UUID_PLACEHOLDER_1" in content2  # Reuses same placeholder for hyphenated_uuid
+    assert "PREPDIR_UUID_PLACEHOLDER_3" in content2
+    assert is_scrubbed1 is True
+    assert is_scrubbed2 is True
+    assert mapping2 == {
+        "PREPDIR_UUID_PLACEHOLDER_1": f"{hyphenated_uuid}",
+        "PREPDIR_UUID_PLACEHOLDER_2": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "PREPDIR_UUID_PLACEHOLDER_3": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    }
+    assert counter2 == 4  # Increments correctly for new UUID
+
+def test_empty_content():
+    """Test uuid_mapping behavior with empty content."""
+    shared_mapping = {}
+    content = ""
+    content, is_scrubbed, uuid_mapping, counter = scrub_uuids(
+        content=content,
+        use_unique_placeholders=True,
+        replacement_uuid="00000000-0000-0000-0000-000000000000",
+        scrub_hyphenated_uuids=True,
+        scrub_hyphenless_uuids=True,
+        verbose=True,
+        uuid_mapping=shared_mapping,
+    )
+    print(f"{content=}\n{is_scrubbed=}\n{uuid_mapping=}\n{counter=}")
+    assert content == ""
+    assert is_scrubbed is False
+    assert uuid_mapping == {}
+    assert counter == 1
+
+def test_malformed_uuids():
+    """Test handling of malformed UUIDs in content."""
+    shared_mapping = {}
+    content = (
+        "UUID1: 12345678-1234-5678-1234-56781234567\n"  # Too short
+        "UUID2: 12345678-1234-5678-1234-5678123456789\n"  # Too long
+        "UUID3: 12345678-1234-5678-1234-gggg12345678\n"  # Invalid characters
+        "UUID4: aaaaaaaa11111111111111111111111\n"  # Too short hyphenless
+    )
+    content, is_scrubbed, uuid_mapping, counter = scrub_uuids(
+        content=content,
+        use_unique_placeholders=True,
+        replacement_uuid="00000000-0000-0000-0000-000000000000",
+        scrub_hyphenated_uuids=True,
+        scrub_hyphenless_uuids=True,
+        verbose=True,
+        uuid_mapping=shared_mapping,
+    )
+    print(f"{content=}\n{is_scrubbed=}\n{uuid_mapping=}\n{counter=}")
+    assert is_scrubbed is False
+    assert uuid_mapping == {}
+    assert counter == 1
+    assert "12345678-1234-5678-1234-56781234567" in content
+    assert "12345678-1234-5678-1234-5678123456789" in content
+    assert "12345678-1234-5678-1234-gggg12345678" in content
+    assert "aaaaaaaa11111111111111111111111" in content
+
+def test_case_sensitivity():
+    """Test uuid_mapping with case-sensitive UUIDs."""
+    shared_mapping = {}
+    hyphenated_uuid_with_letters = "abcdABCD-1234-5678-1234-567812345678"
+    unhyphenated_uuid_with_letters = hyphenated_uuid_with_letters.replace("-", "")
+
+    content = (
+        f"UUID1: {hyphenated_uuid_with_letters.upper()}\n"
+        f"UUID2: {hyphenated_uuid_with_letters.lower()}\n"
+        f"UUID3: {unhyphenated_uuid_with_letters.upper()}\n"
+        f"UUID4: {unhyphenated_uuid_with_letters.lower()}"
+    )
+    content, is_scrubbed, uuid_mapping, counter = scrub_uuids(
+        content=content,
+        use_unique_placeholders=True,
+        scrub_hyphenated_uuids=True,
+        scrub_hyphenless_uuids=True,
+        verbose=True,
+        uuid_mapping=shared_mapping,
+    )
+    print(f"{content=}\n{is_scrubbed=}\n{uuid_mapping=}\n{counter=}")
+    assert "PREPDIR_UUID_PLACEHOLDER_1" in content
+    assert "PREPDIR_UUID_PLACEHOLDER_2" in content
+    assert "PREPDIR_UUID_PLACEHOLDER_3" in content
+    assert "PREPDIR_UUID_PLACEHOLDER_4" in content
+    assert is_scrubbed is True
+    assert len(uuid_mapping) == 4  # Treats case variations as distinct UUIDs
+    assert uuid_mapping["PREPDIR_UUID_PLACEHOLDER_1"] == hyphenated_uuid_with_letters.upper()
+    assert uuid_mapping["PREPDIR_UUID_PLACEHOLDER_2"] == hyphenated_uuid_with_letters.lower()
+    assert uuid_mapping["PREPDIR_UUID_PLACEHOLDER_3"] == unhyphenated_uuid_with_letters.upper()
+    assert uuid_mapping["PREPDIR_UUID_PLACEHOLDER_4"] == unhyphenated_uuid_with_letters.lower()
+    assert counter == 5
+
+def test_overlapping_uuid_mappings():
+    """Test uuid_mapping with overlapping UUIDs across multiple calls."""
+    shared_mapping = {"PREPDIR_UUID_PLACEHOLDER_1": f"{hyphenated_uuid}"}
+    content1 = f"UUID1: {hyphenated_uuid}\nUUID2: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    content2 = f"UUID3: {hyphenated_uuid}\nUUID4: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    
+    content1, is_scrubbed1, mapping1, counter1 = scrub_uuids(
+        content=content1,
+        use_unique_placeholders=True,
+        replacement_uuid="00000000-0000-0000-0000-000000000000",
+        scrub_hyphenated_uuids=True,
+        scrub_hyphenless_uuids=False,
+        verbose=True,
+        uuid_mapping=shared_mapping,
+    )
+    content2, is_scrubbed2, mapping2, counter2 = scrub_uuids(
+        content=content2,
+        use_unique_placeholders=True,
+        replacement_uuid="00000000-0000-0000-0000-000000000000",
+        scrub_hyphenated_uuids=True,
+        scrub_hyphenless_uuids=False,
+        verbose=True,
+        uuid_mapping=shared_mapping,
+    )
+    print(f"{content1=}\n{is_scrubbed1=}\n{mapping1=}\n{counter1=}")
+    print(f"{content2=}\n{is_scrubbed2=}\n{mapping2=}\n{counter2=}")
+    assert "PREPDIR_UUID_PLACEHOLDER_1" in content1
+    assert "PREPDIR_UUID_PLACEHOLDER_2" in content1
+    assert "PREPDIR_UUID_PLACEHOLDER_1" in content2
+    assert "PREPDIR_UUID_PLACEHOLDER_2" in content2
+    assert is_scrubbed1 is True
+    assert is_scrubbed2 is True
+    assert mapping2 == {
+        "PREPDIR_UUID_PLACEHOLDER_1": f"{hyphenated_uuid}",
+        "PREPDIR_UUID_PLACEHOLDER_2": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    }
+    assert counter2 == 3
+
+def test_is_valid_uuid_invalid():
+    """Test is_valid_uuid with an invalid UUID to cover ValueError path."""
+    invalid_uuid = "12345678-1234-5678-1234-gggg12345678"  # Invalid characters
+    assert not is_valid_uuid(invalid_uuid)
+
+def test_no_uuids_matched():
+    """Test when scrubbing is enabled but no UUIDs are found in content."""
+    content = "No UUIDs here\nJust plain text"
+    content, is_scrubbed, uuid_mapping, counter = scrub_uuids(
+        content=content,
+        use_unique_placeholders=True,
+        replacement_uuid="00000000-0000-0000-0000-000000000000",
+        scrub_hyphenated_uuids=True,
+        scrub_hyphenless_uuids=True,
+        verbose=True,
+    )
+    print(f"{content=}\n{is_scrubbed=}\n{uuid_mapping=}\n{counter=}")
+    assert content == "No UUIDs here\nJust plain text"
+    assert is_scrubbed is False
+    assert uuid_mapping == {}
+    assert counter == 1
+
+def test_invalid_replacement_uuid_edge_cases():
+    """Test additional invalid replacement_uuid cases."""
+    invalid_uuids = [
+        "12345678-1234-5678-1234-56781234567",  # Too short
+        "12345678-1234-5678-1234-5678123456789",  # Too long
+        "12345678-1234-5678-1234-gggg12345678",  # Invalid characters
+    ]
+    for invalid_uuid in invalid_uuids:
+        with pytest.raises(ValueError, match="replacement_uuid must be a valid UUID"):
+            content, is_scrubbed, uuid_mapping, counter = scrub_uuids(
+                content="Dummy content",
+                use_unique_placeholders=False,
+                replacement_uuid=invalid_uuid,
+                scrub_hyphenated_uuids=True,
+                scrub_hyphenless_uuids=False,
+                verbose=True,
+            )
+            print(f"{content=}\n{is_scrubbed=}\n{uuid_mapping=}\n{counter=}")
+
+def test_restore_empty_mapping():
+    """Test restore_uuids with empty uuid_mapping but is_scrubbed=True."""
+    content = "Some content with PREPDIR_UUID_PLACEHOLDER_1"
+    restored = restore_uuids(content, {}, is_scrubbed=True)
+    assert restored == content
+    assert "PREPDIR_UUID_PLACEHOLDER_1" in restored
+
+def test_restore_non_scrubbed_with_mapping():
+    """Test restore_uuids with non-empty uuid_mapping but is_scrubbed=False."""
+    content = "Some content with PREPDIR_UUID_PLACEHOLDER_1"
+    uuid_mapping = {"PREPDIR_UUID_PLACEHOLDER_1": hyphenated_uuid}
+    restored = restore_uuids(content, uuid_mapping, is_scrubbed=False)
+    assert restored == content
+    assert "PREPDIR_UUID_PLACEHOLDER_1" in restored
