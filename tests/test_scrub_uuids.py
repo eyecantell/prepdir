@@ -1,6 +1,6 @@
 import pytest
 import logging
-from prepdir import scrub_uuids, restore_uuids
+from prepdir.scrub_uuids import scrub_uuids, restore_uuids
 from unittest.mock import Mock
 
 hyphenated_uuid = "12345678-1234-5678-1234-567812345678"

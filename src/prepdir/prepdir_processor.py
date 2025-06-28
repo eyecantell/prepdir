@@ -170,7 +170,7 @@ class PrepdirProcessor:
         with redirect_stdout(output):
             files_found = False
 
-            print(f"File listing generated {datetime.now()} by prepdir version {__version__} (pip install prepdir)")
+            print(f"File listing generated {datetime.now().isoformat()} by prepdir version {__version__} (pip install prepdir)")
             print(f"Base directory is '{self.directory}'")
             if self.scrub_hyphenated_uuids:
                 if self.use_unique_placeholders:
@@ -211,10 +211,11 @@ class PrepdirProcessor:
                     use_unique_placeholders=self.use_unique_placeholders,
                     verbose=self.verbose,
                     placeholder_counter=placeholder_counter,
+                    uuid_mapping=uuid_mapping,  # Pass shared uuid_mapping
                 )
                 print(prepdir_file.to_output())
                 files_list.append(prepdir_file)
-                uuid_mapping.update(updated_uuid_mapping)
+                uuid_mapping.update(updated_uuid_mapping)  # Update shared mapping
 
             if not files_found:
                 if self.specific_files:
@@ -228,7 +229,7 @@ class PrepdirProcessor:
         return PrepdirOutputFile.from_content(
             content=content,
             expected_base_directory=self.directory,
-            path=Path(self.output_file) if self.output_file else None,
+            path_obj=Path(self.output_file) if self.output_file else None,
         )
 
     def _traverse_specific_files(self) -> Iterator[Path]:

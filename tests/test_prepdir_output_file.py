@@ -22,7 +22,7 @@ def temp_file(tmp_path):
 
 
 # Test data
-SAMPLE_CONTENT = """File listing generated 2025-06-26 12:15:00 by prepdir version 0.14.1 (pip install prepdir)
+SAMPLE_CONTENT = """File listing generated 2025-06-26T12:15:00.123456 by prepdir version 0.14.1 (pip install prepdir)
 Base directory is '/test_dir'
 
 =-=-= Begin File: 'file1.txt' =-=-=
@@ -65,7 +65,7 @@ def test_from_file(temp_file, content, expected_base_dir, caplog):
     assert instance.path == file_path
     assert instance.content == content
     if "File listing generated" in content:
-        assert instance.metadata["date"] == "2025-06-26 12:15:00"
+        assert instance.metadata["date"] == "2025-06-26T12:15:00.123456"
         assert instance.metadata["creator"] == "prepdir version 0.14.1 (pip install prepdir)"
     elif expected_base_dir:
         assert "No header found" in caplog.text
