@@ -148,10 +148,10 @@ def test_load_config_bundled_failure(capture_log, tmp_path, clean_cwd):
 def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test that real config files are ignored when PREPDIR_SKIP_CONFIG_LOAD=true."""
 
-    '''real_config_path = tmp_path / ".prepdir" / "config.yaml"
+    real_config_path = tmp_path / ".prepdir" / "config.yaml"
     real_config_path.parent.mkdir()
     real_config_path.write_text(yaml.safe_dump(sample_config_content))
-    show_config_lines(real_config_path, "real_config_path")'''
+    show_config_lines(real_config_path, "real_config_path")
 
     home_dir = tmp_path / "home"
     home_dir.mkdir()
@@ -163,11 +163,11 @@ def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp
     monkeypatch.setenv("HOME", str(home_dir))
     monkeypatch.setenv("PREPDIR_SKIP_CONFIG_LOAD", "true")
 
-    with pytest.raises(ValueError, match="No configuration files found and no bundled config available"):
-        load_config("prepdir")
+    load_config("prepdir")
+
+    log_output = capture_log.getvalue()
+    assert "Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true" in log_output
         
-
-
 def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test configuration precedence: custom > local > global > bundled using non-list fields."""
     bundled_config = {

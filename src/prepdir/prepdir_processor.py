@@ -4,23 +4,7 @@ import os
 import logging
 import sys
 import fnmatch
-from datetime import datetime
-from io import StringIO
-from contextlib import redirect_stdout
-from dynaconf import Dynaconf
-from prepdir.config import load_config, __version__, init_config
-from prepdir.prepdir_file_entry import PrepdirFileEntry
-from prepdir.prepdir_output_file import PrepdirOutputFile
-from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
-
-logger = logging.getLogger(__name__)
-
-from pathlib import Path
-from typing import List, Optional, Iterator, Dict
-import os
-import logging
-import sys
-import fnmatch
+import re
 from datetime import datetime
 from io import StringIO
 from contextlib import redirect_stdout

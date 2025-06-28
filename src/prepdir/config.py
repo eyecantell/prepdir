@@ -86,7 +86,7 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
                 logger.warning(f"Failed to load bundled config for {namespace}: {str(e)}")
                 raise ValueError(f"Failed to load bundled config: {str(e)}")
 
-    if not settings_files:
+    if not settings_files and not os.getenv("PREPDIR_SKIP_CONFIG_LOAD"):
         raise ValueError(f"No configuration files found and no bundled config available. Note PREPDIR_SKIP_CONFIG_LOAD={os.environ.get('PREPDIR_SKIP_CONFIG_LOAD')}")
 
     logger.debug(f"Initializing Dynaconf with settings files: {settings_files}")
