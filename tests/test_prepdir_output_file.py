@@ -229,6 +229,7 @@ Content
     empty_content = ""
     assert PrepdirFileEntry.is_prepdir_outputfile_format(empty_content, None) == False
 
+
 def test_save_no_content(temp_file, caplog):
     """Test save method with no content."""
     file_path = temp_file("")
@@ -237,12 +238,14 @@ def test_save_no_content(temp_file, caplog):
         instance.save()
     assert "No content specified, content not saved" in caplog.text
 
+
 def test_save_no_path(caplog):
     """Test save method with no path."""
     instance = PrepdirOutputFile(content="Some content")
     with caplog.at_level(logging.WARNING):
         instance.save()
     assert "No path specified, content not saved" in caplog.text
+
 
 def test_parse_footer_without_header(temp_file, caplog):
     """Test parse with footer but no matching header."""
@@ -255,6 +258,7 @@ Content
         entries = instance.parse("test_dir")
     assert len(entries) == 0
     assert "Footer found without matching header" in caplog.text
+
 
 def test_parse_mismatched_footer(temp_file, caplog):
     """Test parse with mismatched footer name."""
@@ -269,6 +273,7 @@ Content
 
     assert "Mismatched footer 'file2.txt' for header 'file1.txt'" in caplog.text
 
+
 def test_from_content_empty_with_headers(temp_file):
     """Test from_content with empty content but valid headers."""
     content = """File listing generated 2025-06-26T12:15:00 by prepdir
@@ -278,6 +283,8 @@ Base directory is '/test_dir'
     with pytest.raises(ValueError, match="No begin file patterns found!"):
         PrepdirOutputFile.from_content(content, "/test_dir", file_path)
 
+
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__])

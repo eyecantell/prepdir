@@ -183,6 +183,7 @@ def test_from_file_path_separate_paths():
         assert counter > 0
         os.unlink(file_path)
 
+
 def test_to_output_text():
     """Test to_output method for text files."""
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -200,6 +201,7 @@ def test_to_output_text():
         assert "Sample content" in output
         assert "=-= End File: 'test.txt' =-=" in output
         os.unlink(file_path)
+
 
 def test_to_output_invalid_format():
     """Test to_output with unsupported format."""
@@ -220,6 +222,7 @@ def test_to_output_invalid_format():
             assert str(e) == "Unsupported output format: json"
         os.unlink(file_path)
 
+
 def test_is_prepdir_outputfile_format_valid():
     """Test is_prepdir_outputfile_format with valid content."""
     with patch("prepdir.PrepdirOutputFile.from_content", return_value=Mock()):
@@ -228,7 +231,7 @@ def test_is_prepdir_outputfile_format_valid():
             "Sample content\n"
             "=-==-==-==-==-==-==-==-==-==-==-== End File: 'test.txt' =-==-==-==-==-==-==-==-==-==-==-=="
         )
-        assert PrepdirFileEntry.is_prepdir_outputfile_format(content, expected_base_directory="/tmp")
+        assert PrepdirFileEntry.is_prepdir_outputfile_format(content, highest_base_directory="/tmp")
 
 
 def test_is_prepdir_outputfile_format_invalid():
@@ -236,7 +239,8 @@ def test_is_prepdir_outputfile_format_invalid():
     with patch("prepdir.PrepdirOutputFile.from_content", side_effect=ValueError("Invalid format")):
         content = "Invalid content"
         assert not PrepdirFileEntry.is_prepdir_outputfile_format(content)
-        
+
+
 def test_from_file_path_read_error():
     """Test from_file_path with non-UnicodeDecodeError exception."""
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -259,6 +263,7 @@ def test_from_file_path_read_error():
             assert counter == 1
         os.unlink(file_path)
 
+
 def test_apply_changes_write_error():
     """Test apply_changes with write failure."""
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -279,6 +284,7 @@ def test_apply_changes_write_error():
             assert entry.error == "Write error"
             assert "PREPDIR_UUID_PLACEHOLDER_1" in file_path.read_text()
         os.unlink(file_path)
+
 
 def test_from_file_path_empty_file():
     """Test from_file_path with empty file and scrubbing enabled."""
@@ -301,6 +307,7 @@ def test_from_file_path_empty_file():
         assert counter == 1
         os.unlink(file_path)
 
+
 def test_restore_uuids_empty_mapping():
     """Test restore_uuids with empty mapping when is_scrubbed=True."""
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -320,6 +327,7 @@ def test_restore_uuids_empty_mapping():
         except ValueError as e:
             assert str(e) == "uuid_mapping must be a non-empty dictionary when is_scrubbed is True"
         os.unlink(file_path)
+
 
 if __name__ == "__main__":
     import pytest

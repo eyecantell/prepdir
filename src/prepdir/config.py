@@ -20,6 +20,7 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0"  # Fallback to hardcoded version
 
+
 def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
     """
     Load configuration settings using Dynaconf from various sources.
@@ -57,7 +58,7 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
         # Check home config first, then local config. The order of the settings files matters (later override earlier)
         local_config = Path(f".{namespace}/config.yaml").resolve()
         home_config = Path(os.path.expanduser(f"~/.{namespace}/config.yaml")).resolve()
-        
+
         if home_config.exists():
             settings_files.append(str(home_config))
             logger.debug(f"Found home config: {home_config}")
@@ -87,7 +88,9 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
                 raise ValueError(f"Failed to load bundled config: {str(e)}")
 
     if not settings_files and not os.getenv("PREPDIR_SKIP_CONFIG_LOAD"):
-        raise ValueError(f"No configuration files found and no bundled config available. Note PREPDIR_SKIP_CONFIG_LOAD={os.environ.get('PREPDIR_SKIP_CONFIG_LOAD')}")
+        raise ValueError(
+            f"No configuration files found and no bundled config available. Note PREPDIR_SKIP_CONFIG_LOAD={os.environ.get('PREPDIR_SKIP_CONFIG_LOAD')}"
+        )
 
     logger.debug(f"Initializing Dynaconf with settings files: {settings_files}")
     try:
@@ -110,7 +113,7 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
         raise ValueError(f"Invalid YAML in config file(s): {str(e)}")
 
     # Clean up temporary bundled config if it exists
-    if 'bundled_config_path' in locals() and bundled_config_path.exists():
+    if "bundled_config_path" in locals() and bundled_config_path.exists():
         try:
             bundled_config_path.unlink()
             logger.debug(f"Removed temporary bundled config: {bundled_config_path}")
@@ -119,6 +122,7 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
 
     logger.debug(f"Loaded config for {namespace} from: {settings_files}")
     return config
+
 
 def init_config(config_path=".prepdir/config.yaml", force=False, stdout=sys.stdout, stderr=sys.stderr):
     """

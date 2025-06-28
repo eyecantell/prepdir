@@ -8,14 +8,19 @@ HYPHENATED_UUID_PATTERN = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-
 UNHYPHENATED_UUID_PATTERN = re.compile(r"\b[0-9a-fA-F]{32}\b")
 EITHER_UUID_PATTERN = re.compile(f"{HYPHENATED_UUID_PATTERN.pattern}|{UNHYPHENATED_UUID_PATTERN.pattern}")
 
-def is_valid_uuid(value: str) -> bool: # PRW consider making sure uuids that are scrubbed are actually valid UUIDs in additiona to matching the uuid pattern.
+
+def is_valid_uuid(
+    value: str,
+) -> bool:  # PRW consider making sure uuids that are scrubbed are actually valid UUIDs in additiona to matching the uuid pattern.
     """Check if a string is a valid UUID."""
     try:
         import uuid
+
         uuid.UUID(value)
         return True
     except ValueError:
         return False
+
 
 def scrub_uuids(
     content: str,
@@ -100,6 +105,7 @@ def scrub_uuids(
             new_content = UNHYPHENATED_UUID_PATTERN.sub(replacement_uuid_to_use, new_content)
 
     return new_content, is_scrubbed, uuid_mapping, placeholder_counter
+
 
 def restore_uuids(content: str, uuid_mapping: Dict[str, str], is_scrubbed: bool = False) -> str:
     """Restore original UUIDs in content using the provided UUID mapping.

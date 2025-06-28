@@ -18,9 +18,10 @@ GENERATED_HEADER_PATTERN = re.compile(
 )
 BASE_DIR_PATTERN = re.compile(r"^Base directory is '(.*?)'$", re.MULTILINE)
 
+
 class PrepdirOutputFile(BaseModel):
     """Represents the prepdir output file (e.g., prepped_dir.txt) with metadata and file entries."""
-    
+
     path: Optional[Path] = None
     content: str
     files: Dict[Path, PrepdirFileEntry] = Field(default_factory=dict)
@@ -30,8 +31,6 @@ class PrepdirOutputFile(BaseModel):
             "date": datetime.now().isoformat(),
             "base_directory": ".",
             "creator": "prepdir",
-            "scrub_hyphenated_uuids": "true",
-            "scrub_hyphenless_uuids": "true",
             "use_unique_placeholders": "false",
         }
     )
@@ -115,19 +114,30 @@ class PrepdirOutputFile(BaseModel):
         return entries
 
     @classmethod
-    def from_file(cls, path: str, expected_base_directory: Optional[str] = None) -> "PrepdirOutputFile":
+    def from_file(
+        cls,
+        path: str,
+        highest_base_directory: Optional[str] = None,
+        uuid_mapping: Optional[Dict] = None,
+        metadata: Optional[Dict] = None,
+    ) -> "PrepdirOutputFile":
         """Create a PrepdirOutputFile instance from a file on disk."""
         path_obj = Path(path)
         if not path_obj.exists():
             raise FileNotFoundError(f"File {path} does not exist")
         content = path_obj.read_text(encoding="utf-8")
-        return cls.from_content(content, expected_base_directory, path_obj)
+        return cls.from_content(content, highest_base_directory, path_obj, uuid_mapping, metadata)
 
     @classmethod
     def from_content(
-        cls, content: str, expected_base_directory: Optional[str] = None, path_obj: Optional[Path] = None
+        cls,
+        content: str,
+        highest_base_directory: Optional[str] = None,
+        path_obj: Optional[Path] = None,
+        uuid_mapping: Optional[Dict] = None,
+        metadata: Optional[Dict] = None,
     ) -> "PrepdirOutputFile":
-        """Create a PrepdirOutputFile instance from content already read from file."""
+        """Create a PrepdirOutputFile instance from content (already read from file or otherwise previously created)."""
         lines = content.splitlines()
         logger.debug(f"Got {len(lines)} lines of content")
 
@@ -145,8 +155,34 @@ class PrepdirOutputFile(BaseModel):
         if not begin_file_pattern_found:
             raise ValueError("No begin file patterns found!")
 
+        # If metadata values were passed, use them. Otherwise try to pull them from the content.
+        new_metadata = {}
+        for k in [
+            "date",
+            "base_directory",
+            "creator",
+            "use_unique_placeholders",
+        ]:  # PRW can we pull these keys from the class/factory somehow?
+            new_metadata[k] = metadata[k] if k in metadata else None
+
         # Search header section with re.MULTILINE if it exists
         gen_header_match = GENERATED_HEADER_PATTERN.search(output_file_header) if output_file_header else None
+
+        if gen_header_match:
+            # Found a general header, verify it matches the metadata if it was passed, and if no metadata was passed then set it
+            header_values = {}
+            header_values["date"] = gen_header_match.group(1) or "unknown"
+            header_values["creator"] = gen_header_match.group(2) or "unknown"
+
+            for header_key in header_values.keys():
+                if not new_metadata[header_key]:
+                    new_metadata[header_key] = header_values[header_key]
+                    logger.debug(f"Set {header_key}={header_values[header_key]} metadata from header")
+                elif new_metadata[header_key] != header_values[header_key]:
+                    logger.warning(
+                        f"Passed metadata for {header_key} ({new_metadata[header_key]}) and header date ({header_values[header_key]}) do not match."
+                    )
+
         base_dir_match = BASE_DIR_PATTERN.search(output_file_header) if output_file_header else None
 
         # Determine effective base directory
@@ -155,35 +191,26 @@ class PrepdirOutputFile(BaseModel):
             file_base_dir = Path(base_dir_match.group(1))
             effective_base_dir = str(file_base_dir)
 
-            if expected_base_directory is not None:
+            if highest_base_directory is not None:
                 # Test to see that the base directory agrees with the passed expected base dir
-                expected_base_path = Path(expected_base_directory)
+                expected_base_path = Path(highest_base_directory)
                 if not (file_base_dir == expected_base_path or file_base_dir.is_relative_to(expected_base_path)):
                     raise ValueError(
                         f"Base directory mismatch: File-defined base directory '{file_base_dir}' is not the same as or relative to expected base directory '{expected_base_path}'"
                     )
 
-        elif expected_base_directory is not None:
-            logger.warning(
-                "No base directory found in file, using expected base directory: %s", expected_base_directory
-            )
-            effective_base_dir = expected_base_directory
+        elif highest_base_directory is not None:
+            logger.warning("No base directory found in file, using expected base directory: %s", highest_base_directory)
+            effective_base_dir = highest_base_directory
         else:
             raise ValueError("Cannot determine base directory: not in file and no expected base dir passed")
 
         # Use header metadata if available, otherwise keep defaults
-        metadata = {
-            "date": gen_header_match.group(1) if gen_header_match and gen_header_match.group(1) else "unknown",
-            "base_directory": effective_base_dir,
-            "creator": gen_header_match.group(2) if gen_header_match and gen_header_match.group(2) else "unknown",
-            "scrub_hyphenated_uuids": "true",  # Default values, adjust based on config if needed
-            "scrub_hyphenless_uuids": "true",
-            "use_unique_placeholders": "false",
-        }
+
         if not gen_header_match:
             logger.warning("No header found in file, using default metadata")
 
-        instance = cls(path=path_obj, content=content, metadata=metadata)
+        instance = cls(path=path_obj, content=content, metadata=new_metadata, uuid_mapping=uuid_mapping or {})
         if effective_base_dir is not None:
             instance.parse(effective_base_dir)
         return instance
@@ -198,7 +225,7 @@ class PrepdirOutputFile(BaseModel):
         added = []
         changed = []
         removed = []
-        
+
         # Check for added or changed files
         for entry in self.files.values():
             orig_entry = original.files.get(entry.absolute_path)

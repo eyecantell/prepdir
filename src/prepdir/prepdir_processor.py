@@ -16,6 +16,7 @@ from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
 
 logger = logging.getLogger(__name__)
 
+
 class PrepdirProcessor:
     """Manages generation and parsing of prepdir output files.
 
@@ -91,7 +92,6 @@ class PrepdirProcessor:
         if self.verbose:
             self.logger.setLevel(logging.DEBUG)
 
-
     def _load_config(self, config_path: Optional[str]) -> Dynaconf:
         """Load configuration with precedence handling."""
         return load_config("prepdir", config_path)
@@ -140,21 +140,20 @@ class PrepdirProcessor:
         files_list: List[PrepdirFileEntry] = []
         uuid_mapping: Dict[str, str] = {}
         placeholder_counter = 1
+        timestamp_to_use = datetime.now().isoformat()
         metadata = {
             "version": __version__,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": timestamp_to_use,
             "base_directory": self.directory,
             "scrub_hyphenated_uuids": self.scrub_hyphenated_uuids,
             "scrub_hyphenless_uuids": self.scrub_hyphenless_uuids,
             "use_unique_placeholders": self.use_unique_placeholders,
-            "validation_errors": [],
-            "binary_files": [],
         }
 
         with redirect_stdout(output):
             files_found = False
 
-            print(f"File listing generated {datetime.now().isoformat()} by prepdir version {__version__} (pip install prepdir)")
+            print(f"File listing generated {timestamp_to_use} by prepdir version {__version__} (pip install prepdir)")
             print(f"Base directory is '{self.directory}'")
             if self.scrub_hyphenated_uuids:
                 if self.use_unique_placeholders:
@@ -212,8 +211,10 @@ class PrepdirProcessor:
         content = output.getvalue()
         return PrepdirOutputFile.from_content(
             content=content,
-            expected_base_directory=self.directory,
+            highest_base_directory=self.directory,
             path_obj=Path(self.output_file) if self.output_file else None,
+            uuid_mapping=uuid_mapping,
+            metadata=metadata,
         )
 
     def _traverse_specific_files(self) -> Iterator[Path]:

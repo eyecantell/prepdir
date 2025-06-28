@@ -354,14 +354,11 @@ def test_invalid_replacement_uuid(sample_content):
         )
         print(f"{content=}\n{is_scrubbed=}\n{uuid_mapping=}\n{counter=}")
 
+
 def test_duplicate_uuids_in_content():
     """Test handling of duplicate UUIDs in the same content."""
     shared_mapping = {}
-    content = (
-        f"UUID1: {hyphenated_uuid}\n"
-        f"UUID2: {hyphenated_uuid}\n"
-        f"UUID3: {hyphenated_uuid}"
-    )
+    content = f"UUID1: {hyphenated_uuid}\nUUID2: {hyphenated_uuid}\nUUID3: {hyphenated_uuid}"
     content, is_scrubbed, uuid_mapping, counter = scrub_uuids(
         content=content,
         use_unique_placeholders=True,
@@ -377,12 +374,13 @@ def test_duplicate_uuids_in_content():
     assert uuid_mapping == {"PREPDIR_UUID_PLACEHOLDER_1": f"{hyphenated_uuid}"}
     assert counter == 2  # Only one new placeholder created
 
+
 def test_uuid_mapping_consistency_across_calls():
     """Test uuid_mapping consistency across multiple calls with different content."""
     shared_mapping = {}
     content1 = f"UUID1: {hyphenated_uuid}\nUUID2: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     content2 = f"UUID3: {hyphenated_uuid}\nUUID4: bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
-    
+
     content1, is_scrubbed1, mapping1, counter1 = scrub_uuids(
         content=content1,
         use_unique_placeholders=True,
@@ -416,6 +414,7 @@ def test_uuid_mapping_consistency_across_calls():
     }
     assert counter2 == 4  # Increments correctly for new UUID
 
+
 def test_empty_content():
     """Test uuid_mapping behavior with empty content."""
     shared_mapping = {}
@@ -434,6 +433,7 @@ def test_empty_content():
     assert is_scrubbed is False
     assert uuid_mapping == {}
     assert counter == 1
+
 
 def test_malformed_uuids():
     """Test handling of malformed UUIDs in content."""
@@ -461,6 +461,7 @@ def test_malformed_uuids():
     assert "12345678-1234-5678-1234-5678123456789" in content
     assert "12345678-1234-5678-1234-gggg12345678" in content
     assert "aaaaaaaa11111111111111111111111" in content
+
 
 def test_case_sensitivity():
     """Test uuid_mapping with case-sensitive UUIDs."""
@@ -495,12 +496,13 @@ def test_case_sensitivity():
     assert uuid_mapping["PREPDIR_UUID_PLACEHOLDER_4"] == unhyphenated_uuid_with_letters.lower()
     assert counter == 5
 
+
 def test_overlapping_uuid_mappings():
     """Test uuid_mapping with overlapping UUIDs across multiple calls."""
     shared_mapping = {"PREPDIR_UUID_PLACEHOLDER_1": f"{hyphenated_uuid}"}
     content1 = f"UUID1: {hyphenated_uuid}\nUUID2: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     content2 = f"UUID3: {hyphenated_uuid}\nUUID4: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-    
+
     content1, is_scrubbed1, mapping1, counter1 = scrub_uuids(
         content=content1,
         use_unique_placeholders=True,
@@ -533,10 +535,12 @@ def test_overlapping_uuid_mappings():
     }
     assert counter2 == 3
 
+
 def test_is_valid_uuid_invalid():
     """Test is_valid_uuid with an invalid UUID to cover ValueError path."""
     invalid_uuid = "12345678-1234-5678-1234-gggg12345678"  # Invalid characters
     assert not is_valid_uuid(invalid_uuid)
+
 
 def test_no_uuids_matched():
     """Test when scrubbing is enabled but no UUIDs are found in content."""
@@ -554,6 +558,7 @@ def test_no_uuids_matched():
     assert is_scrubbed is False
     assert uuid_mapping == {}
     assert counter == 1
+
 
 def test_invalid_replacement_uuid_edge_cases():
     """Test additional invalid replacement_uuid cases."""
@@ -574,12 +579,14 @@ def test_invalid_replacement_uuid_edge_cases():
             )
             print(f"{content=}\n{is_scrubbed=}\n{uuid_mapping=}\n{counter=}")
 
+
 def test_restore_empty_mapping():
     """Test restore_uuids with empty uuid_mapping but is_scrubbed=True."""
     content = "Some content with PREPDIR_UUID_PLACEHOLDER_1"
     restored = restore_uuids(content, {}, is_scrubbed=True)
     assert restored == content
     assert "PREPDIR_UUID_PLACEHOLDER_1" in restored
+
 
 def test_restore_non_scrubbed_with_mapping():
     """Test restore_uuids with non-empty uuid_mapping but is_scrubbed=False."""
