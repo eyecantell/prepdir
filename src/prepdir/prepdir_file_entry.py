@@ -6,7 +6,6 @@ from .scrub_uuids import scrub_uuids, restore_uuids
 
 logger = logging.getLogger(__name__)
 
-
 class PrepdirFileEntry(BaseModel):
     """Represents a single project file's metadata, content, and UUID mappings for prepdir processing."""
 
