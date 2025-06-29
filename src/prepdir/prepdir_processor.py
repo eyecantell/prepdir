@@ -145,8 +145,6 @@ class PrepdirProcessor:
             "version": __version__,
             "timestamp": timestamp_to_use,
             "base_directory": self.directory,
-            "scrub_hyphenated_uuids": self.scrub_hyphenated_uuids,
-            "scrub_hyphenless_uuids": self.scrub_hyphenless_uuids,
             "use_unique_placeholders": self.use_unique_placeholders,
         }
 
@@ -211,7 +209,6 @@ class PrepdirProcessor:
         content = output.getvalue()
         return PrepdirOutputFile.from_content(
             content=content,
-            highest_base_directory=self.directory,
             path_obj=Path(self.output_file) if self.output_file else None,
             uuid_mapping=uuid_mapping,
             metadata=metadata,

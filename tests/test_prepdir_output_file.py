@@ -47,18 +47,18 @@ def test_manual_instance(temp_file):
 
 
 @pytest.mark.parametrize(
-    "content, expected_base_dir",
+    "content, highest_base_dir",
     [
         (SAMPLE_CONTENT, "/test_dir"),
         ("=-=-= Begin File: 'file1.txt' =-=-=\nContent\n=-=-= End File: 'file1.txt' =-=-=", "/test_dir"),
     ],
 )
-def test_from_file(temp_file, content, expected_base_dir, caplog):
+def test_from_file(temp_file, content, highest_base_dir, caplog):
     file_path = temp_file(content)
     with caplog.at_level(logging.WARNING):
         instance = (
-            PrepdirOutputFile.from_file(str(file_path), expected_base_dir)
-            if expected_base_dir
+            PrepdirOutputFile.from_file(str(file_path), highest_base_dir)
+            if highest_base_dir
             else PrepdirOutputFile.from_file(str(file_path), None)
         )
     print(f"content:\n{content}\n{instance.metadata=}")
@@ -68,24 +68,24 @@ def test_from_file(temp_file, content, expected_base_dir, caplog):
     if "File listing generated" in content:
         assert instance.metadata["date"] == "2025-06-26T12:15:00.123456"
         assert instance.metadata["creator"] == "prepdir version 0.14.1 (pip install prepdir)"
-    elif expected_base_dir:
+    elif highest_base_dir:
         assert "No header found" in caplog.text
-    if "Base directory is" in content and expected_base_dir:
-        assert instance.metadata["base_directory"] == expected_base_dir
-    elif expected_base_dir:
-        assert instance.metadata["base_directory"] == expected_base_dir
+    if "Base directory is" in content and highest_base_dir:
+        assert instance.metadata["base_directory"] == highest_base_dir
+    elif highest_base_dir:
+        assert instance.metadata["base_directory"] == highest_base_dir
         assert "No base directory found" in caplog.text
     else:
         assert instance.metadata["base_directory"] == "."
-    if expected_base_dir:
-        entries = instance.parse(expected_base_dir)
+    if highest_base_dir:
+        entries = instance.parse(highest_base_dir)
         assert isinstance(entries, dict)
         if "=-=-= Begin File" in content:
             assert len(entries) > 0
             for abs_path, entry in entries.items():
                 assert isinstance(entry, PrepdirFileEntry)
                 assert entry.relative_path in content
-                assert entry.absolute_path == Path(expected_base_dir) / entry.relative_path
+                assert entry.absolute_path == Path(highest_base_dir) / entry.relative_path
 
 
 def test_from_file_no_headers(temp_file):

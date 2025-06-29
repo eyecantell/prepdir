@@ -117,7 +117,6 @@ class PrepdirOutputFile(BaseModel):
     def from_file(
         cls,
         path: str,
-        highest_base_directory: Optional[str] = None,
         uuid_mapping: Optional[Dict] = None,
         metadata: Optional[Dict] = None,
     ) -> "PrepdirOutputFile":
@@ -126,13 +125,12 @@ class PrepdirOutputFile(BaseModel):
         if not path_obj.exists():
             raise FileNotFoundError(f"File {path} does not exist")
         content = path_obj.read_text(encoding="utf-8")
-        return cls.from_content(content, highest_base_directory, path_obj, uuid_mapping, metadata)
+        return cls.from_content(content, path_obj, uuid_mapping, metadata)
 
     @classmethod
     def from_content(
         cls,
         content: str,
-        highest_base_directory: Optional[str] = None,
         path_obj: Optional[Path] = None,
         uuid_mapping: Optional[Dict] = None,
         metadata: Optional[Dict] = None,
@@ -170,49 +168,39 @@ class PrepdirOutputFile(BaseModel):
 
         if gen_header_match:
             # Found a general header, verify it matches the metadata if it was passed, and if no metadata was passed then set it
-            header_values = {}
-            header_values["date"] = gen_header_match.group(1) or "unknown"
-            header_values["creator"] = gen_header_match.group(2) or "unknown"
+            header_value = {}
+            header_value["date"] = gen_header_match.group(1) or None
+            header_value["creator"] = gen_header_match.group(2) or None
 
-            for header_key in header_values.keys():
+            for header_key in header_value.keys():
                 if not new_metadata[header_key]:
-                    new_metadata[header_key] = header_values[header_key]
-                    logger.debug(f"Set {header_key}={header_values[header_key]} metadata from header")
-                elif new_metadata[header_key] != header_values[header_key]:
+                    new_metadata[header_key] = header_value[header_key]
+                    logger.debug(f"Set {header_key}={header_value[header_key]} metadata from header")
+                elif header_value[header_key] and new_metadata[header_key] != header_value[header_key]:
                     logger.warning(
-                        f"Passed metadata for {header_key} ({new_metadata[header_key]}) and header date ({header_values[header_key]}) do not match."
+                        f"Passed metadata for {header_key} ({new_metadata[header_key]}) and header date ({header_value[header_key]}) do not match. Using header value."
                     )
+                    # Header value wins
+                    new_metadata[header_key] = header_value[header_key]
 
         base_dir_match = BASE_DIR_PATTERN.search(output_file_header) if output_file_header else None
 
-        # Determine effective base directory
+        # Determine the base directory
         if base_dir_match:
-            # Got a base directory from the file
-            file_base_dir = Path(base_dir_match.group(1))
-            effective_base_dir = str(file_base_dir)
-
-            if highest_base_directory is not None:
-                # Test to see that the base directory agrees with the passed expected base dir
-                expected_base_path = Path(highest_base_directory)
-                if not (file_base_dir == expected_base_path or file_base_dir.is_relative_to(expected_base_path)):
-                    raise ValueError(
-                        f"Base directory mismatch: File-defined base directory '{file_base_dir}' is not the same as or relative to expected base directory '{expected_base_path}'"
+            # Got a base directory from the file header
+            header_base_dir = Path(base_dir_match.group(1))
+            if header_base_dir and new_metadata['base_directory'] != header_base_dir:
+                logger.warning(
+                        f"Passed metadata for 'base_directory' ({new_metadata['base_directory']}) and header base dir ({header_value[header_key]}) do not match. Will use header base dir."
                     )
+                # Header value wins
+                new_metadata['base_directory'] = header_base_dir
 
-        elif highest_base_directory is not None:
-            logger.warning("No base directory found in file, using expected base directory: %s", highest_base_directory)
-            effective_base_dir = highest_base_directory
-        else:
-            raise ValueError("Cannot determine base directory: not in file and no expected base dir passed")
-
-        # Use header metadata if available, otherwise keep defaults
-
-        if not gen_header_match:
-            logger.warning("No header found in file, using default metadata")
+        if not new_metadata['base_directory']:
+            raise ValueError("Could not determine base directory from header and not passed in metadata")
 
         instance = cls(path=path_obj, content=content, metadata=new_metadata, uuid_mapping=uuid_mapping or {})
-        if effective_base_dir is not None:
-            instance.parse(effective_base_dir)
+        instance.parse(new_metadata['base_directory'])
         return instance
 
     def get_changed_files(self, original: "PrepdirOutputFile") -> Dict[str, List[PrepdirFileEntry]]:
