@@ -137,13 +137,12 @@ class PrepdirProcessor:
     def generate_output(self) -> PrepdirOutputFile:
         """Generate a prepdir output file as a PrepdirOutputFile object."""
         output = StringIO()
-        files_list: List[PrepdirFileEntry] = []
         uuid_mapping: Dict[str, str] = {}
         placeholder_counter = 1
         timestamp_to_use = datetime.now().isoformat()
         metadata = {
             "version": __version__,
-            "timestamp": timestamp_to_use,
+            "date": timestamp_to_use,
             "base_directory": self.directory,
             "creator": f"prepdir version {__version__} (pip install prepdir)",
         }
@@ -195,7 +194,6 @@ class PrepdirProcessor:
                     uuid_mapping=uuid_mapping,  # Pass shared uuid_mapping
                 )
                 print(prepdir_file.to_output())
-                files_list.append(prepdir_file)
                 uuid_mapping.update(updated_uuid_mapping)  # Update shared mapping
 
             if not files_found:
@@ -257,9 +255,12 @@ class PrepdirProcessor:
         """Save the PrepdirOutputFile content to the specified path."""
         output.save(path=Path(path) if path else None)
 
-    def validate_output(self, file_path: str) -> PrepdirOutputFile:
+    def validate_output(self, file_path: str, metadata: Optional[Dict] = None) -> PrepdirOutputFile:
         """Validate a prepdir-generated file, returning a PrepdirOutputFile."""
-        return PrepdirOutputFile.from_file(path=Path(file_path), base_directory=self.directory)
+        return PrepdirOutputFile.from_file(
+            path=Path(file_path),
+            metadata=metadata,
+        )
 
     @staticmethod
     def init_config(config_path: str = ".prepdir/config.yaml", force: bool = False) -> None:
