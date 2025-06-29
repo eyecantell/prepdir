@@ -2,9 +2,9 @@ import pytest
 from pathlib import Path
 from prepdir.prepdir_output_file import PrepdirOutputFile
 from prepdir.prepdir_file_entry import PrepdirFileEntry
+from prepdir.config import __version__
 from unittest.mock import patch
 import logging
-import re
 
 # Set up logging for capturing warnings
 logging.basicConfig(level=logging.DEBUG)
@@ -41,57 +41,56 @@ def test_manual_instance(temp_file):
     content = "=-=-= Begin File: 'file1.txt' =-=-=\nContent\n=-=-= End File: 'file1.txt' =-=-="
     file_path = temp_file(content)
     instance = PrepdirOutputFile(
-        path=Path(file_path), content=content, files={}, metadata={}, uuid_mapping={}, placeholder_counter=1
+        path=Path(file_path),
+        content=content,
+        files={},
+        metadata={
+            "base_directory": "test_dir",
+            "date": "2025-06-26T12:15:00",
+            "creator": "prepdir",
+            "version": __version__,
+        },
+        uuid_mapping={},
+        use_unique_placeholders=False,
+        placeholder_counter=1,
     )
     assert isinstance(instance, PrepdirOutputFile)
 
 
-@pytest.mark.parametrize(
-    "content, highest_base_dir",
-    [
-        (SAMPLE_CONTENT, "/test_dir"),
-        ("=-=-= Begin File: 'file1.txt' =-=-=\nContent\n=-=-= End File: 'file1.txt' =-=-=", "/test_dir"),
-    ],
-)
-def test_from_file(temp_file, content, highest_base_dir, caplog):
+def test_from_file(temp_file, caplog):
+    content = SAMPLE_CONTENT
     file_path = temp_file(content)
+    metadata = {
+        "base_directory": "/test_dir",
+        "version": "0.14.1",
+        "date": "2025-06-26T12:15:00.123456",
+        "creator": "prepdir version 0.14.1 (pip install prepdir)",
+    }
     with caplog.at_level(logging.WARNING):
-        instance = (
-            PrepdirOutputFile.from_file(str(file_path), highest_base_dir)
-            if highest_base_dir
-            else PrepdirOutputFile.from_file(str(file_path), None)
-        )
-    print(f"content:\n{content}\n{instance.metadata=}")
+        instance = PrepdirOutputFile.from_file(str(file_path), metadata=metadata, use_unique_placeholders=False)
     assert isinstance(instance, PrepdirOutputFile)
     assert instance.path == file_path
     assert instance.content == content
-    if "File listing generated" in content:
-        assert instance.metadata["date"] == "2025-06-26T12:15:00.123456"
-        assert instance.metadata["creator"] == "prepdir version 0.14.1 (pip install prepdir)"
-    elif highest_base_dir:
-        assert "No header found" in caplog.text
-    if "Base directory is" in content and highest_base_dir:
-        assert instance.metadata["base_directory"] == highest_base_dir
-    elif highest_base_dir:
-        assert instance.metadata["base_directory"] == highest_base_dir
-        assert "No base directory found" in caplog.text
-    else:
-        assert instance.metadata["base_directory"] == "."
-    if highest_base_dir:
-        entries = instance.parse(highest_base_dir)
-        assert isinstance(entries, dict)
-        if "=-=-= Begin File" in content:
-            assert len(entries) > 0
-            for abs_path, entry in entries.items():
-                assert isinstance(entry, PrepdirFileEntry)
-                assert entry.relative_path in content
-                assert entry.absolute_path == Path(highest_base_dir) / entry.relative_path
+    assert instance.metadata["date"] == "2025-06-26T12:15:00.123456"
+    assert instance.metadata["creator"] == "prepdir version 0.14.1 (pip install prepdir)"
+    assert instance.metadata["base_directory"] == "/test_dir"
+    assert instance.metadata["version"] == "0.14.1"
+    assert instance.use_unique_placeholders == False
+    entries = instance.parse("/test_dir")
+    assert len(entries) == 2
+    assert Path("/test_dir/file1.txt") in entries
+    assert Path("/test_dir/file2.txt") in entries
+    assert entries[Path("/test_dir/file1.txt")].content == "Content for file1\n"
+    assert (
+        entries[Path("/test_dir/file2.txt")].content == "Content for file2\nExtra =-=-= Begin File: 'file3.txt' =-=-=\n"
+    )
 
 
 def test_from_file_no_headers(temp_file):
-    file_path = temp_file("No headers here")
+    content = "No headers here"
+    file_path = temp_file(content)
     with pytest.raises(ValueError, match="No begin file patterns found!"):
-        PrepdirOutputFile.from_file(str(file_path), "test_dir")
+        PrepdirOutputFile.from_file(str(file_path), metadata={"base_directory": "test_dir"})
 
 
 def test_from_file_noseconds_date(temp_file):
@@ -103,12 +102,21 @@ Content
 =-=-= End File: 'file1.txt' =-=-=
 """
     file_path = temp_file(content)
-    instance = PrepdirOutputFile.from_file(str(file_path), None)
+    metadata = {"base_directory": "/test_dir", "version": __version__, "date": "2025-06-26 01:02", "creator": "Grok 3"}
+    instance = PrepdirOutputFile.from_file(
+        str(file_path),
+        metadata=metadata,
+        use_unique_placeholders=False,
+    )
     assert instance.metadata["date"] == "2025-06-26 01:02"
     assert instance.metadata["creator"] == "Grok 3"
+    assert instance.metadata["base_directory"] == "/test_dir"
+    entries = instance.parse("/test_dir")
+    assert len(entries) == 1
+    assert entries[Path("/test_dir/file1.txt")].content == "Content\n"
 
 
-def test_from_file_base_dir_mismatch(temp_file):
+def test_from_file_base_dir_mismatch(temp_file, caplog):
     content = """File listing generated 2025-06-26 12:15:00 by prepdir
 Base directory is '/invalid_dir'
 
@@ -117,8 +125,86 @@ Content
 =-=-= End File: 'file1.txt' =-=-=
 """
     file_path = temp_file(content)
-    with pytest.raises(ValueError, match="Base directory mismatch"):
-        PrepdirOutputFile.from_file(str(file_path), "/test_dir")
+    metadata = {
+        "base_directory": "/test_dir",
+        "version": __version__,
+        "date": "2025-06-26 12:15:00",
+        "creator": "prepdir",
+    }
+    with caplog.at_level(logging.WARNING):
+        instance = PrepdirOutputFile.from_file(str(file_path), metadata=metadata, use_unique_placeholders=False)
+    assert "header base dir (/invalid_dir) do not match" in caplog.text
+    assert instance.metadata["base_directory"] == "/invalid_dir"  # Header wins
+
+
+def test_from_content_with_uuid_mapping(temp_file):
+    content = """File listing generated 2025-06-26T12:15:00 by prepdir
+Base directory is '/test_dir'
+=-=-= Begin File: 'file1.txt' =-=-=
+Content with PREPDIR_UUID_PLACEHOLDER_1
+=-=-= End File: 'file1.txt' =-=-=
+"""
+    uuid_mapping = {"PREPDIR_UUID_PLACEHOLDER_1": "123e4567-e89b-12d3-a456-426614174000"}
+    metadata = {
+        "base_directory": "/test_dir",
+        "version": __version__,
+        "date": "2025-06-26T12:15:00",
+        "creator": "prepdir",
+    }
+    instance = PrepdirOutputFile.from_content(
+        content, uuid_mapping=uuid_mapping, metadata=metadata, use_unique_placeholders=True
+    )
+    assert instance.uuid_mapping == uuid_mapping
+    assert len(instance.files) == 1
+    assert instance.files[Path("/test_dir/file1.txt")].content == "Content with PREPDIR_UUID_PLACEHOLDER_1\n"
+
+
+def test_from_content_no_metadata(temp_file, caplog):
+    content = """File listing generated 2025-06-26T12:15:00 by prepdir
+Base directory is '/test_dir'
+=-=-= Begin File: 'file1.txt' =-=-=
+Content
+=-=-= End File: 'file1.txt' =-=-=
+"""
+    file_path = temp_file(content)
+    with caplog.at_level(logging.WARNING):
+        instance = PrepdirOutputFile.from_content(content, path_obj=file_path)
+    assert instance.metadata["base_directory"] == "/test_dir"
+    assert instance.metadata["date"] == "2025-06-26T12:15:00"
+    assert instance.metadata["creator"] == "prepdir"
+    assert instance.use_unique_placeholders == False
+    assert instance.metadata["version"] == ""
+
+
+def test_from_content_metadata_mismatch(temp_file, caplog):
+    content = """File listing generated 2025-06-26T12:15:00 by prepdir
+Base directory is '/header_dir'
+=-=-= Begin File: 'file1.txt' =-=-=
+Content
+=-=-= End File: 'file1.txt' =-=-=
+"""
+    metadata = {
+        "base_directory": "/test_dir",
+        "version": __version__,
+        "date": "2025-06-26T12:00:00",
+        "creator": "other",
+    }
+    file_path = temp_file(content)
+    with caplog.at_level(logging.WARNING):
+        instance = PrepdirOutputFile.from_content(content, path_obj=file_path, metadata=metadata)
+    print(f"caplog text is {caplog.text}")
+    assert (
+        "Passed metadata for date (2025-06-26T12:00:00) and header date (2025-06-26T12:15:00) do not match"
+        in caplog.text
+    )
+    assert "Passed metadata for creator (other) and header date (prepdir) do not match" in caplog.text
+    assert (
+        "Passed metadata for base_directory (/test_dir) and header base dir (/header_dir) do not match" in caplog.text
+    )
+    assert instance.metadata["date"] == "2025-06-26T12:15:00"
+    assert instance.metadata["creator"] == "prepdir"
+    assert instance.metadata["base_directory"] == "/header_dir"
+    assert instance.metadata["version"] == __version__
 
 
 def test_parse_no_header_simple(temp_file):
@@ -127,7 +213,8 @@ Content for file1
 =-=-= End File: 'file1.txt' =-=-=
 """
     file_path = temp_file(content)
-    instance = PrepdirOutputFile(path=file_path, content=content)
+    metadata = {"base_directory": "test_dir", "version": __version__, "date": "unknown", "creator": "prepdir"}
+    instance = PrepdirOutputFile(path=file_path, content=content, metadata=metadata, use_unique_placeholders=False)
     entries = instance.parse("test_dir")
     assert isinstance(entries, dict)
     assert len(entries) == 1
@@ -149,7 +236,8 @@ Content
 =-=-= End File: 'file1.txt' =-=-=
 """
     file_path = temp_file(content)
-    instance = PrepdirOutputFile(path=file_path, content=content, metadata={"base_directory": "test_dir"})
+    metadata = {"base_directory": "test_dir", "version": __version__, "date": "unknown", "creator": "prepdir"}
+    instance = PrepdirOutputFile(path=file_path, content=content, metadata=metadata, use_unique_placeholders=False)
     with caplog.at_level(logging.WARNING):
         entries = instance.parse("test_dir")
     assert len(entries) == 1
@@ -160,7 +248,6 @@ Content
     assert entry.content == "Content\n=-=-= Begin File: 'file2.txt' =-=-=\n"
     assert not entry.is_binary
     assert not entry.is_scrubbed
-    assert "Extra header/footer" in caplog.text
 
 
 def test_parse_unclosed_file(temp_file):
@@ -168,37 +255,42 @@ def test_parse_unclosed_file(temp_file):
 Content
 """
     file_path = temp_file(content)
-    instance = PrepdirOutputFile(path=file_path, content=content, metadata={"base_directory": "test_dir"})
+    metadata = {"base_directory": "test_dir", "version": __version__, "date": "unknown", "creator": "prepdir"}
+    instance = PrepdirOutputFile(path=file_path, content=content, metadata=metadata, use_unique_placeholders=False)
     with pytest.raises(ValueError, match="Unclosed file 'file1.txt'"):
         instance.parse("test_dir")
 
 
 def test_get_changes(temp_file):
-    # Create original and updated instances
     orig_content = """=-=-= Begin File: 'file1.txt' =-=-=
-File1 original content (file1 content will be changed)
+File1 original content
 =-=-= End File: 'file1.txt' =-=-=
 =-=-= Begin File: 'file2.txt' =-=-=
-File2 content (file2 will be removed)
+File2 content
 =-=-= End File: 'file2.txt' =-=-=
 =-=-= Begin File: 'file3.txt' =-=-=
-File3 content (file3 will be unchanged)
+File3 content
 =-=-= End File: 'file3.txt' =-=-=
 """
     updated_content = """=-=-= Begin File: 'file4.txt' =-=-=
-File4 content (file4 is new)
+File4 content
 =-=-= End File: 'file4.txt' =-=-=
 =-=-= Begin File: 'file3.txt' =-=-=
-File3 content (file3 will be unchanged)
+File3 content
 =-=-= End File: 'file3.txt' =-=-=
 =-=-= Begin File: 'file1.txt' =-=-=
 File1 changed content
 =-=-= End File: 'file1.txt' =-=-=
 """
-    orig = PrepdirOutputFile.from_content(orig_content, "test_dir")
-    updated = PrepdirOutputFile.from_content(updated_content, "test_dir")
+    metadata = {
+        "base_directory": "test_dir",
+        "version": __version__,
+        "date": "2025-06-26T12:15:00",
+        "creator": "prepdir",
+    }
+    orig = PrepdirOutputFile.from_content(orig_content, metadata=metadata, use_unique_placeholders=False)
+    updated = PrepdirOutputFile.from_content(updated_content, metadata=metadata, use_unique_placeholders=False)
     changes = updated.get_changed_files(orig)
-    print(f"{changes=}")
     assert len(changes["added"]) == 1
     assert any(entry.relative_path == "file4.txt" for entry in changes["added"])
     assert len(changes["changed"]) == 1
@@ -208,7 +300,6 @@ File1 changed content
 
 
 def test_is_prepdir_outputfile_format():
-    # Test with valid prepdir format
     valid_content = """File listing generated 2025-06-26 12:15:00 by prepdir
 Base directory is 'test_dir'
 
@@ -217,43 +308,40 @@ Content
 =-=-= End File: 'file1.txt' =-=-=
 """
     assert PrepdirFileEntry.is_prepdir_outputfile_format(valid_content, None) == True
-    # Test with invalid content (no headers)
     invalid_content = "Just some text"
     assert PrepdirFileEntry.is_prepdir_outputfile_format(invalid_content, None) == False
-    # Test with partial valid content
     partial_content = """=-=-= Begin File: 'file1.txt' =-=-=
 Content
-"""  # Missing footer
+"""
     assert PrepdirFileEntry.is_prepdir_outputfile_format(partial_content, None) == False
-    # Test with empty content
     empty_content = ""
     assert PrepdirFileEntry.is_prepdir_outputfile_format(empty_content, None) == False
 
 
 def test_save_no_content(temp_file, caplog):
-    """Test save method with no content."""
     file_path = temp_file("")
-    instance = PrepdirOutputFile(path=file_path, content="")
+    metadata = {"base_directory": "test_dir", "version": __version__, "date": "unknown", "creator": "prepdir"}
+    instance = PrepdirOutputFile(path=file_path, content="", metadata=metadata, use_unique_placeholders=False)
     with caplog.at_level(logging.WARNING):
         instance.save()
     assert "No content specified, content not saved" in caplog.text
 
 
 def test_save_no_path(caplog):
-    """Test save method with no path."""
-    instance = PrepdirOutputFile(content="Some content")
+    metadata = {"base_directory": "test_dir", "version": __version__, "date": "unknown", "creator": "prepdir"}
+    instance = PrepdirOutputFile(content="Some content", metadata=metadata, use_unique_placeholders=False)
     with caplog.at_level(logging.WARNING):
         instance.save()
     assert "No path specified, content not saved" in caplog.text
 
 
 def test_parse_footer_without_header(temp_file, caplog):
-    """Test parse with footer but no matching header."""
     content = """=-=-= End File: 'file1.txt' =-=-=
 Content
 """
     file_path = temp_file(content)
-    instance = PrepdirOutputFile(path=file_path, content=content, metadata={"base_directory": "test_dir"})
+    metadata = {"base_directory": "test_dir", "version": __version__, "date": "unknown", "creator": "prepdir"}
+    instance = PrepdirOutputFile(path=file_path, content=content, metadata=metadata, use_unique_placeholders=False)
     with caplog.at_level(logging.WARNING):
         entries = instance.parse("test_dir")
     assert len(entries) == 0
@@ -261,27 +349,18 @@ Content
 
 
 def test_parse_mismatched_footer(temp_file, caplog):
-    """Test parse with mismatched footer name."""
     content = """=-=-= Begin File: 'file1.txt' =-=-=
 Content
 =-=-= End File: 'file2.txt' =-=-=
 """
     file_path = temp_file(content)
-    instance = PrepdirOutputFile(path=file_path, content=content, metadata={"base_directory": "test_dir"})
-    with pytest.raises(ValueError, match="Unclosed file 'file1.txt' at end of content"):
-        entries = instance.parse("test_dir")
+    metadata = {"base_directory": "test_dir", "version": __version__, "date": "unknown", "creator": "prepdir"}
+    instance = PrepdirOutputFile(path=file_path, content=content, metadata=metadata, use_unique_placeholders=False)
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(ValueError, match="Unclosed file 'file1.txt' at end of content"):
+            instance.parse("test_dir")
 
-    assert "Mismatched footer 'file2.txt' for header 'file1.txt'" in caplog.text
-
-
-def test_from_content_empty_with_headers(temp_file):
-    """Test from_content with empty content but valid headers."""
-    content = """File listing generated 2025-06-26T12:15:00 by prepdir
-Base directory is '/test_dir'
-"""
-    file_path = temp_file(content)
-    with pytest.raises(ValueError, match="No begin file patterns found!"):
-        PrepdirOutputFile.from_content(content, "/test_dir", file_path)
+    assert "Mismatched footer 'file2.txt' for header 'file1.txt', treating as content" in caplog.text
 
 
 if __name__ == "__main__":

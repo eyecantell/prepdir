@@ -17,6 +17,7 @@ GENERATED_HEADER_PATTERN = re.compile(
     r"^File listing generated (\d{4}-\d{2}-\d{2}[\sT]+[\d\:\.\s]+\d)?(?:\s+by\s+(.*))?$", re.MULTILINE
 )
 BASE_DIR_PATTERN = re.compile(r"^Base directory is '(.*?)'$", re.MULTILINE)
+METADATA_KEYS = ["date", "base_directory", "creator", "version"]
 
 
 class PrepdirOutputFile(BaseModel):
@@ -31,11 +32,21 @@ class PrepdirOutputFile(BaseModel):
             "date": datetime.now().isoformat(),
             "base_directory": ".",
             "creator": "prepdir",
-            "use_unique_placeholders": "false",
         }
     )
+    use_unique_placeholders: bool
     uuid_mapping: Dict[str, str] = Field(default_factory=dict)
     placeholder_counter: int = 0
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, v):
+        if not all(k in v for k in METADATA_KEYS):
+            missing = set(METADATA_KEYS) - set(v.keys())
+            raise ValueError(f"Metadata missing required keys: {missing}")
+        if any(v[k] is None for k in METADATA_KEYS):
+            raise ValueError(f"Metadata contains None values for required keys: {v}")
+        return v
 
     @field_validator("path", mode="before")
     @classmethod
@@ -119,13 +130,14 @@ class PrepdirOutputFile(BaseModel):
         path: str,
         uuid_mapping: Optional[Dict] = None,
         metadata: Optional[Dict] = None,
+        use_unique_placeholders: Optional[bool] = False,
     ) -> "PrepdirOutputFile":
         """Create a PrepdirOutputFile instance from a file on disk."""
         path_obj = Path(path)
         if not path_obj.exists():
             raise FileNotFoundError(f"File {path} does not exist")
         content = path_obj.read_text(encoding="utf-8")
-        return cls.from_content(content, path_obj, uuid_mapping, metadata)
+        return cls.from_content(content, path_obj, uuid_mapping, metadata, use_unique_placeholders)
 
     @classmethod
     def from_content(
@@ -134,6 +146,7 @@ class PrepdirOutputFile(BaseModel):
         path_obj: Optional[Path] = None,
         uuid_mapping: Optional[Dict] = None,
         metadata: Optional[Dict] = None,
+        use_unique_placeholders: Optional[bool] = False,
     ) -> "PrepdirOutputFile":
         """Create a PrepdirOutputFile instance from content (already read from file or otherwise previously created)."""
         lines = content.splitlines()
@@ -155,13 +168,11 @@ class PrepdirOutputFile(BaseModel):
 
         # If metadata values were passed, use them. Otherwise try to pull them from the content.
         new_metadata = {}
-        for k in [
-            "date",
-            "base_directory",
-            "creator",
-            "use_unique_placeholders",
-        ]:  # PRW can we pull these keys from the class/factory somehow?
-            new_metadata[k] = metadata[k] if k in metadata else None
+        for k in METADATA_KEYS:
+            if metadata and k in metadata:
+                new_metadata[k] = metadata[k]
+            else:
+                new_metadata[k] = ""
 
         # Search header section with re.MULTILINE if it exists
         gen_header_match = GENERATED_HEADER_PATTERN.search(output_file_header) if output_file_header else None
@@ -173,34 +184,46 @@ class PrepdirOutputFile(BaseModel):
             header_value["creator"] = gen_header_match.group(2) or None
 
             for header_key in header_value.keys():
-                if not new_metadata[header_key]:
-                    new_metadata[header_key] = header_value[header_key]
-                    logger.debug(f"Set {header_key}={header_value[header_key]} metadata from header")
-                elif header_value[header_key] and new_metadata[header_key] != header_value[header_key]:
-                    logger.warning(
-                        f"Passed metadata for {header_key} ({new_metadata[header_key]}) and header date ({header_value[header_key]}) do not match. Using header value."
-                    )
-                    # Header value wins
-                    new_metadata[header_key] = header_value[header_key]
+                if header_value[header_key]:
+                    if not new_metadata[header_key]:
+                        new_metadata[header_key] = header_value[header_key]
+                        logger.debug(f"Set metadata {header_key}={header_value[header_key]} from header")
+                    elif new_metadata[header_key] != header_value[header_key]:
+                        logger.warning(
+                            f"Passed metadata for {header_key} ({new_metadata[header_key]}) and header date ({header_value[header_key]}) do not match. Using header value."
+                        )
+                        # Header value wins
+                        new_metadata[header_key] = header_value[header_key]
 
+        # Determine the base directory if we can
         base_dir_match = BASE_DIR_PATTERN.search(output_file_header) if output_file_header else None
 
         # Determine the base directory
         if base_dir_match:
             # Got a base directory from the file header
-            header_base_dir = Path(base_dir_match.group(1))
-            if header_base_dir and new_metadata['base_directory'] != header_base_dir:
-                logger.warning(
-                        f"Passed metadata for 'base_directory' ({new_metadata['base_directory']}) and header base dir ({header_value[header_key]}) do not match. Will use header base dir."
+            header_base_dir = str(base_dir_match.group(1))
+            if header_base_dir:
+                if not new_metadata["base_directory"]:
+                    new_metadata["base_directory"] = header_base_dir
+                    logger.debug(f"Set metadata 'base_directory={header_base_dir} from header")
+                elif new_metadata["base_directory"] != header_base_dir:
+                    logger.warning(
+                        f"Passed metadata for base_directory ({new_metadata['base_directory']}) and header base dir ({header_base_dir}) do not match. Will use header base dir."
                     )
-                # Header value wins
-                new_metadata['base_directory'] = header_base_dir
+                    # Header value wins
+                    new_metadata["base_directory"] = header_base_dir
 
-        if not new_metadata['base_directory']:
+        if not new_metadata["base_directory"]:
             raise ValueError("Could not determine base directory from header and not passed in metadata")
 
-        instance = cls(path=path_obj, content=content, metadata=new_metadata, uuid_mapping=uuid_mapping or {})
-        instance.parse(new_metadata['base_directory'])
+        instance = cls(
+            path=path_obj,
+            content=content,
+            metadata=new_metadata,
+            uuid_mapping=uuid_mapping or {},
+            use_unique_placeholders=use_unique_placeholders,
+        )
+        instance.parse(new_metadata["base_directory"])
         return instance
 
     def get_changed_files(self, original: "PrepdirOutputFile") -> Dict[str, List[PrepdirFileEntry]]:

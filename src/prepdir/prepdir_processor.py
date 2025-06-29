@@ -145,7 +145,7 @@ class PrepdirProcessor:
             "version": __version__,
             "timestamp": timestamp_to_use,
             "base_directory": self.directory,
-            "use_unique_placeholders": self.use_unique_placeholders,
+            "creator": f"prepdir version {__version__} (pip install prepdir)",
         }
 
         with redirect_stdout(output):
@@ -212,6 +212,7 @@ class PrepdirProcessor:
             path_obj=Path(self.output_file) if self.output_file else None,
             uuid_mapping=uuid_mapping,
             metadata=metadata,
+            use_unique_placeholders=self.use_unique_placeholders,
         )
 
     def _traverse_specific_files(self) -> Iterator[Path]:
