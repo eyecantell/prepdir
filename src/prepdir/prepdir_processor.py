@@ -191,10 +191,10 @@ class PrepdirProcessor:
                     use_unique_placeholders=self.use_unique_placeholders,
                     verbose=self.verbose,
                     placeholder_counter=placeholder_counter,
-                    uuid_mapping=uuid_mapping,  # Pass shared uuid_mapping
+                    uuid_mapping=uuid_mapping,
                 )
                 print(prepdir_file.to_output())
-                uuid_mapping.update(updated_uuid_mapping)  # Update shared mapping
+                uuid_mapping.update(updated_uuid_mapping)
 
             if not files_found:
                 if self.specific_files:
@@ -253,14 +253,82 @@ class PrepdirProcessor:
 
     def save_output(self, output: PrepdirOutputFile, path: Optional[str] = None) -> None:
         """Save the PrepdirOutputFile content to the specified path."""
-        output.save(path=Path(path) if path else None)
+        output.save()
 
-    def validate_output(self, file_path: str, metadata: Optional[Dict] = None) -> PrepdirOutputFile:
-        """Validate a prepdir-generated file, returning a PrepdirOutputFile."""
-        return PrepdirOutputFile.from_file(
-            path=Path(file_path),
-            metadata=metadata,
-        )
+    def validate_output(
+        self,
+        content: Optional[str] = None,
+        file_path: Optional[str] = None,
+        metadata: Optional[Dict[str, str]] = None,
+        highest_base_directory: Optional[str] = None,
+        validate_files_exist: bool = False,
+    ) -> PrepdirOutputFile:
+        """Validate and parse a prepdir-formatted output (from content or file) into a PrepdirOutputFile.
+
+        Args:
+            content: The prepdir-formatted content to parse (e.g., LLM output). Mutually exclusive with file_path.
+            file_path: Path to a prepdir-formatted file to parse. Mutually exclusive with content.
+            metadata: Optional metadata to override defaults (e.g., base_directory, creator).
+            highest_base_directory: Directory above which file paths must not resolve. Defaults to self.directory.
+            validate_files_exist: If True, check if parsed files exist in the filesystem.
+
+        Returns:
+            PrepdirOutputFile: Parsed output with PrepdirFileEntry objects and metadata.
+
+        Raises:
+            ValueError: If input is invalid, paths escape highest_base_directory, or parsing fails.
+        """
+        if content is not None and file_path is not None:
+            raise ValueError("Cannot provide both content and file_path")
+        if content is None and file_path is None:
+            raise ValueError("Must provide either content or file_path")
+
+        default_metadata = {
+            "base_directory": self.directory,
+            "version": __version__,
+            "date": datetime.now().isoformat(),
+            "creator": f"prepdir version {__version__}",
+        }
+        if metadata:
+            default_metadata.update(metadata)
+
+        highest_base = Path(highest_base_directory or self.directory).resolve()
+
+        try:
+            if file_path:
+                output = PrepdirOutputFile.from_file(
+                    path=Path(file_path),
+                    metadata=default_metadata,
+                    use_unique_placeholders=self.use_unique_placeholders,
+                )
+            else:
+                output = PrepdirOutputFile.from_content(
+                    content=content,
+                    path_obj=None,
+                    metadata=default_metadata,
+                    use_unique_placeholders=self.use_unique_placeholders,
+                )
+
+            # Verify base_directory is valid and within highest_base_directory
+            base_dir = Path(output.metadata["base_directory"]).resolve()
+            try:
+                base_dir.relative_to(highest_base)
+            except ValueError:
+                raise ValueError(f"Base directory '{base_dir}' is outside highest base directory '{highest_base}'")
+
+            # Verify all file paths are within highest_base_directory
+            for entry in output.files.values():
+                abs_path = entry.absolute_path.resolve()
+                try:
+                    abs_path.relative_to(highest_base)
+                except ValueError:
+                    raise ValueError(f"File path '{abs_path}' is outside highest base directory '{highest_base}'")
+                if validate_files_exist and not abs_path.exists():
+                    logger.warning(f"File {abs_path} does not exist in filesystem")
+
+            return output
+        except ValueError as e:
+            raise ValueError(f"Invalid prepdir output: {str(e)}") from e
 
     @staticmethod
     def init_config(config_path: str = ".prepdir/config.yaml", force: bool = False) -> None:

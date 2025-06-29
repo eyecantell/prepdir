@@ -408,7 +408,74 @@ def test_prepdir_processor_uuid_mapping_consistency(temp_dir, config):
         assert "123e4567-e89b-12d3-a456-426614174000" not in file_entry.content
         assert placeholder in file_entry.content
 
+def test_validate_output_valid_content(temp_dir, config):
+    content = (
+        f"File listing generated {datetime.now().isoformat()} by test_validator\n"
+        f"Base directory is '{temp_dir}'\n\n"
+        "=-=-= Begin File: 'file1.py' =-=-=\n"
+        "print(\"Hello, modified\")\n# UUID: PREPDIR_UUID_PLACEHOLDER_1\n"
+        "=-=-= End File: 'file1.py' =-=-=\n"
+        "=-=-= Begin File: 'new_file.py' =-=-=\n"
+        "print(\"New file\")\n"
+        "=-=-= End File: 'new_file.py' =-=-=\n"
+    )
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None, use_unique_placeholders=True)
+    processor.config = config
+    metadata = {"creator": "test_validator"}
+    output = processor.validate_output(content=content, metadata=metadata, highest_base_directory=str(temp_dir), validate_files_exist=True)
+    assert isinstance(output, PrepdirOutputFile)
+    assert output.metadata["creator"] == "test_validator"
+    assert output.metadata["base_directory"] == str(temp_dir)
+    assert output.use_unique_placeholders is True
+    assert len(output.files) == 2
+    assert output.files[Path(temp_dir) / "file1.py"].relative_path == "file1.py"
+    assert "print(\"Hello, modified\")" in output.files[Path(temp_dir) / "file1.py"].content
+    assert output.files[Path(temp_dir) / "new_file.py"].relative_path == "new_file.py"
 
+def test_validate_output_valid_file(temp_dir, config):
+    output_file = temp_dir / "output.txt"
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None, use_unique_placeholders=True)
+    processor.config = config
+    metadata = {"creator": "test_validator"}
+    output = processor.validate_output(file_path=str(output_file), metadata=metadata, highest_base_directory=str(temp_dir))
+    assert isinstance(output, PrepdirOutputFile)
+    assert output.metadata["base_directory"] == str(temp_dir)
+    assert output.use_unique_placeholders is True
+    assert len(output.files) == 1
+    assert output.files[Path(temp_dir) / "file1.py"].relative_path == "file1.py"
+
+def test_validate_output_invalid_content(temp_dir, config):
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None)
+    processor.config = config
+    with pytest.raises(ValueError, match="Invalid prepdir output: No begin file patterns found!"):
+        processor.validate_output(content="Invalid content", highest_base_directory=str(temp_dir))
+
+def test_validate_output_path_outside_highest_base(temp_dir, config):
+    content = (
+        f"File listing generated {datetime.now().isoformat()} by test_validator\n"
+        f"Base directory is '/outside'\n\n"
+        "=-=-= Begin File: 'file1.py' =-=-=\n"
+        "print(\"Hello\")\n"
+        "=-=-= End File: 'file1.py' =-=-=\n"
+    )
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None)
+    processor.config = config
+    with pytest.raises(ValueError, match="Base directory '/outside' is outside highest base directory"):
+        processor.validate_output(content=content, highest_base_directory=str(temp_dir))
+
+def test_validate_output_file_path_outside_highest_base(temp_dir, config):
+    content = (
+        f"File listing generated {datetime.now().isoformat()} by test_validator\n"
+        f"Base directory is '{temp_dir}'\n\n"
+        "=-=-= Begin File: '../outside.py' =-=-=\n"
+        "print(\"Outside\")\n"
+        "=-=-= End File: '../outside.py' =-=-=\n"
+    )
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None)
+    processor.config = config
+    with pytest.raises(ValueError, match="File path '.*outside.py' is outside highest base directory"):
+        processor.validate_output(content=content, highest_base_directory=str(temp_dir))
+        
 if __name__ == "__main__":
     import pytest
 
