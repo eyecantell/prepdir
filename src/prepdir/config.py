@@ -57,7 +57,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
-    logger.debug(f"Loading config with namespace={namespace}, config_path={config_path}, verbose={verbose}")
+    logger.debug(f"Loading config with {namespace=}, {config_path=}, {verbose=}")
 
     check_namespace_value(namespace)
     settings_files = []
@@ -168,7 +168,7 @@ def init_config(namespace: str = "prepdir", config_path: Optional[str] = None, f
         ValueError: If namespace is invalid.
     """
     check_namespace_value(namespace)
-    logger.debug(f"Initializing config with namespace={namespace}, config_path={config_path}, force={force}")
+    logger.debug(f"Initializing config with {namespace=}, {config_path=}, {force=}")
 
     config_path = Path(config_path) if config_path else Path(f".{namespace}/config.yaml")
     config_dir = config_path.parent
