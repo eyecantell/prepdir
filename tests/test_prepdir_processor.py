@@ -375,6 +375,7 @@ def test_init_config(tmp_path, config, capsys):
     assert config_path.exists()
     with config_path.open("r", encoding="utf-8") as f:
         content = f.read()
+    print(f"content is:\n{content}")
     assert "exclude:" in content
     assert "directories:" in content
     assert "files:" in content
@@ -475,7 +476,7 @@ def test_validate_output_file_path_outside_highest_base(temp_dir, config):
     processor.config = config
     with pytest.raises(ValueError, match="File path '.*outside.py' is outside highest base directory"):
         processor.validate_output(content=content, highest_base_directory=str(temp_dir))
-        
+
 if __name__ == "__main__":
     import pytest
 

@@ -333,4 +333,4 @@ class PrepdirProcessor:
     @staticmethod
     def init_config(config_path: str = ".prepdir/config.yaml", force: bool = False) -> None:
         """Initialize a local configuration file."""
-        init_config(config_path, force, stdout=sys.stdout, stderr=sys.stderr)
+        init_config("prepdir", config_path, force, stdout=sys.stdout, stderr=sys.stderr)

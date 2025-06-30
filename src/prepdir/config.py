@@ -124,12 +124,13 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
     return config
 
 
-def init_config(config_path=".prepdir/config.yaml", force=False, stdout=sys.stdout, stderr=sys.stderr):
+def init_config(namespace = "prepdir", config_path=None, force=False, stdout=sys.stdout, stderr=sys.stderr):
     """
     Initialize a local config.yaml with the package's default config.
 
     Args:
-        config_path (str): Path to the configuration file to create (defaults to .prepdir/config.yaml).
+        namespace: name associated with config (e.g. "prepdir", "applydir", "vibedir")
+        config_path (str): Path to the configuration file to create (defaults to .{namespace}/config.yaml).
         force (bool): If True, overwrite existing config file.
         stdout (file-like): Stream for success messages (default: sys.stdout).
         stderr (file-like): Stream for error messages (default: sys.stderr).
@@ -137,7 +138,11 @@ def init_config(config_path=".prepdir/config.yaml", force=False, stdout=sys.stdo
     Raises:
         SystemExit: If the config file exists and force=False, or if creation fails.
     """
-    config_path = Path(config_path)
+    
+    logger.debug(f"Initializing config with {namespace=}, {config_path=}, {force=}")
+
+
+    config_path = Path(config_path) if config_path else Path(f".{namespace}/config.yaml")
     config_dir = config_path.parent
     config_dir.mkdir(parents=True, exist_ok=True)
 
