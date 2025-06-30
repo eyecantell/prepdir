@@ -37,7 +37,7 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
         Dynaconf: Config object with loaded settings.
 
     Raises:
-        ValueError: If no valid config files are found, YAML is invalid, or config_path is missing.
+        ValueError: If no valid config files are found, YAML is invalid, config_path is missing, or namespace is invalid.
 
     Notes:
         - Priority: custom_config > local_config (./{namespace}/config.yaml) > home_config (~/{namespace}/config.yaml) > bundled_config.
@@ -123,18 +123,18 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
             bundled_config_path.unlink()
             logger.debug(f"Removed temporary bundled config: {bundled_config_path}")
         except Exception as e:
-            logger.debug(f"Failed to remove temporary bundled config: {str(e)}")
+            logger.warning(f"Failed to remove temporary bundled config {bundled_config_path}: {str(e)}")
 
     logger.debug(f"Loaded config for {namespace} from: {settings_files}")
     return config
 
 
-def init_config(namespace = "prepdir", config_path=None, force=False, stdout=sys.stdout, stderr=sys.stderr):
+def init_config(namespace: str = "prepdir", config_path: Optional[str] = None, force: bool = False, stdout=sys.stdout, stderr=sys.stderr):
     """
     Initialize a local config.yaml with the package's default config.
 
     Args:
-        namespace: name associated with config (e.g. "prepdir", "applydir", "vibedir")
+        namespace: Name associated with config (e.g. "prepdir", "applydir", "vibedir")
         config_path (str): Path to the configuration file to create (defaults to .{namespace}/config.yaml).
         force (bool): If True, overwrite existing config file.
         stdout (file-like): Stream for success messages (default: sys.stdout).
@@ -142,6 +142,7 @@ def init_config(namespace = "prepdir", config_path=None, force=False, stdout=sys
 
     Raises:
         SystemExit: If the config file exists and force=False, or if creation fails.
+        ValueError: If namespace is invalid.
     """
     
     logger.debug(f"Initializing config with {namespace=}, {config_path=}, {force=}")
