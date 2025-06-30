@@ -81,7 +81,7 @@ def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_tes
 def test_main_init_config(capfd, tmp_path):
     """Test init_config creates a config file."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
-    init_config(config_path, force=False, stdout=sys.stdout, stderr=sys.stderr)
+    init_config("prepdir", config_path, force=False, stdout=sys.stdout, stderr=sys.stderr)
     sys.stdout.flush()
     sys.stderr.flush()
     captured = capfd.readouterr()
@@ -94,7 +94,7 @@ def test_main_init_config_force(capfd, tmp_path):
     config_path = tmp_path / ".prepdir" / "config.yaml"
     config_path.parent.mkdir(exist_ok=True)
     config_path.write_text("existing: content")
-    init_config(config_path, force=True, stdout=sys.stdout, stderr=sys.stderr)
+    init_config("prepdir", config_path, force=True, stdout=sys.stdout, stderr=sys.stderr)
     sys.stdout.flush()
     sys.stderr.flush()
     captured = capfd.readouterr()
@@ -110,7 +110,7 @@ def test_main_init_config_exists(capfd, tmp_path):
     config_path.parent.mkdir(exist_ok=True)
     config_path.write_text("existing: content")
     with pytest.raises(SystemExit) as exc:
-        init_config(config_path, force=False, stdout=sys.stdout, stderr=sys.stderr)
+        init_config("prepdir", config_path, force=False, stdout=sys.stdout, stderr=sys.stderr)
     assert exc.value.code == 1
     sys.stdout.flush()
     sys.stderr.flush()

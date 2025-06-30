@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from dynaconf import Dynaconf
 from pathlib import Path
 import sys
@@ -20,6 +21,9 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0"  # Fallback to hardcoded version
 
+def check_namespace_value(namespace: str):
+    if not namespace or not re.match(r'^[a-zA-Z0-9_-]+$', namespace):
+        raise ValueError(f"Invalid namespace '{namespace}': must be non-empty and contain only alphanumeric, underscore, or hyphen chars")
 
 def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
     """
@@ -56,6 +60,7 @@ def load_config(namespace: str, config_path: Optional[str] = None) -> Dynaconf:
         logger.warning("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true")
     else:
         # Check home config first, then local config. The order of the settings files matters (later override earlier)
+        check_namespace_value(namespace)
         local_config = Path(f".{namespace}/config.yaml").resolve()
         home_config = Path(os.path.expanduser(f"~/.{namespace}/config.yaml")).resolve()
 
@@ -140,7 +145,7 @@ def init_config(namespace = "prepdir", config_path=None, force=False, stdout=sys
     """
     
     logger.debug(f"Initializing config with {namespace=}, {config_path=}, {force=}")
-
+    check_namespace_value(namespace)
 
     config_path = Path(config_path) if config_path else Path(f".{namespace}/config.yaml")
     config_dir = config_path.parent
@@ -151,7 +156,7 @@ def init_config(namespace = "prepdir", config_path=None, force=False, stdout=sys
         raise SystemExit(1)
 
     try:
-        config = load_config("prepdir")  # Use "prepdir" as the default namespace for this function
+        config = load_config(namespace)
         with config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(config.as_dict(), f)
         print(f"Created '{config_path}' with default configuration.", file=stdout)
