@@ -3,11 +3,14 @@ import os
 import yaml
 import pytest
 import logging
+import importlib
 from io import StringIO
 from unittest.mock import patch, Mock, MagicMock
 from pathlib import Path
 from dynaconf import Dynaconf
-from prepdir.config import load_config, check_namespace_value
+from prepdir.config import load_config, check_namespace_value, init_config
+from importlib.metadata import PackageNotFoundError
+
 
 # Set up logging for capturing output
 logger = logging.getLogger("prepdir.config")
@@ -49,6 +52,18 @@ def show_config_lines(config_file_path: str, name: str = "Test"):
     with open(config_file_path, "r") as f:
         config_lines = f.read()
     print(f"{name} config lines in '{config_file_path}':\n--\n{config_lines}\n--\n")
+
+def test_version_fallback(capture_log):
+    """Test version fallback when PackageNotFoundError occurs."""
+    with patch("prepdir.config.version", side_effect=PackageNotFoundError):
+        # Reload config module to reset __version__
+        importlib.reload(sys.modules["prepdir.config"])
+        from prepdir.config import __version__
+        assert __version__ == "0.0.0"
+    log_output = capture_log.getvalue()
+    assert "PackageNotFoundError" not in log_output  # No logging for version fallback
+    # Restore original module state
+    importlib.reload(sys.modules["prepdir.config"])
 
 def test_check_namespace_value():
     """Test namespace validation."""
@@ -154,6 +169,67 @@ def test_load_config_bundled_missing(capture_log, tmp_path, clean_cwd):
     assert config.get("SCRUB_HYPHENATED_UUIDS", None) is None
     log_output = capture_log.getvalue()
     assert "No bundled config found for prepdir, using defaults" in log_output
+    assert "Loading config with namespace='prepdir'" in log_output
+
+def test_load_config_bundled_permission_error(capture_log, tmp_path, clean_cwd):
+    """Test bundled config loading with PermissionError."""
+    mock_files = MagicMock()
+    mock_resource = MagicMock()
+    mock_resource.__str__.return_value = str(tmp_path / "src" / "prepdir" / "config.yaml")
+    mock_files.__truediv__.return_value = mock_resource
+    with patch("prepdir.config.files", return_value=mock_files):
+        with patch("prepdir.config.is_resource", return_value=True):
+            with patch("prepdir.config.tempfile.NamedTemporaryFile", side_effect=PermissionError("Permission denied")):
+                with patch.dict(os.environ, {"PREPDIR_SKIP_CONFIG_LOAD": "false"}):
+                    with pytest.raises(ValueError, match="Failed to load bundled config for prepdir: Permission denied"):
+                        load_config("prepdir", verbose=True)
+    log_output = capture_log.getvalue()
+    assert "Failed to load bundled config for prepdir: Permission denied" in log_output
+    assert "Loading config with namespace='prepdir'" in log_output
+
+def test_load_config_bundled_cleanup_failure(capture_log, tmp_path, clean_cwd):
+    """Test failure to clean up temporary bundled config file."""
+    bundled_path = tmp_path / "src" / "prepdir" / "config.yaml"
+    bundled_path.parent.mkdir(parents=True)
+    bundled_config_content = {
+        "EXCLUDE": {"DIRECTORIES": ["bundled_dir"], "FILES": ["*.py"]},
+        "SCRUB_HYPHENATED_UUIDS": False,
+        "REPLACEMENT_UUID": "11111111-1111-1111-1111-111111111111",
+        "VERBOSE": True,
+    }
+    bundled_path.write_text(yaml.safe_dump(bundled_config_content))
+
+    mock_files = MagicMock()
+    mock_resource = MagicMock()
+    mock_resource.__str__.return_value = str(bundled_path)
+    mock_file = Mock()
+    mock_file.read.return_value = bundled_path.read_text(encoding="utf-8")
+    mock_context = MagicMock()
+    mock_context.__enter__.return_value = mock_file
+    mock_context.__exit__.return_value = None
+    mock_resource.open.return_value = mock_context
+    mock_files.__truediv__.return_value = mock_resource
+
+    with patch("prepdir.config.files", return_value=mock_files):
+        with patch("prepdir.config.is_resource", return_value=True):
+            with patch("pathlib.Path.unlink", side_effect=PermissionError("Permission denied")):
+                with patch.dict(os.environ, {"PREPDIR_SKIP_CONFIG_LOAD": "false"}):
+                    config = load_config("prepdir", verbose=True)
+    assert config.get("REPLACEMENT_UUID") == "11111111-1111-1111-1111-111111111111"
+    log_output = capture_log.getvalue()
+    assert "Failed to remove temporary bundled config" in log_output
+    assert "Permission denied" in log_output
+
+def test_load_config_no_configs_with_skip(capture_log, tmp_path, monkeypatch, clean_cwd):
+    """Test no config files with PREPDIR_SKIP_CONFIG_LOAD=true."""
+    monkeypatch.setenv("PREPDIR_SKIP_CONFIG_LOAD", "true")
+    with patch("prepdir.config.is_resource", return_value=False):
+        config = load_config("prepdir", verbose=True)
+    assert config.get("REPLACEMENT_UUID", None) is None
+    assert config.get("SCRUB_HYPHENATED_UUIDS", None) is None
+    log_output = capture_log.getvalue()
+    assert "Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true" in log_output
+    assert "No bundled config found for prepdir, using defaults" not in log_output
     assert "Loading config with namespace='prepdir'" in log_output
 
 def test_load_config_bundled_failure(capture_log, tmp_path, clean_cwd):
@@ -453,3 +529,92 @@ def test_load_config_verbose_logging(sample_config_content, capture_log, tmp_pat
     assert f"Loading config with namespace='prepdir'" in log_output
     assert f"Using custom config path: {config_path}" in log_output
     assert config.get("REPLACEMENT_UUID") == sample_config_content["REPLACEMENT_UUID"]
+
+def test_init_config_existing_file_no_force(sample_config_content, capture_log, tmp_path, clean_cwd):
+    """Test init_config raises SystemExit when config file exists and force=False."""
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    config_path.parent.mkdir()
+    config_path.write_text(yaml.safe_dump(sample_config_content))
+    show_config_lines(config_path)
+
+    stderr_capture = StringIO()
+    with patch("sys.stderr", new=stderr_capture):
+        with pytest.raises(SystemExit) as exc_info:
+            init_config(namespace="prepdir", config_path=str(config_path), force=False, stderr=sys.stderr)
+        assert exc_info.value.code == 1
+    stderr_output = stderr_capture.getvalue()
+    assert f"Error: '{config_path}' already exists. Use force=True to overwrite." in stderr_output
+    log_output = capture_log.getvalue()
+    assert "Initializing config with namespace='prepdir'" in log_output
+
+def test_init_config_force_overwrite(sample_config_content, capture_log, tmp_path, clean_cwd):
+    """Test init_config with force=True overwrites existing config file."""
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    config_path.parent.mkdir()
+    config_path.write_text(yaml.safe_dump({"OLD_KEY": "old_value"}))
+    show_config_lines(config_path, "original_config")
+
+    bundled_path = tmp_path / "src" / "prepdir" / "config.yaml"
+    bundled_path.parent.mkdir(parents=True)
+    bundled_path.write_text(yaml.safe_dump(sample_config_content))
+
+    mock_files = MagicMock()
+    mock_resource = MagicMock()
+    mock_resource.__str__.return_value = str(bundled_path)
+    mock_file = Mock()
+    mock_file.read.return_value = bundled_path.read_text(encoding="utf-8")
+    mock_context = MagicMock()
+    mock_context.__enter__.return_value = mock_file
+    mock_context.__exit__.return_value = None
+    mock_resource.open.return_value = mock_context
+    mock_files.__truediv__.return_value = mock_resource
+
+    stdout_capture = StringIO()
+    with patch("prepdir.config.files", return_value=mock_files):
+        with patch("prepdir.config.is_resource", return_value=True):
+            with patch("sys.stdout", new=stdout_capture):
+                init_config(namespace="prepdir", config_path=str(config_path), force=True, stdout=sys.stdout)
+
+    with config_path.open("r") as f:
+        new_config = yaml.safe_load(f)
+    assert new_config == sample_config_content
+    stdout_output = stdout_capture.getvalue()
+    assert f"Created '{config_path}' with default configuration." in stdout_output
+    log_output = capture_log.getvalue()
+    assert "Initializing config with namespace='prepdir'" in log_output
+
+def test_init_config_permission_error(sample_config_content, capture_log, tmp_path, clean_cwd):
+    """Test init_config with permission error when writing config file."""
+    config_path = tmp_path / ".prepdir" / "config.yaml"
+    config_path.parent.mkdir()
+
+    bundled_path = tmp_path / "src" / "prepdir" / "config.yaml"
+    bundled_path.parent.mkdir(parents=True)
+    bundled_path.write_text(yaml.safe_dump(sample_config_content))
+
+    mock_files = MagicMock()
+    mock_resource = MagicMock()
+    mock_resource.__str__.return_value = str(bundled_path)
+    mock_file = Mock()
+    mock_file.read.return_value = bundled_path.read_text(encoding="utf-8")
+    mock_context = MagicMock()
+    mock_context.__enter__.return_value = mock_file
+    mock_context.__exit__.return_value = None
+    mock_resource.open.return_value = mock_context
+    mock_files.__truediv__.return_value = mock_resource
+
+    stderr_capture = StringIO()
+    with patch("prepdir.config.files", return_value=mock_files):
+        with patch("prepdir.config.is_resource", return_value=True):
+            with patch("pathlib.Path.open", side_effect=PermissionError("Permission denied")):
+                with patch("sys.stderr", new=stderr_capture):
+                    with pytest.raises(SystemExit) as exc_info:
+                        init_config(namespace="prepdir", config_path=str(config_path), force=True, stderr=sys.stderr)
+                    assert exc_info.value.code == 1
+    stderr_output = stderr_capture.getvalue()
+    assert f"Error: Failed to create '{config_path}': Permission denied" in stderr_output
+    log_output = capture_log.getvalue()
+    assert "Initializing config with namespace='prepdir'" in log_output
+
+if __name__ == "__main__":
+    pytest.main([__file__])
