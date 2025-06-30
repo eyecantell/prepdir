@@ -10,9 +10,9 @@ import tempfile
 from importlib.metadata import version, PackageNotFoundError
 
 if sys.version_info < (3, 9):
-    from importlib_resources import files
+    from importlib_resources import files, is_resource
 else:
-    from importlib.resources import files
+    from importlib.resources import files, is_resource
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +53,11 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
     Notes:
         - Priority: custom_config > local_config (./{namespace}/config.yaml) > home_config (~/{namespace}/config.yaml) > bundled_config.
         - In PREPDIR_SKIP_CONFIG_LOAD=true, only custom_config is used.
-        - Non-prepdir namespaces without configs return an empty Dynaconf object.
+        - If no bundled config exists for the namespace, returns an empty Dynaconf object.
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
-    logger.debug(f"Loading config with {namespace=}, {config_path=}, {verbose=}")
+    logger.debug(f"Loading config with namespace={namespace}, config_path={config_path}, verbose={verbose}")
 
     check_namespace_value(namespace)
     settings_files = []
@@ -92,12 +92,12 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
         else:
             logger.debug(f"No local config found at: {local_config}")
 
-        # Fallback to bundled config for prepdir or defaults for other namespaces
+        # Fallback to bundled config if it exists
         if not settings_files:
-            if namespace == "prepdir":
+            bundled_config = files(namespace) / "config.yaml"
+            if is_resource(namespace, "config.yaml"):
+                logger.debug(f"Attempting to load bundled config from: {bundled_config}")
                 try:
-                    bundled_config = files(namespace) / "config.yaml"
-                    logger.debug(f"Attempting to load bundled config from: {bundled_config}")
                     with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{namespace}_bundled_config.yaml") as f:
                         with bundled_config.open("r", encoding="utf-8") as src:
                             f.write(src.read().encode("utf-8"))
@@ -107,16 +107,16 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
                     logger.debug(f"Loaded bundled config into temporary file: {temp_bundled_path}")
                 except Exception as e:
                     logger.warning(f"Failed to load bundled config for {namespace}: {str(e)}")
-                    raise ValueError(f"Failed to load bundled config: {str(e)}")
+                    raise ValueError(f"Failed to load bundled config for {namespace}: {str(e)}")
             else:
-                logger.debug(f"No bundled config for {namespace}, using defaults")
+                logger.debug(f"No bundled config found for {namespace}, using defaults")
                 config = Dynaconf(settings_files=[], merge_enabled=True, lowercase_read=True)
                 return config
 
     if not settings_files and not os.getenv("PREPDIR_SKIP_CONFIG_LOAD"):
         raise ValueError(
-            f"No configuration files found and no bundled config available for {namespace}. "
-            f"Note PREPDIR_SKIP_CONFIG_LOAD={os.environ.get('PREPDIR_SKIP_CONFIG_LOAD')}"
+            f"No configuration files found and no bundled config available for {namespace}.\n"
+            f"PREPDIR_SKIP_CONFIG_LOAD={os.environ.get('PREPDIR_SKIP_CONFIG_LOAD')}"
         )
 
     logger.debug(f"Initializing Dynaconf with settings files: {settings_files}")
@@ -133,7 +133,8 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
         # Force loading to catch YAML errors early
         config._wrapped  # Access internal storage to trigger loading
         logger.debug(
-            f"Final config values for UUIDS: REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}, "
+            f"Final config values for UUIDS:\n"
+            f"REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}\n"
             f"SCRUB_HYPHENATED_UUIDS={config.get('SCRUB_HYPHENATED_UUIDS', 'Not set')}"
         )
     except Exception as e:
@@ -167,7 +168,7 @@ def init_config(namespace: str = "prepdir", config_path: Optional[str] = None, f
         ValueError: If namespace is invalid.
     """
     check_namespace_value(namespace)
-    logger.debug(f"Initializing config with {namespace=}, {config_path=}, {force=}")
+    logger.debug(f"Initializing config with namespace={namespace}, config_path={config_path}, force={force}")
 
     config_path = Path(config_path) if config_path else Path(f".{namespace}/config.yaml")
     config_dir = config_path.parent
@@ -178,7 +179,7 @@ def init_config(namespace: str = "prepdir", config_path: Optional[str] = None, f
         raise SystemExit(1)
 
     try:
-        config = load_config(namespace)
+        config = load_config(namespace, verbose=True)
         with config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(config.as_dict(), f)
         print(f"Created '{config_path}' with default configuration.", file=stdout)
