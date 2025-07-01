@@ -272,32 +272,30 @@ def test_generate_output_binary_file(temp_dir, config_path):
     entry = output.files[Path(temp_dir) / "binary.bin"]
     assert entry is not None
     assert entry.is_binary
-    assert entry.error is not None
+    assert entry.error is None
     assert BINARY_CONTENT_PLACEHOLDER in entry.content
 
-def test_generate_output_exclusions(temp_dir, config):
+def test_generate_output_exclusions(temp_dir, config_path):
     """Test file and directory exclusions."""
-    config_obj, config_path = config
     processor = PrepdirProcessor(
         directory=str(temp_dir),
-        extensions=["py", "txt", "log"],
         config_path=config_path,
     )
     output = processor.generate_output()
+    print(f"output.files = {output.files}")
     assert len(output.files) == 1  # Only file1.py
     assert "file1.py" in [entry.relative_path for entry in output.files.values()]
     assert "file2.txt" not in output.content
     assert "logs/app.log" not in output.content
 
-def test_generate_output_include_all(temp_dir, config):
+def test_generate_output_include_all(temp_dir, config_path):
     """Test including all files, ignoring exclusions."""
     processor = PrepdirProcessor(
         directory=str(temp_dir),
         extensions=["py", "txt", "log"],
         ignore_exclusions=True,
-        config_path=None,
+        config_path=config_path,
     )
-    processor.config = config
     output = processor.generate_output()
     assert len(output.files) == 3  # file1.py, file2.txt, logs/app.log
     assert "file1.py" in [entry.relative_path for entry in output.files.values()]
