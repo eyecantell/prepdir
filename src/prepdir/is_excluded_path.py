@@ -2,9 +2,15 @@ import os
 import re
 from typing import List
 
-# Convert glob patterns to regex patterns
 def glob_to_regex(pattern: str) -> str:
-    """Convert a glob pattern to a regex pattern with word boundaries for non-glob patterns."""
+    """Convert a glob pattern to a regex pattern with word boundaries for non-glob patterns.
+
+    Args:
+        pattern: Glob pattern to convert.
+
+    Returns:
+        str: Equivalent regex pattern.
+    """
     pattern = pattern.rstrip("/")
     # If pattern contains glob characters, convert to regex
     if any(c in pattern for c in "*?[]"):
@@ -12,8 +18,7 @@ def glob_to_regex(pattern: str) -> str:
         pattern = re.escape(pattern).replace(r"\*", r".*").replace(r"\?", r".")
         return f"^{pattern}$"
     # For non-glob patterns, use word boundaries or match as a path component
-    return f"\\b{re.escape(pattern)}\\b"
-
+    return f"^{re.escape(pattern)}$"
 
 def is_excluded_dir(dirname: str, root: str, base_directory: str, excluded_dir_patterns: List[str]) -> bool:
     """Check if directory or any of its parent directories should be excluded from traversal using glob patterns.
@@ -52,36 +57,36 @@ def is_excluded_dir(dirname: str, root: str, base_directory: str, excluded_dir_p
 
     return False
 
-
-def is_excluded_file(filename: str, root: str, base_directory: str, excluded_dir_patterns: List[str], , excluded_file_patterns: List[str]) -> bool:
-    """Check if file should be excluded from traversal using glob patterns, if it's the output file, or if it's prepdir-generated.
+def is_excluded_file(filename: str, root: str, base_directory: str, excluded_dir_patterns: List[str], excluded_file_patterns: List[str]) -> bool:
+    """Check if a file or its parent directories should be excluded from traversal using glob patterns.
 
     Args:
         filename: File name to check.
         root: Root path of the file.
+        base_directory: Base directory for relative path calculation.
+        excluded_dir_patterns: List of directory patterns to exclude (supports glob patterns).
+        excluded_file_patterns: List of file patterns to exclude (supports glob patterns).
 
     Returns:
-        bool: True if the file should be excluded.
+        bool: True if the file or any of its parent directories should be excluded.
     """
-
-
-    full_path = os.path.abspath(os.path.join(root, filename))
-
-    # Check if the file is in a dir that should be excluded
-    if is_excluded_dir(root, base_directory, excluded_dir_patterns):
+    # Check if the file is in an excluded directory
+    dir_name = os.path.basename(root)
+    if is_excluded_dir(dir_name, os.path.dirname(root), base_directory, excluded_dir_patterns):
         return True
 
+    # Get the full and relative paths of the file
+    full_path = os.path.abspath(os.path.join(root, filename))
     relative_path = os.path.relpath(full_path, base_directory)
     home_dir = os.path.expanduser("~")
+
+    # Check file patterns
     for pattern in excluded_file_patterns:
         # Normalize patterns containing ~
-        pattern = pattern.replace("~", home_dir)
-        if (
-            fnmatch.fnmatch(filename, pattern)
-            or fnmatch.fnmatch(relative_path, pattern)
-            or fnmatch.fnmatch(full_path, pattern)
-        ):
-            logger.debug(f"File {full_path} is excluded since it is matched {pattern}")
+        pattern = pattern.rstrip("/").replace("~", home_dir)
+        regex = glob_to_regex(pattern)
+        # Match filename exactly or as a path component in relative_path or full_path
+        if filename == pattern or re.search(regex, relative_path) or re.search(regex, full_path):
             return True
-        
+
     return False
