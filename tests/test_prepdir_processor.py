@@ -288,6 +288,20 @@ def test_generate_output_exclusions(temp_dir, config_path):
     assert "file2.txt" not in output.content
     assert "logs/app.log" not in output.content
 
+def test_generate_output_exclusions_with_extensions(temp_dir, config_path):
+    """Test file and directory exclusions."""
+    processor = PrepdirProcessor(
+        directory=str(temp_dir),
+        config_path=config_path,
+        extensions=["py", "txt", "log"],
+    )
+    output = processor.generate_output()
+    print(f"output.files = {output.files}")
+    assert len(output.files) == 1  # Only file1.py
+    assert "file1.py" in [entry.relative_path for entry in output.files.values()]
+    assert "file2.txt" not in output.content
+    assert "logs/app.log" not in output.content
+
 def test_generate_output_include_all(temp_dir, config_path):
     """Test including all files, ignoring exclusions."""
     processor = PrepdirProcessor(
@@ -302,32 +316,30 @@ def test_generate_output_include_all(temp_dir, config_path):
     assert "file2.txt" in [entry.relative_path for entry in output.files.values()]
     assert "logs/app.log" in [entry.relative_path for entry in output.files.values()]
 
-def test_generate_output_no_scrubbing(temp_dir, config):
+def test_generate_output_no_scrubbing(temp_dir, config_path):
     """Test output without UUID scrubbing."""
     processor = PrepdirProcessor(
         directory=str(temp_dir),
         extensions=["py"],
         scrub_hyphenated_uuids=False,
         scrub_hyphenless_uuids=False,
-        config_path=None,
+        config_path=config_path,
     )
-    processor.config = config
     output = processor.generate_output()
     assert "123e4567-e89b-12d3-a456-426614174000" in output.content
     assert not any(entry.is_scrubbed for entry in output.files.values())
     assert output.uuid_mapping == {}
 
-def test_generate_output_non_unique_placeholders(temp_dir, config, caplog):
+def test_generate_output_non_unique_placeholders(temp_dir, config_path, caplog):
     """Test generate_output with non-unique placeholders."""
     processor = PrepdirProcessor(
         directory=str(temp_dir),
         extensions=["py"],
         scrub_hyphenated_uuids=True,
         use_unique_placeholders=False,
-        config_path=None,
+        config_path=config_path,
         verbose=True,
     )
-    processor.config = config
     with caplog.at_level(logging.INFO):
         output = processor.generate_output()
     assert f"replaced with '{processor.replacement_uuid}'" in output.content
