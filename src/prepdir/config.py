@@ -72,8 +72,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
             settings_files.append(str(config_path))
             logger.debug(f"Using custom config path: {config_path}")
 
-    # Skip default config search in test environment
-    elif os.getenv("PREPDIR_SKIP_CONFIG_LOAD") == "true":
+    elif os.getenv("PREPDIR_SKIP_CONFIG_LOAD") == "true":     # Skip default config search in test environment
         logger.warning("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true")
     else:
         # Check home config first, then local config. The order of the settings files matters (later override earlier)
@@ -135,7 +134,6 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
         logger.debug(
             f"Final config values for UUIDS:\n"
             f"REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}\n"
-            f"SCRUB_HYPHENATED_UUIDS={config.get('SCRUB_HYPHENATED_UUIDS', 'Not set')}"
         )
     except Exception as e:
         logger.error(f"Invalid YAML in config file(s): {str(e)}")
@@ -165,7 +163,7 @@ def init_config(namespace: str = "prepdir", config_path: Optional[str] = None, f
 
     Raises:
         SystemExit: If the config file exists and force=False, or if creation fails.
-        ValueError: If namespace is invalid.
+        ValueError: If namespace is invalid or bundled config is missing.
     """
     check_namespace_value(namespace)
     logger.debug(f"Initializing config with {namespace=}, {config_path=}, {force=}")
@@ -178,11 +176,19 @@ def init_config(namespace: str = "prepdir", config_path: Optional[str] = None, f
         print(f"Error: '{config_path}' already exists. Use force=True to overwrite.", file=stderr)
         raise SystemExit(1)
 
+    bundled_config = files(namespace) / "config.yaml"
+    if not is_resource(namespace, "config.yaml"):
+        logger.error(f"No bundled config found for {namespace}, cannot initialize")
+        print(f"Error: No bundled config found for {namespace}", file=stderr)
+        raise SystemExit(1)
+
     try:
-        config = load_config(namespace, verbose=True)
-        with config_path.open("w", encoding="utf-8") as f:
-            yaml.safe_dump(config.as_dict(), f)
+        with bundled_config.open("r", encoding="utf-8") as src:
+            config_content = src.read()
+        with config_path.open("w", encoding="utf-8") as dest:
+            dest.write(config_content)
         print(f"Created '{config_path}' with default configuration.", file=stdout)
     except Exception as e:
+        logger.error(f"Failed to create {config_path}: {str(e)}")
         print(f"Error: Failed to create '{config_path}': {str(e)}", file=stderr)
         raise SystemExit(1)
