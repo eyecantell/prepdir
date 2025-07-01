@@ -16,7 +16,6 @@ from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
 
 logger = logging.getLogger(__name__)
 
-
 class PrepdirProcessor:
     """Manages generation and parsing of prepdir output files.
 
@@ -97,7 +96,15 @@ class PrepdirProcessor:
         return load_config("prepdir", config_path)
 
     def is_excluded_dir(self, dirname: str, root: str) -> bool:
-        """Check if directory should be excluded from traversal using glob patterns."""
+        """Check if directory should be excluded from traversal using glob patterns.
+
+        Args:
+            dirname: Directory name to check.
+            root: Root path of the directory.
+
+        Returns:
+            bool: True if the directory should be excluded.
+        """
         relative_path = os.path.relpath(os.path.join(root, dirname), self.directory)
         excluded_dirs = [] if self.ignore_exclusions else self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
         for pattern in excluded_dirs:
@@ -107,7 +114,15 @@ class PrepdirProcessor:
         return False
 
     def is_excluded_file(self, filename: str, root: str) -> bool:
-        """Check if file should be excluded from traversal using glob patterns, if it's the output file, or if it's prepdir-generated."""
+        """Check if file should be excluded from traversal using glob patterns, if it's the output file, or if it's prepdir-generated.
+
+        Args:
+            filename: File name to check.
+            root: Root path of the file.
+
+        Returns:
+            bool: True if the file should be excluded.
+        """
         full_path = os.path.abspath(os.path.join(root, filename))
         if self.output_file and full_path == os.path.abspath(self.output_file):
             return True
@@ -171,13 +186,10 @@ class PrepdirProcessor:
                         f"Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid.replace('-', '')}'."
                     )
 
-            excluded_dirs = [] if self.ignore_exclusions else self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
-            excluded_files = [] if self.ignore_exclusions else self.config.get("EXCLUDE", {}).get("FILES", [])
-
             file_iterator = (
                 self._traverse_specific_files()
                 if self.specific_files
-                else self._traverse_directory(excluded_dirs, excluded_files)
+                else self._traverse_directory()
             )
 
             for file_path in file_iterator:
@@ -203,8 +215,11 @@ class PrepdirProcessor:
                     print(f"No files with extension(s) {', '.join(self.extensions)} found.")
                 else:
                     print("No files found.")
+                
+                raise ValueError("No files found!")
 
         content = output.getvalue()
+
         return PrepdirOutputFile.from_content(
             content=content,
             path_obj=Path(self.output_file) if self.output_file else None,
@@ -236,8 +251,12 @@ class PrepdirProcessor:
                     continue
             yield path
 
-    def _traverse_directory(self, excluded_dirs: List[str], excluded_files: List[str]) -> Iterator[Path]:
-        """Traverse directory, yielding files that match extensions and are not excluded."""
+    def _traverse_directory(self) -> Iterator[Path]:
+        """Traverse directory, yielding files that match extensions and are not excluded.
+
+        Yields:
+            Path: Paths to files that pass the extension and exclusion filters.
+        """
         for root, dirnames, filenames in sorted(os.walk(self.directory)):
             if not self.ignore_exclusions:
                 dirnames[:] = [d for d in dirnames if not self.is_excluded_dir(d, root)]
