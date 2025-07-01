@@ -6,13 +6,13 @@ def glob_to_regex(pattern: str) -> str:
     """Convert a glob pattern to a regex pattern for exact or path-based matching.
 
     Args:
-        pattern: Glob pattern to convert.
+        pattern: Glob pattern to convert (e.g., '*.pyc', 'my*.txt', 'src/**/test_*').
 
     Returns:
         str: Equivalent regex pattern.
     """
     pattern = pattern.rstrip("/")
-    # Handle recursive glob patterns like **/*.log
+    # Handle recursive glob patterns like **/*.log or src/**/test_*
     if pattern.startswith("**/"):
         # Remove "**/" and convert to regex
         pattern = pattern[3:]
