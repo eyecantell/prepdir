@@ -1,6 +1,6 @@
 import os
 import pytest
-from prepdir.is_excluded_path import is_excluded_dir, is_excluded_file
+from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
 
 @pytest.fixture
 def excluded_dir_patterns():

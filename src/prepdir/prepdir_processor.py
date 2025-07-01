@@ -13,7 +13,7 @@ from prepdir.config import load_config, __version__, init_config
 from prepdir.prepdir_file_entry import PrepdirFileEntry
 from prepdir.prepdir_output_file import PrepdirOutputFile
 from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
-from prepdir.is_excluded_path import is_excluded_dir, is_excluded_file
+from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
 
 logger = logging.getLogger(__name__)
 
