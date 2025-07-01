@@ -108,7 +108,7 @@ class PrepdirFileEntry(BaseModel):
                 except UnicodeDecodeError:
                     logger.debug("got UnicodeDecodeError with utf-8, presuming binary")
                     is_binary = True
-                    content = "[Binary file or encoding not supported]"
+                    content = BINARY_CONTENT_PLACEHOLDER
         except Exception as e:
             error = str(e)
             content = f"[Error reading file: {error}]"
