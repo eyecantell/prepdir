@@ -4,7 +4,8 @@ from pathlib import Path
 import logging
 from unittest.mock import patch, Mock
 from pydantic import ValidationError
-from prepdir.prepdir_file_entry import PrepdirFileEntry
+from prepdir.prepdir_file_entry import PrepdirFileEntry, BINARY_CONTENT_PLACEHOLDER
+
 
 # Configure logging for testing
 logging.basicConfig(level=logging.DEBUG)
@@ -58,7 +59,7 @@ def test_from_file_path_binary():
             file_path=file_path, base_directory=str(base_dir), scrub_hyphenated_uuids=True, scrub_hyphenless_uuids=False
         )
         assert entry.is_binary
-        assert entry.content == "[Binary file or encoding not supported]"
+        assert entry.content == BINARY_CONTENT_PLACEHOLDER
         assert not entry.is_scrubbed
         assert uuid_mapping == {}
         assert counter == 1

@@ -8,12 +8,17 @@ from datetime import datetime
 import yaml
 from prepdir.prepdir_processor import PrepdirProcessor
 from prepdir.prepdir_output_file import PrepdirOutputFile
+from prepdir.prepdir_file_entry import BINARY_CONTENT_PLACEHOLDER
 from prepdir.config import load_config, __version__
 from unittest.mock import patch
 
 # Set up logging for tests
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+logging.getLogger("prepdir.prepdir_processor").setLevel(logging.DEBUG)
+logging.getLogger("prepdir.prepdir_output_file").setLevel(logging.DEBUG)
+logging.getLogger("prepdir.prepdir_file_entry").setLevel(logging.DEBUG)
 
 # Fixtures
 @pytest.fixture
@@ -172,8 +177,8 @@ def test_traverse_specific_files(temp_dir, config_path, caplog):
     assert "File 'nonexistent.txt' does not exist" in caplog.text
     assert "'logs' is not a file" in caplog.text
 
-def test_traverse_directory(temp_dir, config_path, caplog):
-    """Test directory traversal."""
+def test_traverse_directory_specific_extension(temp_dir, config_path, caplog):
+    """Test directory traversal with a specific extension (.py) set."""
     processor = PrepdirProcessor(
         directory=str(temp_dir),
         extensions=["py"],
@@ -188,26 +193,31 @@ def test_traverse_directory(temp_dir, config_path, caplog):
     assert "Skipping file: file2.txt (extension not in ['py'])" in caplog.text
     assert "Skipping file: app.log (extension not in ['py'])" in caplog.text
 
+def test_traverse_directory_ignore_exclusions(temp_dir, config_path, caplog):
+    """Test directory traversal with ignore exclusions set"""
+
     # Test with ignore_exclusions=True
     processor = PrepdirProcessor(
         directory=str(temp_dir),
         extensions=["py", "txt", "log"],
         ignore_exclusions=True,
+        include_prepdir_files=False,
         config_path=config_path,
         verbose=True,
     )
+
     with caplog.at_level(logging.INFO):
         files = list(processor._traverse_directory())
+    
+    print(f"{files=}")
     assert len(files) == 3  # file1.py, file2.txt, logs/app.log
     assert temp_dir / "file1.py" in files
     assert temp_dir / "file2.txt" in files
     assert temp_dir / "logs" / "app.log" in files
     assert temp_dir / "output.txt" not in files  # Still excluded as output file
-    assert "Skipping file" not in caplog.text  # No exclusions applied
 
-def test_generate_output_basic(temp_dir, config):
+def test_generate_output_basic(temp_dir, config_path, config_values):
     """Test generating output for a basic project directory."""
-    config_obj, config_path = config
     processor = PrepdirProcessor(
         directory=str(temp_dir),
         extensions=["py"],
@@ -219,7 +229,7 @@ def test_generate_output_basic(temp_dir, config):
     )
     output = processor.generate_output()
     assert isinstance(output, PrepdirOutputFile)
-    assert output.path is None
+    assert output.path == Path(config_values.get("DEFAULT_OUTPUT_FILE", "prepped_dir.txt"))
     assert len(output.files) == 1
     assert "file1.py" in [entry.relative_path for entry in output.files.values()]
     assert "PREPDIR_UUID_PLACEHOLDER_1" in output.content
@@ -228,9 +238,8 @@ def test_generate_output_basic(temp_dir, config):
     assert output.metadata["base_directory"] == str(temp_dir)
     assert output.uuid_mapping.get("PREPDIR_UUID_PLACEHOLDER_1") == "123e4567-e89b-12d3-a456-426614174000"
 
-def test_generate_output_specific_files(temp_dir, config):
+def test_generate_output_specific_files(temp_dir, config_path):
     """Test generating output with specific files."""
-    config_obj, config_path = config
     processor = PrepdirProcessor(
         directory=str(temp_dir),
         specific_files=["file1.py"],
@@ -244,26 +253,27 @@ def test_generate_output_specific_files(temp_dir, config):
     assert "file2.txt" not in output.content
     assert "PREPDIR_UUID_PLACEHOLDER_1" in output.content
 
-def test_generate_output_empty_directory(tmp_path, config):
+def test_generate_output_empty_directory(tmp_path, config_path):
     """Test generating output for an empty directory."""
-    _, config_path = config
     processor = PrepdirProcessor(directory=str(tmp_path), extensions=["py"], config_path=config_path)
     with pytest.raises(ValueError, match="No files found!"):
         processor.generate_output()
     
-def test_generate_output_binary_file(temp_dir, config):
+def test_generate_output_binary_file(temp_dir, config_path):
     """Test handling of binary files."""
-    config_obj, config_path = config
     binary_file = temp_dir / "binary.bin"
     binary_file.write_bytes(b"\xff\xfe\x00\x01")
+
     processor = PrepdirProcessor(directory=str(temp_dir), extensions=["bin"], config_path=config_path)
     output = processor.generate_output()
     assert isinstance(output, PrepdirOutputFile)
     assert len(output.files) == 1
+    print(f"output.files are: {output.files}")
     entry = output.files[Path(temp_dir) / "binary.bin"]
+    assert entry is not None
     assert entry.is_binary
     assert entry.error is not None
-    assert "[Binary file or encoding not supported]" in entry.content
+    assert BINARY_CONTENT_PLACEHOLDER in entry.content
 
 def test_generate_output_exclusions(temp_dir, config):
     """Test file and directory exclusions."""

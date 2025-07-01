@@ -2,7 +2,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Dict, Optional, List
-from prepdir.prepdir_file_entry import PrepdirFileEntry
+from prepdir.prepdir_file_entry import PrepdirFileEntry, BINARY_CONTENT_PLACEHOLDER
 from prepdir.config import __version__
 import logging
 import re
@@ -104,7 +104,7 @@ class PrepdirOutputFile(BaseModel):
                             relative_path=current_file,
                             absolute_path=abs_path,
                             content="\n".join(current_content) + "\n",
-                            is_binary=False,  # Explicitly set to satisfy validation
+                            is_binary=BINARY_CONTENT_PLACEHOLDER in current_content,
                             is_scrubbed=False,
                         )
                         entries[abs_path] = entry

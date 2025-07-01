@@ -7,6 +7,8 @@ from .scrub_uuids import scrub_uuids, restore_uuids
 logger = logging.getLogger(__name__)
 
 
+BINARY_CONTENT_PLACEHOLDER = "[Binary file or encoding not currently supported by prepdir]"
+
 class PrepdirFileEntry(BaseModel):
     """Represents a single project file's metadata, content, and UUID mappings for prepdir processing."""
 
@@ -75,6 +77,8 @@ class PrepdirFileEntry(BaseModel):
 
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
+        
+        logger.debug(f"instantiating from {file_path}")
 
         relative_path = os.path.relpath(file_path, base_directory)
         content = ""
@@ -88,6 +92,7 @@ class PrepdirFileEntry(BaseModel):
                 raw_content = f.read()
                 try:
                     content = raw_content.decode("utf-8")
+                    logger.debug("decoded with utf-8")
                     if scrub_hyphenated_uuids or scrub_hyphenless_uuids:
                         content, is_scrubbed, updated_uuid_mapping, updated_counter = scrub_uuids(
                             content=content,
@@ -101,6 +106,7 @@ class PrepdirFileEntry(BaseModel):
                         )
                         uuid_mapping.update(updated_uuid_mapping)
                 except UnicodeDecodeError:
+                    logger.debug("got UnicodeDecodeError with utf-8, presuming binary")
                     is_binary = True
                     content = "[Binary file or encoding not supported]"
         except Exception as e:

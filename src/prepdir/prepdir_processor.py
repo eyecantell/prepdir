@@ -112,6 +112,28 @@ class PrepdirProcessor:
             if fnmatch.fnmatch(dirname, pattern) or fnmatch.fnmatch(relative_path, pattern):
                 return True
         return False
+    
+    def is_excluded_output_file(self, filename: str, root: str) -> bool:
+        '''Check if this file is of prepdir out file format and should be excluded'''
+        
+        full_path = os.path.abspath(os.path.join(root, filename))
+
+        if self.include_prepdir_files:
+            #logger.debug(f"include_prepdir_files is True {self.include_prepdir_files} - no output files will be excluded")
+            return False
+    
+        try: 
+            #logger.debug(f"Checking {full_path} to see if it is an output file")
+            with open(full_path, "r", encoding="utf-8") as f:
+                if PrepdirFileEntry.is_prepdir_outputfile_format(f.read()):
+                    logger.debug(f"Found {full_path} is an output file")
+                    return True
+        except (IOError, UnicodeDecodeError):
+            logger.debug(f"Could not read {full_path} - assuming it is NOT an output file")
+            return False  # Ignore errors and assume not prepdir-generated if unreadable
+        
+        #logger.debug(f"Found {full_path} is NOT an output file")
+        return False
 
     def is_excluded_file(self, filename: str, root: str) -> bool:
         """Check if file should be excluded from traversal using glob patterns, if it's the output file, or if it's prepdir-generated.
@@ -125,15 +147,12 @@ class PrepdirProcessor:
         """
         full_path = os.path.abspath(os.path.join(root, filename))
         if self.output_file and full_path == os.path.abspath(self.output_file):
+            logger.debug(f"File {full_path} is excluded since it is the output file for this run")
             return True
 
-        if not self.include_prepdir_files:
-            try:
-                with open(full_path, "r", encoding="utf-8") as f:
-                    if PrepdirFileEntry.is_prepdir_outputfile_format(f.read()):
-                        return True
-            except (IOError, UnicodeDecodeError):
-                pass  # Ignore errors and assume not prepdir-generated if unreadable
+        if self.is_excluded_output_file(filename, root):
+            logger.debug(f"File {full_path} is excluded since it is an output file")
+            return True
 
         relative_path = os.path.relpath(full_path, self.directory)
         home_dir = os.path.expanduser("~")
@@ -146,6 +165,7 @@ class PrepdirProcessor:
                 or fnmatch.fnmatch(relative_path, pattern)
                 or fnmatch.fnmatch(full_path, pattern)
             ):
+                logger.debug(f"File {full_path} is excluded since it is matched {pattern}")
                 return True
         return False
 
@@ -194,7 +214,8 @@ class PrepdirProcessor:
 
             for file_path in file_iterator:
                 files_found = True
-                prepdir_file, updated_uuid_mapping, placeholder_counter = PrepdirFileEntry.from_file_path(
+                logger.debug(f"adding file {file_path}")
+                file_entry, updated_uuid_mapping, placeholder_counter = PrepdirFileEntry.from_file_path(
                     file_path=file_path,
                     base_directory=self.directory,
                     scrub_hyphenated_uuids=self.scrub_hyphenated_uuids,
@@ -205,7 +226,7 @@ class PrepdirProcessor:
                     placeholder_counter=placeholder_counter,
                     uuid_mapping=uuid_mapping,
                 )
-                print(prepdir_file.to_output())
+                print(file_entry.to_output())
                 uuid_mapping.update(updated_uuid_mapping)
 
             if not files_found:
@@ -249,6 +270,10 @@ class PrepdirProcessor:
                 if self.is_excluded_file(path.name, str(path.parent)):
                     self.logger.info(f"Skipping file '{file_path}' (excluded in config)")
                     continue
+            
+            if self.is_excluded_output_file(path.name, str(path.parent)):
+                self.logger.info(f"Skipping file: {file_path} (excluded prepdir output file)")
+                continue
             yield path
 
     def _traverse_directory(self) -> Iterator[Path]:
@@ -257,6 +282,7 @@ class PrepdirProcessor:
         Yields:
             Path: Paths to files that pass the extension and exclusion filters.
         """
+        logger.debug(f"traversing {self.directory}")
         for root, dirnames, filenames in sorted(os.walk(self.directory)):
             if not self.ignore_exclusions:
                 dirnames[:] = [d for d in dirnames if not self.is_excluded_dir(d, root)]
@@ -264,6 +290,9 @@ class PrepdirProcessor:
             for filename in sorted(filenames):
                 if self.extensions and not any(filename.endswith(f".{ext}") for ext in self.extensions):
                     self.logger.info(f"Skipping file: {filename} (extension not in {self.extensions})")
+                    continue
+                if self.is_excluded_output_file(filename, root):
+                    self.logger.info(f"Skipping file: {filename} (excluded output file)")
                     continue
                 if not self.ignore_exclusions and self.is_excluded_file(filename, root):
                     self.logger.info(f"Skipping file: {filename} (excluded in config)")
