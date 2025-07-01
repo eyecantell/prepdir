@@ -12,12 +12,19 @@ def glob_to_regex(pattern: str) -> str:
         str: Equivalent regex pattern.
     """
     pattern = pattern.rstrip("/")
-    # Handle recursive glob patterns like **/*.log or src/**/test_*
-    if pattern.startswith("**/"):
-        # Remove "**/" and convert to regex
-        pattern = pattern[3:]
-        pattern = re.escape(pattern).replace(r"\*", r".*").replace(r"\?", r".")
-        return f".*{pattern}$"
+    # Handle patterns containing **/ (e.g., src/**/test_* or a/**/b.txt)
+    if "/**/" in pattern:
+        # Split pattern at **/ and handle each part
+        parts = pattern.split("/**/")
+        # Escape and convert glob characters for each part
+        regex_parts = []
+        for i, part in enumerate(parts):
+            part = re.escape(part).replace(r"\*", r".*").replace(r"\?", r".")
+            regex_parts.append(part)
+        # Join with optional directories (.*)? for **/
+        regex = r"(/.*)?".join(regex_parts)
+        # Anchor to match full path component or anywhere in path
+        return f"^{regex}$"
     # If pattern contains glob characters, convert to regex
     if any(c in pattern for c in "*?[]"):
         # Escape special regex characters, replace glob * and ? with regex equivalents
