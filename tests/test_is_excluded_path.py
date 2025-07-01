@@ -110,6 +110,11 @@ def test_case_sensitivity(excluded_dir_patterns, base_directory):
     """Test case sensitivity in pattern matching."""
     assert not is_excluded_dir('LOGS', '/base/path', base_directory, excluded_dir_patterns), "Directory 'LOGS' should not match 'logs' (case-sensitive)"
 
+def test_path_component_match(excluded_dir_patterns, base_directory):
+    """Test that non-glob patterns match as path components."""
+    assert is_excluded_dir('a', '/base/path/my/logs', base_directory, ['logs']), "Directory 'my/logs/a' should be excluded due to 'logs' in path"
+    assert is_excluded_file('test.txt', '/base/path/my/.git', base_directory, ['.git'], []), "File 'my/.git/test.txt' should be excluded due to '.git' in path"
+
 #
 # Begin is_excluded_file testing
 #
@@ -123,6 +128,7 @@ def test_glob_pattern_match_file(excluded_dir_patterns, excluded_file_patterns, 
     """Test glob pattern matching for files like '*.pyc'."""
     assert is_excluded_file('module.pyc', '/base/path', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'module.pyc' should match '*.pyc'"
     assert is_excluded_file('test.log', '/base/path/my', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'my/test.log' should match '*.log'"
+    assert is_excluded_file('deep/nested/test.log', '/base/path', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'deep/nested/test.log' should match '**/*.log'"
 
 def test_file_in_excluded_directory(excluded_dir_patterns, excluded_file_patterns, base_directory):
     """Test file exclusion when in an excluded directory."""
@@ -130,9 +136,11 @@ def test_file_in_excluded_directory(excluded_dir_patterns, excluded_file_pattern
     assert is_excluded_file('script.py', '/base/path/my.egg-info', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'my.egg-info/script.py' should be excluded due to '*.egg-info'"
 
 def test_no_substring_match_file(excluded_dir_patterns, excluded_file_patterns, base_directory):
-    """Test that file patterns like '*.log' don't match substrings like 'mylogsarefun.txt'."""
+    """Test that file patterns like '*.log' or 'LICENSE' don't match substrings like 'mylogsarefun.txt' or 'LICENSE.txt'."""
     assert not is_excluded_file('mylogsarefun.txt', '/base/path/my', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'my/mylogsarefun.txt' should not match '*.log'"
     assert not is_excluded_file('notgitignore.txt', '/base/path', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'notgitignore.txt' should not match '.gitignore'"
+    for filename in ["LICENSE.txt", "MYLICENSE", "LICENSE1"]:
+        assert not is_excluded_file(filename, '/base/path', base_directory, excluded_dir_patterns, excluded_file_patterns), f"File '{filename}' should not match 'LICENSE'"
 
 def test_home_directory_pattern(excluded_dir_patterns, excluded_file_patterns, base_directory):
     """Test patterns with '~' like '~/.prepdir/config.yaml'."""
@@ -149,7 +157,7 @@ def test_empty_excluded_file_patterns(excluded_dir_patterns, base_directory):
 def test_case_sensitivity_file(excluded_dir_patterns, excluded_file_patterns, base_directory):
     """Test case sensitivity in file pattern matching."""
     for filename in ["license.txt", "License.txt", "license", "LiCEnSe"]:
-        assert not is_excluded_file(filename, '/base/path', base_directory, excluded_dir_patterns, excluded_file_patterns), f"File {filename} should not match 'LICENSE' (case-sensitive)"
+        assert not is_excluded_file(filename, '/base/path', base_directory, excluded_dir_patterns, excluded_file_patterns), f"File '{filename}' should not match 'LICENSE' (case-sensitive)"
 
 def test_contains_excluded_file_pattern(excluded_dir_patterns, base_directory):
     """Test that files are not excluded that contain a file pattern but do not match a file pattern."""

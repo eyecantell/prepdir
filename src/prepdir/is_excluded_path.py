@@ -3,7 +3,7 @@ import re
 from typing import List
 
 def glob_to_regex(pattern: str) -> str:
-    """Convert a glob pattern to a regex pattern with word boundaries for non-glob patterns.
+    """Convert a glob pattern to a regex pattern for exact or path-based matching.
 
     Args:
         pattern: Glob pattern to convert.
@@ -12,12 +12,18 @@ def glob_to_regex(pattern: str) -> str:
         str: Equivalent regex pattern.
     """
     pattern = pattern.rstrip("/")
+    # Handle recursive glob patterns like **/*.log
+    if pattern.startswith("**/"):
+        # Remove "**/" and convert to regex
+        pattern = pattern[3:]
+        pattern = re.escape(pattern).replace(r"\*", r".*").replace(r"\?", r".")
+        return f".*{pattern}$"
     # If pattern contains glob characters, convert to regex
     if any(c in pattern for c in "*?[]"):
         # Escape special regex characters, replace glob * and ? with regex equivalents
         pattern = re.escape(pattern).replace(r"\*", r".*").replace(r"\?", r".")
         return f"^{pattern}$"
-    # For non-glob patterns, use word boundaries or match as a path component
+    # For non-glob patterns, require exact match
     return f"^{re.escape(pattern)}$"
 
 def is_excluded_dir(dirname: str, root: str, base_directory: str, excluded_dir_patterns: List[str]) -> bool:
