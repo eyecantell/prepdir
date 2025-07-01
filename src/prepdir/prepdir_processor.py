@@ -13,7 +13,7 @@ from prepdir.config import load_config, __version__, init_config
 from prepdir.prepdir_file_entry import PrepdirFileEntry
 from prepdir.prepdir_output_file import PrepdirOutputFile
 from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
-from prepdir.is_excluded_path import is_excluded_dir
+from prepdir.is_excluded_path import is_excluded_dir, is_excluded_file
 
 logger = logging.getLogger(__name__)
 
@@ -95,24 +95,6 @@ class PrepdirProcessor:
     def _load_config(self, config_path: Optional[str]) -> Dynaconf:
         """Load configuration with precedence handling."""
         return load_config("prepdir", config_path)
-
-    def is_excluded_dir(self, dirname: str, root: str) -> bool:
-        """Check if directory or any of its parent directories should be excluded from traversal using glob patterns.
-
-        Args:
-            dirname: Directory name to check.
-            root: Root path of the directory.
-
-        Returns:
-            bool: True if the directory or any parent directory should be excluded.
-        """
-        if self.ignore_exclusions:
-            return False
-
-        excluded_dirs = self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
-
-        return is_excluded_dir(dirname, root, self.directory, excluded_dirs)
-        
     
     def is_excluded_output_file(self, filename: str, root: str) -> bool:
         '''Check if this file is of prepdir out file format and should be excluded'''
@@ -141,6 +123,24 @@ class PrepdirProcessor:
         #logger.debug(f"Found {full_path} is NOT an output file")
         return False
 
+    def is_excluded_dir(self, dirname: str, root: str) -> bool:
+        """Check if directory or any of its parent directories should be excluded from traversal using glob patterns.
+
+        Args:
+            dirname: Directory name to check.
+            root: Root path of the directory.
+
+        Returns:
+            bool: True if the directory or any parent directory should be excluded.
+        """
+        if self.ignore_exclusions:
+            return False
+
+        excluded_dir_patterns = self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
+
+        return is_excluded_dir(dirname, root, self.directory, excluded_dir_patterns)
+        
+
     def is_excluded_file(self, filename: str, root: str) -> bool:
         """Check if file should be excluded from traversal using glob patterns, if it's the output file, or if it's prepdir-generated.
 
@@ -154,26 +154,12 @@ class PrepdirProcessor:
 
         if self.ignore_exclusions:
             return False
-        
-        full_path = os.path.abspath(os.path.join(root, filename))
 
-        # PRW should we add a check here for excluded directories (in path of each file?)
+        excluded_dir_patterns = self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
+        excluded_file_patterns = self.config.get("EXCLUDE", {}).get("FILES", [])
 
-        relative_path = os.path.relpath(full_path, self.directory)
-        home_dir = os.path.expanduser("~")
-        excluded_files = self.config.get("EXCLUDE", {}).get("FILES", [])
-        for pattern in excluded_files:
-            # Normalize patterns containing ~
-            pattern = pattern.replace("~", home_dir)
-            if (
-                fnmatch.fnmatch(filename, pattern)
-                or fnmatch.fnmatch(relative_path, pattern)
-                or fnmatch.fnmatch(full_path, pattern)
-            ):
-                logger.debug(f"File {full_path} is excluded since it is matched {pattern}")
-                return True
-            
-        return False
+        return is_excluded_file(filename, root, self.directory, excluded_dir_patterns, excluded_file_patterns)
+
 
     def generate_output(self) -> PrepdirOutputFile:
         """Generate a prepdir output file as a PrepdirOutputFile object."""

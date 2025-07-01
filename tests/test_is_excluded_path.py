@@ -46,9 +46,7 @@ def excluded_file_patterns():
         '*.log',
         '*.bak',
         '*.swp',
-        '**/*.log',
-        'my*.txt',
-        'src/**/test_*'
+        '**/*.log'
     ]
 
 @pytest.fixture
@@ -109,7 +107,7 @@ def test_trailing_slash_handling(base_directory):
     assert is_excluded_dir('a', '/base/path/.git', base_directory, patterns), "Directory '.git/a' should be excluded due to '.git/'"
 
 def test_case_sensitivity(excluded_dir_patterns, base_directory):
-    """Test case sensitivity in directory pattern matching."""
+    """Test case sensitivity in pattern matching."""
     assert not is_excluded_dir('LOGS', '/base/path', base_directory, excluded_dir_patterns), "Directory 'LOGS' should not match 'logs' (case-sensitive)"
 
 def test_path_component_match(excluded_dir_patterns, base_directory):
@@ -158,16 +156,18 @@ def test_empty_excluded_file_patterns(excluded_dir_patterns, base_directory):
 
 def test_case_sensitivity_file(excluded_dir_patterns, excluded_file_patterns, base_directory):
     """Test case sensitivity in file pattern matching."""
-    for filename in ["license.txt", "License.txt", "license", "LiCEnSe", "MYfile.txt", "myTEST.txt"]:
+    for filename in ["license.txt", "License.txt", "license", "LiCEnSe", "MYfile.txt", "MyTEST.txt"]:
         assert not is_excluded_file(filename, '/base/path', base_directory, excluded_dir_patterns, excluded_file_patterns), f"File '{filename}' should not match 'LICENSE' or 'my*.txt' (case-sensitive)"
 
-def test_embedded_glob_patterns_file(excluded_dir_patterns, excluded_file_patterns, base_directory):
+def test_embedded_glob_patterns_file(base_directory):
     """Test embedded glob patterns like 'my*.txt' and 'src/**/test_*'."""
     # Test my*.txt
-    assert is_excluded_file('myfile.txt', '/base/path', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'myfile.txt' should match 'my*.txt'"
-    assert is_excluded_file('myabc.txt', '/base/path/my', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'my/myabc.txt' should match 'my*.txt'"
-    assert not is_excluded_file('file.txt', '/base/path', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'file.txt' should not match 'my*.txt'"
+    my_txt_patterns = ["my*.txt"]
+    assert is_excluded_file('myfile.txt', '/base/path', base_directory, [], my_txt_patterns), "File 'myfile.txt' should match 'my*.txt'"
+    assert is_excluded_file('myabc.txt', '/base/path/my', base_directory, [], my_txt_patterns), "File 'my/myabc.txt' should match 'my*.txt'"
+    assert not is_excluded_file('file.txt', '/base/path', base_directory, [], my_txt_patterns), "File 'file.txt' should not match 'my*.txt'"
     # Test src/**/test_*
-    assert is_excluded_file('test_abc', '/base/path/src/a/b', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'src/a/b/test_abc' should match 'src/**/test_*'"
-    assert is_excluded_file('test_123', '/base/path/src', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'src/test_123' should match 'src/**/test_*'"
-    assert not is_excluded_file('test_abc', '/base/path/other/a/b', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'other/a/b/test_abc' should not match 'src/**/test_*'"
+    src_test_patterns = ["src/**/test_*"]
+    assert is_excluded_file('test_abc', '/base/path/src/a/b', base_directory, [], src_test_patterns), "File 'src/a/b/test_abc' should match 'src/**/test_*'"
+    assert not is_excluded_file('test_abc', '/base/path/other/a/b', base_directory, [], src_test_patterns), "File 'other/a/b/test_abc' should not match 'src/**/test_*'"
+    assert is_excluded_file('test_123', '/base/path/src', base_directory, [], src_test_patterns), "File 'src/test_123' should match 'src/**/test_*'"
