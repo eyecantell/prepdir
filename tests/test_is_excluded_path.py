@@ -166,10 +166,10 @@ def test_no_substring_match_file(exact_file_patterns, glob_file_patterns, base_d
     """Test that file patterns like '*.log' or 'LICENSE' don't match substrings like 'mylogsarefun.txt' or 'LICENSE.txt'."""
     patterns = exact_file_patterns + glob_file_patterns
     print(f"{patterns=}")
-    assert is_excluded_file('mylogsarefun.txt', '/base/path/my', base_directory, [], patterns), f"File 'my/mylogsarefun.txt' should match {patterns}"
-    assert not is_excluded_file('yourlogsarefun.txt', '/base/path/my', base_directory, [], patterns), f"File 'my/yourlogsarefun.txt' should not match {patterns}"
-    assert not is_excluded_file('mylogsarefun.log', '/base/path/my', base_directory, [], patterns), f"File 'my/mylogsarefun.log' should match {patterns}"
-    assert not is_excluded_file('notgitignore.txt', '/base/path', base_directory, [], patterns), f"File 'notgitignore.txt' should not match {patterns}"
+    assert is_excluded_file('mylogsarefun.txt', '/base/path/my', base_directory, [], patterns), "File 'my/mylogsarefun.txt' should match my*.txt pattern"
+    assert not is_excluded_file('yourlogsarefun.txt', '/base/path/my', base_directory, [], patterns), "File 'my/yourlogsarefun.txt' should not match any pattern"
+    assert is_excluded_file('mylogsarefun.log', '/base/path/my', base_directory, [], patterns), "File 'my/mylogsarefun.log' should match '*.log'"
+    assert not is_excluded_file('notgitignore.txt', '/base/path', base_directory, [], patterns), "File 'notgitignore.txt' should not match '.gitignore'"
     for filename in ["LICENSE.txt", "MYLICENSE", "LICENSE1"]:
         assert not is_excluded_file(filename, '/base/path', base_directory, [], patterns), f"File '{filename}' should not match 'LICENSE'"
 
@@ -178,8 +178,11 @@ def test_home_directory_pattern(base_directory):
     patterns = ['~/.prepdir/config.yaml']
     home_dir = os.path.expanduser("~")
     config_path = os.path.join(home_dir, '.prepdir', 'config.yaml')
-    relative_config_path = os.path.relpath(config_path, base_directory)
-    assert is_excluded_file('config.yaml', os.path.join(home_dir, '.prepdir'), base_directory, [], patterns), f"File '{relative_config_path}' should be excluded"
+    full_path = os.path.abspath(os.path.join(home_dir, '.prepdir', 'config.yaml'))
+    relative_path = os.path.relpath(full_path, base_directory)
+    print(f"{home_dir=}\n{config_path=}\n{full_path=}\n{relative_path=}")
+    assert is_excluded_file('config.yaml', os.path.join(home_dir, '.prepdir'), base_directory, [], patterns), f"File '{config_path}' should be excluded"
+    assert not is_excluded_file('other.yaml', os.path.join(home_dir, '.prepdir'), base_directory, [], patterns), f"File '{os.path.join(home_dir, '.prepdir', 'other.yaml')}' should not be excluded"
 
 def test_empty_excluded_file_patterns(base_directory):
     """Test behavior with empty excluded file patterns list."""
@@ -214,14 +217,12 @@ def test_embedded_glob_patterns_file(base_directory):
 def test_pattern_interactions(excluded_dir_patterns, excluded_file_patterns, base_directory):
     """Test interactions between multiple patterns."""
     # File in excluded directory and matching file pattern
-    print(f"{base_directory=}\n{excluded_dir_patterns=}\n{excluded_file_patterns=}")
     assert is_excluded_file('test.log', '/base/path/logs', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'logs/test.log' should be excluded due to 'logs' directory or '*.log'"
     # File matching multiple file patterns
     assert is_excluded_file('test.log', '/base/path/src/a/b', base_directory, [], excluded_file_patterns), "File 'src/a/b/test.log' should match '*.log' or '**/*.log'"
     # File matching exact and glob patterns
     assert is_excluded_file('LICENSE', '/base/path', base_directory, [], excluded_file_patterns), "File 'LICENSE' should match 'LICENSE'"
     # File in non-excluded directory but matching multiple glob patterns
-    assert is_excluded_file('myfile.txt', '/base/path/src', base_directory, [], ['my*.txt']), "File 'src/myfile.txt' should match explicit 'my*.txt'"
-    assert is_excluded_file('myfile.txt', '/base/path/src', base_directory, [], excluded_file_patterns), "File 'src/myfile.txt' should match 'my*.txt' in the excluded file patterns"
+    assert is_excluded_file('myfile.txt', '/base/path/src', base_directory, [], excluded_file_patterns), "File 'src/myfile.txt' should match 'my*.txt'"
     # Non-matching file in excluded directory
     assert is_excluded_file('script.py', '/base/path/my.egg-info', base_directory, excluded_dir_patterns, excluded_file_patterns), "File 'my.egg-info/script.py' should be excluded due to '*.egg-info'"

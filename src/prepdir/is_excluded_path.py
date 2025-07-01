@@ -6,19 +6,20 @@ def glob_to_regex(pattern: str) -> str:
     """Convert a glob pattern to a regex pattern for exact or path-based matching.
 
     Args:
-        pattern: Glob pattern to convert (e.g., '*.pyc', 'my*.txt', 'src/**/test_*').
+        pattern: Glob pattern to convert (e.g., '*.pyc', 'my*.txt', 'src/**/test_*', '~/.prepdir/config.yaml').
 
     Returns:
         str: Equivalent regex pattern.
     """
-    pattern = pattern.rstrip("/")
+    # Normalize pattern by removing trailing slashes and normalizing path
+    pattern = os.path.normpath(pattern.rstrip("/"))
     # Handle patterns containing **/ (e.g., src/**/test_* or a/**/b.txt)
     if "/**/" in pattern:
         # Split pattern at **/ and handle each part
         parts = pattern.split("/**/")
         # Escape and convert glob characters for each part
         regex_parts = []
-        for i, part in enumerate(parts):
+        for part in parts:
             part = re.escape(part).replace(r"\*", r".*").replace(r"\?", r".")
             regex_parts.append(part)
         # Join with optional directories (.*)? for **/
@@ -96,10 +97,19 @@ def is_excluded_file(filename: str, root: str, base_directory: str, excluded_dir
     # Check file patterns
     for pattern in excluded_file_patterns:
         # Normalize patterns containing ~
-        pattern = pattern.rstrip("/").replace("~", home_dir)
+        pattern = os.path.normpath(pattern.rstrip("/").replace("~", home_dir))
         regex = glob_to_regex(pattern)
-        # Match filename exactly or as a path component in relative_path or full_path
-        if filename == pattern or re.search(regex, relative_path) or re.search(regex, full_path):
-            return True
+        # For exact patterns, check filename or full_path equality
+        if not any(c in pattern for c in "*?[]") and not "/**/" in pattern:
+            if filename == pattern or full_path == pattern:
+                return True
+        # For glob patterns, check filename with regex
+        elif "/**/" not in pattern:
+            if re.match(regex, filename):
+                return True
+        # For recursive patterns or home directory patterns, check relative_path and full_path
+        else:
+            if re.match(regex, relative_path) or re.match(regex, full_path):
+                return True
 
     return False
