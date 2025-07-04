@@ -59,6 +59,7 @@ def run(
     """
     configure_logging(verbose=verbose)
     logger.debug("Running prepdir on directory: %s", directory)
+    logger.debug(f"replacement_uuid is '{replacement_uuid}'")
 
     processor = PrepdirProcessor(
         directory=directory,
@@ -172,6 +173,7 @@ def main():
     )
 
     args = parser.parse_args()
+    logger.debug(f"args are:\n{args}")
 
     if args.init:
         PrepdirProcessor.init_config(config_path=args.config, force=False)

@@ -62,10 +62,10 @@ class PrepdirOutputFile(BaseModel):
             raise ValueError("Content must be a string")
         return v
 
-    def save(self, path_override : str = None):
+    def save(self, path_override: str = None):
         """Save the output to disk."""
         path_for_save = Path(path_override) if path_override else self.path
-        
+
         if path_for_save:
             if self.content:
                 path_for_save.write_text(self.content, encoding="utf-8")

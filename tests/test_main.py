@@ -3,9 +3,17 @@ from prepdir.main import main
 from prepdir.config import init_config
 from unittest.mock import patch
 import sys
-from pathlib import Path
 import yaml
+import logging
 
+HYPHENATED_UUID = "87654321-abcd-0000-0000-eeeeeeeeeeee"
+UNHYPHENATED_UUID = "87654321abcd00000000ffffffffffff"
+REPLACEMENT_UUID = "12340000-1234-0000-0000-000000000000"
+
+
+logging.getLogger("prepdir.prepdir_processor").setLevel(logging.DEBUG)
+logging.getLogger("prepdir.prepdir_output_file").setLevel(logging.DEBUG)
+logging.getLogger("prepdir.prepdir_file_entry").setLevel(logging.DEBUG)
 
 @pytest.fixture
 def custom_config(tmp_path):
@@ -19,7 +27,7 @@ def custom_config(tmp_path):
             "FILES": ["*.pyc"],
         },
         "SCRUB_HYPHENATED_UUIDS": True,
-        "REPLACEMENT_UUID": "00000000-0000-0000-0000-000000000000",
+        "REPLACEMENT_UUID": REPLACEMENT_UUID,
         "SCRUB_HYPHENLESS_UUIDS": True,
     }
     config_file.write_text(yaml.safe_dump(config_content))
@@ -30,7 +38,7 @@ def custom_config(tmp_path):
 def uuid_test_file(tmp_path):
     """Create a test file with UUIDs."""
     file = tmp_path / "test.txt"
-    file.write_text("UUID: 12345678-1234-5678-1234-567812345678\nHyphenless: 12345678123456781234567812345678")
+    file.write_text(f"UUID: {HYPHENATED_UUID}\nHyphenless: {UNHYPHENATED_UUID}")
     return file
 
 
@@ -64,8 +72,9 @@ def test_main_no_scrub_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_te
     ):
         main()
     content = output_file.read_text()
-    assert "Hyphenless: 12345678123456781234567812345678" in content
-    assert "UUID: 00000000-0000-0000-0000-000000000000" in content
+    print(f"content is: \n{content}")
+    assert f"Hyphenless: {UNHYPHENATED_UUID}" in content  # Hyphenless UUID should be unchanged
+    assert f"UUID: {REPLACEMENT_UUID}" in content
 
 
 def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_test_file):
@@ -74,8 +83,8 @@ def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_tes
     with patch.object(sys, "argv", ["prepdir", str(tmp_path), "-o", str(output_file), "--config", str(custom_config)]):
         main()
     content = output_file.read_text()
-    assert "Hyphenless: 00000000000000000000000000000000" in content
-    assert "UUID: 00000000-0000-0000-0000-000000000000" in content
+    assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in content
+    assert f"UUID: {REPLACEMENT_UUID}" in content
 
 
 def test_main_init_config(capfd, tmp_path):
@@ -132,7 +141,7 @@ def test_main_custom_replacement_uuid(tmp_path, capsys, custom_config):
     """Test main() with --replacement-uuid uses custom UUID."""
     test_file = tmp_path / "test.txt"
     original_uuid = "12345678-1234-5678-1234-567812345678"
-    replacement_uuid = "00000000-0000-0000-0000-000000000000"
+    replacement_uuid = "abcd1234-0000-0000-0000-000000000000"
     test_file.write_text(f"UUID: {original_uuid}")
     output_file = tmp_path / "prepped_dir.txt"
     with patch.object(
@@ -155,11 +164,13 @@ def test_main_custom_replacement_uuid(tmp_path, capsys, custom_config):
     assert original_uuid not in content
 
 
-def test_main_invalid_directory(capsys, tmp_path):
+def test_main_invalid_directory(caplog, tmp_path):
     """Test main() with a non-existent directory."""
+    import logging
+
+    caplog.set_level(logging.ERROR)  # Capture only ERROR level and above
     with patch.object(sys, "argv", ["prepdir", str(tmp_path / "nonexistent")]):
         with pytest.raises(SystemExit) as exc:
             main()
         assert exc.value.code == 1
-    captured = capsys.readouterr()
-    assert "Error: Directory" in captured.err
+    assert "Error: Directory" in caplog.text

@@ -15,6 +15,7 @@ from prepdir.config import load_config, check_namespace_value, init_config
 logger = logging.getLogger("prepdir.config")
 logger.setLevel(logging.DEBUG)
 
+
 @pytest.fixture
 def capture_log():
     """Capture log output during tests."""
@@ -24,6 +25,7 @@ def capture_log():
     yield log_stream
     logger.removeHandler(handler)
 
+
 @pytest.fixture
 def clean_cwd(tmp_path):
     """Change working directory to a clean temporary path to avoid loading real configs."""
@@ -31,6 +33,7 @@ def clean_cwd(tmp_path):
     os.chdir(tmp_path)
     yield
     os.chdir(original_cwd)
+
 
 @pytest.fixture
 def sample_config_content():
@@ -46,11 +49,13 @@ def sample_config_content():
         "VERBOSE": False,
     }
 
+
 def show_config_lines(config_file_path: str, name: str = "Test"):
     """Print config file contents for debugging."""
     with open(config_file_path, "r") as f:
         config_lines = f.read()
     print(f"{name} config lines in '{config_file_path}':\n--\n{config_lines}\n--\n")
+
 
 def test_check_namespace_value():
     """Test namespace validation."""
@@ -61,6 +66,7 @@ def test_check_namespace_value():
         check_namespace_value("")
     with pytest.raises(ValueError, match="Invalid namespace 'invalid@name': must be non-empty"):
         check_namespace_value("invalid@name")
+
 
 def test_load_config_from_specific_path(sample_config_content, capture_log, tmp_path, clean_cwd):
     """Test loading local configuration from .prepdir/config.yaml."""
@@ -85,6 +91,7 @@ def test_load_config_from_specific_path(sample_config_content, capture_log, tmp_
     assert "Loading config with namespace='prepdir'" in log_output
     assert "Final config values for UUIDS:\n" in log_output
 
+
 def test_load_config_home(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test loading configuration from ~/.prepdir/config.yaml."""
     home_dir = tmp_path / "home"
@@ -107,6 +114,7 @@ def test_load_config_home(sample_config_content, capture_log, tmp_path, monkeypa
     assert f"Found home config: {config_path}" in log_output
     assert f"Loaded config for prepdir from: ['{config_path}']" in log_output
     assert "Loading config with namespace='prepdir'" in log_output
+
 
 def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
     """Test loading bundled configuration."""
@@ -147,6 +155,7 @@ def test_load_config_bundled(capture_log, tmp_path, clean_cwd):
     assert "Loading config with namespace='prepdir'" in log_output
     assert "Final config values for UUIDS:\n" in log_output
 
+
 def test_load_config_bundled_missing(capture_log, tmp_path, clean_cwd):
     """Test handling missing bundled config."""
     with patch("prepdir.config.is_resource", return_value=False):
@@ -158,6 +167,7 @@ def test_load_config_bundled_missing(capture_log, tmp_path, clean_cwd):
     assert "No bundled config found for prepdir, using defaults" in log_output
     assert "Loading config with namespace='prepdir'" in log_output
 
+
 def test_load_config_bundled_permission_error(capture_log, tmp_path, clean_cwd):
     """Test bundled config loading with PermissionError."""
     mock_files = MagicMock()
@@ -168,11 +178,14 @@ def test_load_config_bundled_permission_error(capture_log, tmp_path, clean_cwd):
         with patch("prepdir.config.is_resource", return_value=True):
             with patch("prepdir.config.tempfile.NamedTemporaryFile", side_effect=PermissionError("Permission denied")):
                 with patch.dict(os.environ, {"PREPDIR_SKIP_CONFIG_LOAD": "false"}):
-                    with pytest.raises(ValueError, match="Failed to load bundled config for prepdir: Permission denied"):
+                    with pytest.raises(
+                        ValueError, match="Failed to load bundled config for prepdir: Permission denied"
+                    ):
                         load_config("prepdir", verbose=True)
     log_output = capture_log.getvalue()
     assert "Failed to load bundled config for prepdir: Permission denied" in log_output
     assert "Loading config with namespace='prepdir'" in log_output
+
 
 def test_load_config_bundled_cleanup_failure(capture_log, tmp_path, clean_cwd):
     """Test failure to clean up temporary bundled config file."""
@@ -207,6 +220,7 @@ def test_load_config_bundled_cleanup_failure(capture_log, tmp_path, clean_cwd):
     assert "Failed to remove temporary bundled config" in log_output
     assert "Permission denied" in log_output
 
+
 def test_load_config_no_configs_with_skip(capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test no config files with PREPDIR_SKIP_CONFIG_LOAD=true."""
     monkeypatch.setenv("PREPDIR_SKIP_CONFIG_LOAD", "true")
@@ -218,6 +232,7 @@ def test_load_config_no_configs_with_skip(capture_log, tmp_path, monkeypatch, cl
     assert "Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true" in log_output
     assert "No bundled config found for prepdir, using defaults" not in log_output
     assert "Loading config with namespace='prepdir'" in log_output
+
 
 def test_load_config_bundled_failure(capture_log, tmp_path, clean_cwd):
     """Test failure to load bundled config logs warning."""
@@ -232,6 +247,7 @@ def test_load_config_bundled_failure(capture_log, tmp_path, clean_cwd):
                     load_config("prepdir", verbose=True)
     log_output = capture_log.getvalue()
     assert "Failed to load bundled config for prepdir" in log_output
+
 
 def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test that real config files are ignored when PREPDIR_SKIP_CONFIG_LOAD=true."""
@@ -256,6 +272,7 @@ def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp
     assert "Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true" in log_output
     assert config.get("EXCLUDE.DIRECTORIES", []) == []
     assert config.get("EXCLUDE.FILES", []) == []
+
 
 def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test configuration precedence: custom > local > global > bundled using non-list fields."""
@@ -351,6 +368,7 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
                 assert config.get("SCRUB_HYPHENLESS_UUIDS") is False
                 assert config.get("VERBOSE") is False
 
+
 def test_load_config_invalid_yaml(tmp_path, capture_log, clean_cwd):
     """Test loading a config with invalid YAML raises an error and logs."""
     config_path = tmp_path / "invalid.yaml"
@@ -360,6 +378,7 @@ def test_load_config_invalid_yaml(tmp_path, capture_log, clean_cwd):
     log_output = capture_log.getvalue()
     assert f"Using custom config path: {config_path}" in log_output
     assert "Invalid YAML in config file(s)" in log_output
+
 
 def test_load_config_empty_yaml(tmp_path, capture_log, clean_cwd):
     """Test loading an empty YAML config file."""
@@ -373,11 +392,13 @@ def test_load_config_empty_yaml(tmp_path, capture_log, clean_cwd):
     log_output = capture_log.getvalue()
     assert f"Using custom config path: {config_path}" in log_output
 
+
 def test_load_config_missing_file(tmp_path, capture_log, clean_cwd):
     """Test loading a non-existent config file."""
     config_path = tmp_path / "nonexistent.yaml"
     with pytest.raises(ValueError, match=f"Custom config path '{config_path}' does not exist"):
         load_config("prepdir", str(config_path), verbose=True)
+
 
 def test_load_config_namespace_variants(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test loading configuration with different namespaces (prepdir, applydir, vibedir)."""
@@ -484,6 +505,7 @@ def test_load_config_namespace_variants(sample_config_content, capture_log, tmp_
                 capture_log.truncate(0)
                 capture_log.seek(0)
 
+
 def test_load_config_verbose_logging(sample_config_content, capture_log, tmp_path, clean_cwd):
     """Test that verbose=True enables debug logging."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
@@ -517,6 +539,7 @@ def test_load_config_verbose_logging(sample_config_content, capture_log, tmp_pat
     assert f"Using custom config path: {config_path}" in log_output
     assert config.get("REPLACEMENT_UUID") == sample_config_content["REPLACEMENT_UUID"]
 
+
 def test_init_config_existing_file_no_force(sample_config_content, capture_log, tmp_path, clean_cwd):
     """Test init_config raises SystemExit when config file exists and force=False."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
@@ -533,6 +556,7 @@ def test_init_config_existing_file_no_force(sample_config_content, capture_log, 
     assert f"Error: '{config_path}' already exists. Use force=True to overwrite." in stderr_output
     log_output = capture_log.getvalue()
     assert "Initializing config with namespace='prepdir'" in log_output
+
 
 def test_init_config_force_overwrite(sample_config_content, capture_log, tmp_path, clean_cwd, monkeypatch):
     """Test init_config with force=True overwrites existing config file using a temporary home directory."""
@@ -556,7 +580,7 @@ def test_init_config_force_overwrite(sample_config_content, capture_log, tmp_pat
 
     new_config = load_config("prepdir", config_path)
     assert new_config.get("EXCLUDE.DIRECTORIES") == new_config_yaml.get("EXCLUDE", {}).get("DIRECTORIES")
-    assert 'OLD_KEY_TO_BE_REPLACED' not in new_config_yaml
+    assert "OLD_KEY_TO_BE_REPLACED" not in new_config_yaml
 
 
 def test_load_config_bundled_permission_error(capture_log, tmp_path, clean_cwd):
@@ -569,7 +593,9 @@ def test_load_config_bundled_permission_error(capture_log, tmp_path, clean_cwd):
         with patch("prepdir.config.is_resource", return_value=True):
             with patch("prepdir.config.tempfile.NamedTemporaryFile", side_effect=PermissionError("Permission denied")):
                 with patch.dict(os.environ, {"PREPDIR_SKIP_CONFIG_LOAD": "false"}):
-                    with pytest.raises(ValueError, match="Failed to load bundled config for prepdir: Permission denied"):
+                    with pytest.raises(
+                        ValueError, match="Failed to load bundled config for prepdir: Permission denied"
+                    ):
                         load_config("prepdir", verbose=True)
     log_output = capture_log.getvalue()
     assert "Failed to load bundled config for prepdir: Permission denied" in log_output
@@ -609,6 +635,7 @@ def test_load_config_bundled_cleanup_failure(capture_log, tmp_path, clean_cwd):
     assert "Failed to remove temporary bundled config" in log_output
     assert "Permission denied" in log_output
 
+
 def test_load_config_no_configs_with_skip(capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test no config files with PREPDIR_SKIP_CONFIG_LOAD=true."""
     monkeypatch.setenv("PREPDIR_SKIP_CONFIG_LOAD", "true")
@@ -620,6 +647,7 @@ def test_load_config_no_configs_with_skip(capture_log, tmp_path, monkeypatch, cl
     assert "Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true" in log_output
     assert "No bundled config found for prepdir, using defaults" not in log_output
     assert "Loading config with namespace='prepdir'" in log_output
+
 
 def test_load_config_bundled_failure(capture_log, tmp_path, clean_cwd):
     """Test failure to load bundled config logs warning."""
@@ -634,6 +662,7 @@ def test_load_config_bundled_failure(capture_log, tmp_path, clean_cwd):
                     load_config("prepdir", verbose=True)
     log_output = capture_log.getvalue()
     assert "Failed to load bundled config for prepdir" in log_output
+
 
 def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test that real config files are ignored when PREPDIR_SKIP_CONFIG_LOAD=true."""
@@ -658,6 +687,7 @@ def test_load_config_ignore_real_configs(sample_config_content, capture_log, tmp
     assert "Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true" in log_output
     assert config.get("EXCLUDE.DIRECTORIES", []) == []
     assert config.get("EXCLUDE.FILES", []) == []
+
 
 def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test configuration precedence: custom > local > global > bundled using non-list fields."""
@@ -753,6 +783,7 @@ def test_config_precedence(sample_config_content, capture_log, tmp_path, monkeyp
                 assert config.get("SCRUB_HYPHENLESS_UUIDS") is False
                 assert config.get("VERBOSE") is False
 
+
 def test_load_config_invalid_yaml(tmp_path, capture_log, clean_cwd):
     """Test loading a config with invalid YAML raises an error and logs."""
     config_path = tmp_path / "invalid.yaml"
@@ -762,6 +793,7 @@ def test_load_config_invalid_yaml(tmp_path, capture_log, clean_cwd):
     log_output = capture_log.getvalue()
     assert f"Using custom config path: {config_path}" in log_output
     assert "Invalid YAML in config file(s)" in log_output
+
 
 def test_load_config_empty_yaml(tmp_path, capture_log, clean_cwd):
     """Test loading an empty YAML config file."""
@@ -775,11 +807,13 @@ def test_load_config_empty_yaml(tmp_path, capture_log, clean_cwd):
     log_output = capture_log.getvalue()
     assert f"Using custom config path: {config_path}" in log_output
 
+
 def test_load_config_missing_file(tmp_path, capture_log, clean_cwd):
     """Test loading a non-existent config file."""
     config_path = tmp_path / "nonexistent.yaml"
     with pytest.raises(ValueError, match=f"Custom config path '{config_path}' does not exist"):
         load_config("prepdir", str(config_path), verbose=True)
+
 
 def test_load_config_namespace_variants(sample_config_content, capture_log, tmp_path, monkeypatch, clean_cwd):
     """Test loading configuration with different namespaces (prepdir, applydir, vibedir)."""
@@ -886,6 +920,7 @@ def test_load_config_namespace_variants(sample_config_content, capture_log, tmp_
                 capture_log.truncate(0)
                 capture_log.seek(0)
 
+
 def test_load_config_verbose_logging(sample_config_content, capture_log, tmp_path, clean_cwd):
     """Test that verbose=True enables debug logging."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
@@ -919,6 +954,7 @@ def test_load_config_verbose_logging(sample_config_content, capture_log, tmp_pat
     assert f"Using custom config path: {config_path}" in log_output
     assert config.get("REPLACEMENT_UUID") == sample_config_content["REPLACEMENT_UUID"]
 
+
 def test_init_config_existing_file_no_force(sample_config_content, capture_log, tmp_path, clean_cwd):
     """Test init_config raises SystemExit when config file exists and force=False."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
@@ -935,6 +971,7 @@ def test_init_config_existing_file_no_force(sample_config_content, capture_log, 
     assert f"Error: '{config_path}' already exists. Use force=True to overwrite." in stderr_output
     log_output = capture_log.getvalue()
     assert "Initializing config with namespace='prepdir'" in log_output
+
 
 def test_init_config_force_overwrite(sample_config_content, capture_log, tmp_path, clean_cwd, monkeypatch):
     """Test init_config with force=True overwrites existing config file using a bundled config."""
@@ -977,6 +1014,7 @@ def test_init_config_force_overwrite(sample_config_content, capture_log, tmp_pat
     log_output = capture_log.getvalue()
     assert "Initializing config with namespace='prepdir'" in log_output
 
+
 def test_init_config_permission_error(sample_config_content, capture_log, tmp_path, clean_cwd):
     """Test init_config with permission error when writing config file."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
@@ -1010,6 +1048,7 @@ def test_init_config_permission_error(sample_config_content, capture_log, tmp_pa
     log_output = capture_log.getvalue()
     assert "Initializing config with namespace='prepdir'" in log_output
 
+
 def test_init_config_missing_bundled(capture_log, tmp_path, clean_cwd):
     """Test init_config with missing bundled config."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
@@ -1026,6 +1065,7 @@ def test_init_config_missing_bundled(capture_log, tmp_path, clean_cwd):
     log_output = capture_log.getvalue()
     assert "Initializing config with namespace='prepdir'" in log_output
     assert "No bundled config found for prepdir, cannot initialize" in log_output
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

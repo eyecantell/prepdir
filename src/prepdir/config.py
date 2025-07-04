@@ -21,6 +21,7 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0"  # Fallback to hardcoded version
 
+
 def check_namespace_value(namespace: str):
     """
     Validate the namespace string.
@@ -31,9 +32,14 @@ def check_namespace_value(namespace: str):
     Raises:
         ValueError: If namespace is invalid.
     """
-    if not namespace or not re.match(r'^[a-zA-Z0-9_-]+$', namespace):
-        logger.error(f"Invalid namespace '{namespace}': must be non-empty and contain only alphanumeric, underscore, or hyphen chars")
-        raise ValueError(f"Invalid namespace '{namespace}': must be non-empty and contain only alphanumeric, underscore, or hyphen chars")
+    if not namespace or not re.match(r"^[a-zA-Z0-9_-]+$", namespace):
+        logger.error(
+            f"Invalid namespace '{namespace}': must be non-empty and contain only alphanumeric, underscore, or hyphen chars"
+        )
+        raise ValueError(
+            f"Invalid namespace '{namespace}': must be non-empty and contain only alphanumeric, underscore, or hyphen chars"
+        )
+
 
 def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool = False) -> Dynaconf:
     """
@@ -72,7 +78,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
             settings_files.append(str(config_path))
             logger.debug(f"Using custom config path: {config_path}")
 
-    elif os.getenv("PREPDIR_SKIP_CONFIG_LOAD") == "true":     # Skip default config search in test environment
+    elif os.getenv("PREPDIR_SKIP_CONFIG_LOAD") == "true":  # Skip default config search in test environment
         logger.warning("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true")
     else:
         # Check home config first, then local config. The order of the settings files matters (later override earlier)
@@ -131,10 +137,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
         )
         # Force loading to catch YAML errors early
         config._wrapped  # Access internal storage to trigger loading
-        logger.debug(
-            f"Final config values for UUIDS:\n"
-            f"REPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}\n"
-        )
+        logger.debug(f"Final config values for UUIDS:\nREPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}\n")
     except Exception as e:
         logger.error(f"Invalid YAML in config file(s): {str(e)}")
         raise ValueError(f"Invalid YAML in config file(s): {str(e)}")
@@ -150,7 +153,14 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
     logger.debug(f"Loaded config for {namespace} from: {settings_files}")
     return config
 
-def init_config(namespace: str = "prepdir", config_path: Optional[str] = None, force: bool = False, stdout=sys.stdout, stderr=sys.stderr):
+
+def init_config(
+    namespace: str = "prepdir",
+    config_path: Optional[str] = None,
+    force: bool = False,
+    stdout=sys.stdout,
+    stderr=sys.stderr,
+):
     """
     Initialize a local config.yaml with the package's default config.
 

@@ -2,6 +2,7 @@ import os
 import re
 from typing import List
 
+
 def glob_to_regex(pattern: str) -> str:
     """Convert a glob pattern to a regex pattern for exact or path-based matching.
 
@@ -34,6 +35,7 @@ def glob_to_regex(pattern: str) -> str:
     # For non-glob patterns, require exact match
     return f"^{re.escape(pattern)}$"
 
+
 def is_excluded_dir(dirname: str, root: str, base_directory: str, excluded_dir_patterns: List[str]) -> bool:
     """Check if directory or any of its parent directories should be excluded from traversal using glob patterns.
 
@@ -61,7 +63,7 @@ def is_excluded_dir(dirname: str, root: str, base_directory: str, excluded_dir_p
     path_parts = relative_path.split(os.sep)
     for i in range(1, len(path_parts) + 1):
         parent_path = os.sep.join(path_parts[:i])
-        parent_dir = path_parts[i-1] if i > 0 else ""
+        parent_dir = path_parts[i - 1] if i > 0 else ""
         for pattern in excluded_dir_patterns:
             pattern = pattern.rstrip("/")
             regex = glob_to_regex(pattern)
@@ -71,7 +73,10 @@ def is_excluded_dir(dirname: str, root: str, base_directory: str, excluded_dir_p
 
     return False
 
-def is_excluded_file(filename: str, root: str, base_directory: str, excluded_dir_patterns: List[str], excluded_file_patterns: List[str]) -> bool:
+
+def is_excluded_file(
+    filename: str, root: str, base_directory: str, excluded_dir_patterns: List[str], excluded_file_patterns: List[str]
+) -> bool:
     """Check if a file or its parent directories should be excluded from traversal using glob patterns.
 
     Args:

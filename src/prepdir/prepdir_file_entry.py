@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 BINARY_CONTENT_PLACEHOLDER = "[Binary file or encoding not currently supported by prepdir]"
 
+
 class PrepdirFileEntry(BaseModel):
     """Represents a single project file's metadata, content, and UUID mappings for prepdir processing."""
 
@@ -77,7 +78,7 @@ class PrepdirFileEntry(BaseModel):
 
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
-        
+
         logger.debug(f"instantiating from {file_path}")
 
         relative_path = os.path.relpath(file_path, base_directory)

@@ -17,6 +17,7 @@ from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
 
 logger = logging.getLogger(__name__)
 
+
 class PrepdirProcessor:
     """Manages generation and parsing of prepdir output files.
 
@@ -95,10 +96,10 @@ class PrepdirProcessor:
     def _load_config(self, config_path: Optional[str]) -> Dynaconf:
         """Load configuration with precedence handling."""
         return load_config("prepdir", config_path)
-    
+
     def is_excluded_output_file(self, filename: str, root: str) -> bool:
-        '''Check if this file is of prepdir out file format and should be excluded'''
-        
+        """Check if this file is of prepdir out file format and should be excluded"""
+
         full_path = os.path.abspath(os.path.join(root, filename))
 
         # Always ignore the output file being used for this run
@@ -107,11 +108,11 @@ class PrepdirProcessor:
             return True
 
         if self.include_prepdir_files:
-            #logger.debug(f"include_prepdir_files is True {self.include_prepdir_files} - output files will not be excluded")
+            # logger.debug(f"include_prepdir_files is True {self.include_prepdir_files} - output files will not be excluded")
             return False
-    
-        try: 
-            #logger.debug(f"Checking {full_path} to see if it is an output file")
+
+        try:
+            # logger.debug(f"Checking {full_path} to see if it is an output file")
             with open(full_path, "r", encoding="utf-8") as f:
                 if PrepdirFileEntry.is_prepdir_outputfile_format(f.read()):
                     logger.debug(f"Found {full_path} is an output file")
@@ -119,8 +120,8 @@ class PrepdirProcessor:
         except (IOError, UnicodeDecodeError):
             logger.debug(f"Could not read {full_path} - assuming it is NOT an output file")
             return False  # Ignore errors and assume not prepdir-generated if unreadable
-        
-        #logger.debug(f"Found {full_path} is NOT an output file")
+
+        # logger.debug(f"Found {full_path} is NOT an output file")
         return False
 
     def is_excluded_dir(self, dirname: str, root: str) -> bool:
@@ -139,7 +140,6 @@ class PrepdirProcessor:
         excluded_dir_patterns = self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
 
         return is_excluded_dir(dirname, root, self.directory, excluded_dir_patterns)
-        
 
     def is_excluded_file(self, filename: str, root: str) -> bool:
         """Check if file should be excluded from traversal using glob patterns, if it's the output file, or if it's prepdir-generated.
@@ -160,7 +160,6 @@ class PrepdirProcessor:
 
         return is_excluded_file(filename, root, self.directory, excluded_dir_patterns, excluded_file_patterns)
 
-
     def generate_output(self) -> PrepdirOutputFile:
         """Generate a prepdir output file as a PrepdirOutputFile object."""
         output = StringIO()
@@ -179,6 +178,14 @@ class PrepdirProcessor:
 
             print(f"File listing generated {timestamp_to_use} by prepdir version {__version__} (pip install prepdir)")
             print(f"Base directory is '{self.directory}'")
+
+            if (self.scrub_hyphenated_uuids or self.scrub_hyphenless_uuids) and not isinstance(
+                self.replacement_uuid, str
+            ):
+                raise ValueError(
+                    f"Replacement UUID must be a string (got {self.replacement_uuid}) in order to scrub uuids"
+                )
+
             if self.scrub_hyphenated_uuids:
                 if self.use_unique_placeholders:
                     print(
@@ -198,11 +205,7 @@ class PrepdirProcessor:
                         f"Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid.replace('-', '')}'."
                     )
 
-            file_iterator = (
-                self._traverse_specific_files()
-                if self.specific_files
-                else self._traverse_directory()
-            )
+            file_iterator = self._traverse_specific_files() if self.specific_files else self._traverse_directory()
 
             for file_path in file_iterator:
                 files_found = True
@@ -228,7 +231,7 @@ class PrepdirProcessor:
                     print(f"No files with extension(s) {', '.join(self.extensions)} found.")
                 else:
                     print("No files found.")
-                
+
                 raise ValueError("No files found!")
 
         content = output.getvalue()
@@ -262,7 +265,7 @@ class PrepdirProcessor:
                 if self.is_excluded_file(path.name, str(path.parent)):
                     self.logger.info(f"Skipping file '{file_path}' (excluded in config)")
                     continue
-            
+
             if self.is_excluded_output_file(path.name, str(path.parent)):
                 self.logger.info(f"Skipping file: {file_path} (excluded prepdir output file)")
                 continue
@@ -276,7 +279,6 @@ class PrepdirProcessor:
         """
         logger.debug(f"traversing {self.directory}")
         for root, dirnames, filenames in sorted(os.walk(self.directory)):
-
             dirnames[:] = [d for d in dirnames if not self.is_excluded_dir(d, root)]
 
             for filename in sorted(filenames):
