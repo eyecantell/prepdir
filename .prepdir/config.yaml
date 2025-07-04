@@ -1,22 +1,25 @@
 DEFAULT_SETTINGS_PATHS: []
 EXCLUDE:
   DIRECTORIES:
-  - .git
   - __pycache__
-  - .pdm-build
-  - .venv
-  - venv
-  - .idea
-  - node_modules
-  - dist
-  - build
-  - .pytest_cache
-  - .mypy_cache
+  - .applydir
   - .cache
   - .eggs
-  - .tox
-  - '*.egg-info'
+  - .git
+  - .idea
+  - .mypy_cache
+  - .pdm-build
+  - .prepdir
+  - .pytest_cache
   - .ruff_cache
+  - .tox
+  - .venv
+  - .vibedir
+  - '*.egg-info'
+  - build
+  - dist
+  - node_modules
+  - venv
   FILES:
   - .gitignore
   - .prepdir/config.yaml

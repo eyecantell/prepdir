@@ -62,12 +62,14 @@ class PrepdirOutputFile(BaseModel):
             raise ValueError("Content must be a string")
         return v
 
-    def save(self):
+    def save(self, path_override : str = None):
         """Save the output to disk."""
-        if self.path:
+        path_for_save = Path(path_override) if path_override else self.path
+        
+        if path_for_save:
             if self.content:
-                self.path.write_text(self.content, encoding="utf-8")
-                logger.info(f"Saved output to {self.path}")
+                path_for_save.write_text(self.content, encoding="utf-8")
+                logger.info(f"Saved output to {path_for_save}")
             else:
                 logger.warning("No content specified, content not saved")
         else:
@@ -164,7 +166,8 @@ class PrepdirOutputFile(BaseModel):
         output_file_header = "\n".join(output_file_header)
 
         if not begin_file_pattern_found:
-            raise ValueError("No begin file patterns found!")
+            logger.debug(f"No begin file patterns found! content:\n{content}")
+            raise ValueError(f"No begin file patterns found!")
 
         # If metadata values were passed, use them. Otherwise try to pull them from the content.
         new_metadata = {}

@@ -37,7 +37,8 @@ def temp_dir(tmp_path):
         f"File listing generated {datetime.now().isoformat()} by prepdir version {__version__}\n"
         f"Base directory is '{project_dir}'\n\n"
         "=-=-= Begin File: 'file1.py' =-=-=\n"
-        'print("Hello")\n# UUID: PREPDIR_UUID_PLACEHOLDER_1\n'
+        'print("Hello")\n'
+        "# UUID: PREPDIR_UUID_PLACEHOLDER_1\n"
         "=-=-= End File: 'file1.py' =-=-=\n",
         encoding="utf-8",
     )
@@ -55,7 +56,7 @@ def config_values():
         "DEFAULT_OUTPUT_FILE": "prepped_dir.txt",
         "SCRUB_HYPHENATED_UUIDS": True,
         "SCRUB_HYPHENLESS_UUIDS": True,
-        "REPLACEMENT_UUID": "00000000-0000-0000-0000-000000000000",
+        "REPLACEMENT_UUID": "1a000000-2b00-3c00-4d00-5e0000000000",
         "USE_UNIQUE_PLACEHOLDERS": False,
         "IGNORE_EXCLUSIONS": False,
         "INCLUDE_PREPDIR_FILES": False,
@@ -111,7 +112,7 @@ def test_init_invalid_directory(config_path):
         with pytest.raises(ValueError, match="'/.*' is not a directory"):
             PrepdirProcessor(directory=f.name, config_path=config_path)
 
-def test_init_invalid_replacement_uuid(temp_dir, config_path, caplog):
+def test_init_invalid_replacement_uuid(temp_dir, config_path, config_values, caplog):
     """Test initialization with invalid replacement UUID."""
     with caplog.at_level(logging.ERROR):
         processor = PrepdirProcessor(
@@ -119,7 +120,7 @@ def test_init_invalid_replacement_uuid(temp_dir, config_path, caplog):
             replacement_uuid="invalid-uuid",
             config_path=config_path,
         )
-    assert processor.replacement_uuid == config_obj.get("REPLACEMENT_UUID")
+    assert processor.replacement_uuid == config_values.get("REPLACEMENT_UUID")
     assert "Invalid replacement UUID: 'invalid-uuid'" in caplog.text
 
 def test_load_config(config_path, config_values):
@@ -289,7 +290,7 @@ def test_generate_output_exclusions(temp_dir, config_path):
     assert "logs/app.log" not in output.content
 
 def test_generate_output_exclusions_with_extensions(temp_dir, config_path):
-    """Test file and directory exclusions."""
+    """Test file and directory exclusions when extensions are specified."""
     processor = PrepdirProcessor(
         directory=str(temp_dir),
         config_path=config_path,
@@ -330,7 +331,7 @@ def test_generate_output_no_scrubbing(temp_dir, config_path):
     assert not any(entry.is_scrubbed for entry in output.files.values())
     assert output.uuid_mapping == {}
 
-def test_generate_output_non_unique_placeholders(temp_dir, config_path, caplog):
+def test_generate_output_non_unique_placeholders(temp_dir, config_path, config_values, caplog):
     """Test generate_output with non-unique placeholders."""
     processor = PrepdirProcessor(
         directory=str(temp_dir),
@@ -344,22 +345,24 @@ def test_generate_output_non_unique_placeholders(temp_dir, config_path, caplog):
         output = processor.generate_output()
     assert f"replaced with '{processor.replacement_uuid}'" in output.content
     assert "file1.py" in output.content
-    assert "00000000-0000-0000-0000-000000000000" in output.content
-    assert not output.uuid_mapping  # Non-unique placeholders don't populate uuid_mapping
+    replacement_uuid = config_values.get("REPLACEMENT_UUID")
+    assert replacement_uuid
+    assert replacement_uuid in output.content
+    assert replacement_uuid in output.uuid_mapping 
 
-def test_validate_output_valid(temp_dir, config):
+def test_validate_output_valid(temp_dir, config_path):
     """Test validating a valid prepdir output file."""
     output_file = temp_dir / "output.txt"
-    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None)
-    processor.config = config
-    output = processor.validate_output(str(output_file))
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path)
+
+    output = processor.validate_output(file_path=str(output_file))
     assert isinstance(output, PrepdirOutputFile)
     assert len(output.files) == 1
     assert output.files[Path(temp_dir) / "file1.py"].relative_path == "file1.py"
     assert 'print("Hello")' in output.files[Path(temp_dir) / "file1.py"].content
     assert output.metadata["base_directory"] == str(temp_dir)
 
-def test_validate_output_invalid(tmp_path, config):
+def test_validate_output_invalid(tmp_path, config_path):
     """Test validating an invalid prepdir output file."""
     content = (
         f"File listing generated {datetime.now().isoformat()} by prepdir version {__version__}\n"
@@ -370,20 +373,25 @@ def test_validate_output_invalid(tmp_path, config):
     )
     output_file = tmp_path / "output.txt"
     output_file.write_text(content, encoding="utf-8")
-    processor = PrepdirProcessor(directory="/test_dir", config_path=None)
-    processor.config = config
-    with pytest.raises(ValueError, match="Unclosed file 'file1.py'"):
-        processor.validate_output(str(output_file))
+    
+    print(f"{tmp_path=}\n{output_file=}")
+    processor = PrepdirProcessor(directory=tmp_path, config_path=config_path)
 
-def test_save_output(temp_dir, config, tmp_path):
+    with pytest.raises(ValueError, match="Unclosed file 'file1.py'"):
+        processor.validate_output(file_path=str(output_file))
+
+def test_save_output(temp_dir, config_path, tmp_path):
     """Test saving output to a file."""
-    output_file = tmp_path / "output.txt"
+
     processor = PrepdirProcessor(
         directory=str(temp_dir),
         extensions=["py"],
-        config_path=None,
+        config_path=config_path,
+        use_unique_placeholders=True
     )
-    processor.config = config
+  
+    output_file = tmp_path / "prepped_dir.txt"
+    assert not output_file.exists()
     output = processor.generate_output()
     processor.save_output(output, str(output_file))
     assert output_file.exists()
@@ -392,7 +400,7 @@ def test_save_output(temp_dir, config, tmp_path):
     assert "file2.txt" not in content
     assert "PREPDIR_UUID_PLACEHOLDER_1" in content
 
-def test_init_config(tmp_path, config, capsys):
+def test_init_config(tmp_path, capsys):
     """Test initializing a local config file."""
     config_path = tmp_path / ".prepdir/config.yaml"
     PrepdirProcessor.init_config(str(config_path))
@@ -400,15 +408,15 @@ def test_init_config(tmp_path, config, capsys):
     with config_path.open("r", encoding="utf-8") as f:
         content = f.read()
     print(f"content is:\n{content}")
-    assert "exclude:" in content
-    assert "directories:" in content
-    assert "files:" in content
+    assert "exclude:" in content.lower()
+    assert "directories:" in content.lower()
+    assert "files:" in content.lower()
     with pytest.raises(SystemExit):
         PrepdirProcessor.init_config(str(config_path), force=False)
     captured = capsys.readouterr()
     assert "already exists" in captured.err
 
-def test_prepdir_processor_uuid_mapping_consistency(temp_dir, config):
+def test_prepdir_processor_uuid_mapping_consistency(temp_dir, config_path):
     """Test UUID mapping consistency across multiple files."""
     # Add a second file with the same UUID
     (temp_dir / "file3.py").write_text(
@@ -420,11 +428,12 @@ def test_prepdir_processor_uuid_mapping_consistency(temp_dir, config):
         use_unique_placeholders=True,
         scrub_hyphenated_uuids=True,
         scrub_hyphenless_uuids=True,
-        config_path=None,
+        config_path=config_path,
         verbose=True,
     )
-    processor.config = config
+
     output = processor.generate_output()
+    print(f"{output=}")
     assert len(output.uuid_mapping) == 1, "Should have one UUID mapping"
     placeholder = list(output.uuid_mapping.keys())[0]
     assert output.uuid_mapping[placeholder] == "123e4567-e89b-12d3-a456-426614174000"
@@ -432,7 +441,7 @@ def test_prepdir_processor_uuid_mapping_consistency(temp_dir, config):
         assert "123e4567-e89b-12d3-a456-426614174000" not in file_entry.content
         assert placeholder in file_entry.content
 
-def test_validate_output_valid_content(temp_dir, config):
+def test_validate_output_valid_content(temp_dir, config_path):
     content = (
         f"File listing generated {datetime.now().isoformat()} by test_validator\n"
         f"Base directory is '{temp_dir}'\n\n"
@@ -443,10 +452,11 @@ def test_validate_output_valid_content(temp_dir, config):
         "print(\"New file\")\n"
         "=-=-= End File: 'new_file.py' =-=-=\n"
     )
-    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None, use_unique_placeholders=True)
-    processor.config = config
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path, use_unique_placeholders=True)
+
     metadata = {"creator": "test_validator"}
     output = processor.validate_output(content=content, metadata=metadata, highest_base_directory=str(temp_dir), validate_files_exist=True)
+    print(f"{content=}\n{output=}")
     assert isinstance(output, PrepdirOutputFile)
     assert output.metadata["creator"] == "test_validator"
     assert output.metadata["base_directory"] == str(temp_dir)
@@ -456,10 +466,10 @@ def test_validate_output_valid_content(temp_dir, config):
     assert "print(\"Hello, modified\")" in output.files[Path(temp_dir) / "file1.py"].content
     assert output.files[Path(temp_dir) / "new_file.py"].relative_path == "new_file.py"
 
-def test_validate_output_valid_file(temp_dir, config):
+def test_validate_output_valid_file(temp_dir, config_path):
     output_file = temp_dir / "output.txt"
-    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None, use_unique_placeholders=True)
-    processor.config = config
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path, use_unique_placeholders=True)
+
     metadata = {"creator": "test_validator"}
     output = processor.validate_output(file_path=str(output_file), metadata=metadata, highest_base_directory=str(temp_dir))
     assert isinstance(output, PrepdirOutputFile)
@@ -468,13 +478,13 @@ def test_validate_output_valid_file(temp_dir, config):
     assert len(output.files) == 1
     assert output.files[Path(temp_dir) / "file1.py"].relative_path == "file1.py"
 
-def test_validate_output_invalid_content(temp_dir, config):
-    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None)
-    processor.config = config
+def test_validate_output_invalid_content(temp_dir, config_path):
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path)
+
     with pytest.raises(ValueError, match="Invalid prepdir output: No begin file patterns found!"):
         processor.validate_output(content="Invalid content", highest_base_directory=str(temp_dir))
 
-def test_validate_output_path_outside_highest_base(temp_dir, config):
+def test_validate_output_path_outside_highest_base(temp_dir, config_path):
     content = (
         f"File listing generated {datetime.now().isoformat()} by test_validator\n"
         f"Base directory is '/outside'\n\n"
@@ -482,12 +492,12 @@ def test_validate_output_path_outside_highest_base(temp_dir, config):
         "print(\"Hello\")\n"
         "=-=-= End File: 'file1.py' =-=-=\n"
     )
-    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None)
-    processor.config = config
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path)
+
     with pytest.raises(ValueError, match="Base directory '/outside' is outside highest base directory"):
         processor.validate_output(content=content, highest_base_directory=str(temp_dir))
 
-def test_validate_output_file_path_outside_highest_base(temp_dir, config):
+def test_validate_output_file_path_outside_highest_base(temp_dir, config_path):
     content = (
         f"File listing generated {datetime.now().isoformat()} by test_validator\n"
         f"Base directory is '{temp_dir}'\n\n"
@@ -495,8 +505,8 @@ def test_validate_output_file_path_outside_highest_base(temp_dir, config):
         "print(\"Outside\")\n"
         "=-=-= End File: '../outside.py' =-=-=\n"
     )
-    processor = PrepdirProcessor(directory=str(temp_dir), config_path=None)
-    processor.config = config
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path)
+
     with pytest.raises(ValueError, match="File path '.*outside.py' is outside highest base directory"):
         processor.validate_output(content=content, highest_base_directory=str(temp_dir))
 

@@ -293,7 +293,7 @@ class PrepdirProcessor:
 
     def save_output(self, output: PrepdirOutputFile, path: Optional[str] = None) -> None:
         """Save the PrepdirOutputFile content to the specified path."""
-        output.save()
+        output.save(path)
 
     def validate_output(
         self,
