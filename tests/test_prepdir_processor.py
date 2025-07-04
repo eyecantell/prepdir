@@ -20,6 +20,7 @@ logging.getLogger("prepdir.prepdir_processor").setLevel(logging.DEBUG)
 logging.getLogger("prepdir.prepdir_output_file").setLevel(logging.DEBUG)
 logging.getLogger("prepdir.prepdir_file_entry").setLevel(logging.DEBUG)
 
+FILE1PY_UUID = "123e4567-e89b-12d3-a456-426614174000"
 # Fixtures
 @pytest.fixture
 def temp_dir(tmp_path):
@@ -237,7 +238,7 @@ def test_generate_output_basic(temp_dir, config_path, config_values):
     assert "file2.txt" not in output.content
     assert output.metadata["version"] == __version__
     assert output.metadata["base_directory"] == str(temp_dir)
-    assert output.uuid_mapping.get("PREPDIR_UUID_PLACEHOLDER_1") == "123e4567-e89b-12d3-a456-426614174000"
+    assert output.uuid_mapping.get("PREPDIR_UUID_PLACEHOLDER_1") == FILE1PY_UUID
 
 def test_generate_output_specific_files(temp_dir, config_path):
     """Test generating output with specific files."""
@@ -327,7 +328,7 @@ def test_generate_output_no_scrubbing(temp_dir, config_path):
         config_path=config_path,
     )
     output = processor.generate_output()
-    assert "123e4567-e89b-12d3-a456-426614174000" in output.content
+    assert FILE1PY_UUID in output.content
     assert not any(entry.is_scrubbed for entry in output.files.values())
     assert output.uuid_mapping == {}
 
@@ -418,9 +419,9 @@ def test_init_config(tmp_path, capsys):
 
 def test_prepdir_processor_uuid_mapping_consistency(temp_dir, config_path):
     """Test UUID mapping consistency across multiple files."""
-    # Add a second file with the same UUID
+    # Add another file with the same UUID
     (temp_dir / "file3.py").write_text(
-        'print("World")\n# UUID: 123e EDF -e89b-12d3-a456-426614174000\n', encoding="utf-8"
+        f'print("File3 Hellow World")\n# UUID: {FILE1PY_UUID}\n', encoding="utf-8"
     )
     processor = PrepdirProcessor(
         directory=str(temp_dir),
@@ -433,12 +434,13 @@ def test_prepdir_processor_uuid_mapping_consistency(temp_dir, config_path):
     )
 
     output = processor.generate_output()
-    print(f"{output=}")
+    print(f"content is:\n{output.content}\n")
     assert len(output.uuid_mapping) == 1, "Should have one UUID mapping"
     placeholder = list(output.uuid_mapping.keys())[0]
-    assert output.uuid_mapping[placeholder] == "123e4567-e89b-12d3-a456-426614174000"
+    assert output.uuid_mapping[placeholder] == FILE1PY_UUID
     for file_entry in output.files.values():
-        assert "123e4567-e89b-12d3-a456-426614174000" not in file_entry.content
+        print(f"file entry is {file_entry}")
+        assert FILE1PY_UUID not in file_entry.content
         assert placeholder in file_entry.content
 
 def test_validate_output_valid_content(temp_dir, config_path):
