@@ -4,15 +4,17 @@ from typing import Union  # For Python 3.9 compatibility
 
 class StatusFilter(logging.Filter):
     """Filter to control logging output based on status messages and logger level."""
-    def __init__(self, logger: logging.Logger, always_show_status: bool = False):
-        """Initialize the filter with a logger instance and status message control.
+    def __init__(self, logger: logging.Logger, logger_level: int, always_show_status: bool = False):
+        """Initialize the filter with a logger instance, its level, and status message control.
 
         Args:
             logger: The logger instance to filter for.
+            logger_level: The logger's effective level to use for filtering.
             always_show_status: If True, allow messages with is_status=True regardless of level.
         """
         super().__init__()
         self.logger = logger
+        self.logger_level = logger_level
         self.always_show_status = always_show_status
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -21,8 +23,8 @@ class StatusFilter(logging.Filter):
             print(f"Allowing status message: {record.msg} (level={record.levelname})")
             return True
         # Otherwise, allow messages at or above the logger's effective level
-        allow = record.levelno >= self.logger.getEffectiveLevel()
-        print(f"Filtering message: {record.msg} (level={record.levelname}, logger_level={logging.getLevelName(self.logger.getEffectiveLevel())}, allow={allow})")
+        allow = record.levelno >= self.logger_level
+        print(f"Filtering message: {record.msg} (level={record.levelname}, logger_level={logging.getLevelName(self.logger_level)}, allow={allow})")
         return allow
 
 def configure_logging(
@@ -46,6 +48,11 @@ def configure_logging(
     logger.handlers.clear()
     print(f"Logger level before configuring: {logging.getLevelName(logger.getEffectiveLevel())}")
     
+    # Ensure logger level is set explicitly
+    current_level = logger.getEffectiveLevel()
+    logger.setLevel(current_level if current_level != logging.NOTSET else logging.INFO)
+    print(f"Logger level after setting: {logging.getLevelName(logger.getEffectiveLevel())}")
+    
     # Define formatters
     detailed_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s")
     info_formatter = logging.Formatter("%(message)s")  # Clean output for INFO
@@ -54,7 +61,7 @@ def configure_logging(
     # stdout handler for status messages and levels allowed by logger
     stdout_handler = logging.StreamHandler(stdout_stream or sys.stdout)
     stdout_handler.setLevel(logging.DEBUG if always_show_status else logger.getEffectiveLevel())
-    stdout_handler.addFilter(StatusFilter(logger=logger, always_show_status=always_show_status))
+    stdout_handler.addFilter(StatusFilter(logger=logger, logger_level=logger.getEffectiveLevel(), always_show_status=always_show_status))
     stdout_handler.setFormatter(detailed_formatter if details else info_formatter)
     logger.addHandler(stdout_handler)
     
