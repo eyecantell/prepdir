@@ -261,13 +261,20 @@ class PrepdirProcessor:
             if not self.ignore_exclusions:
                 if self.is_excluded_dir(path.parent.name, str(path.parent)):
                     self.logger.info(f"Skipping file '{file_path}' (parent directory excluded)")
+                    if self.verbose:
+                        print(f"Skipping file '{file_path}' (parent directory excluded)")
                     continue
+
                 if self.is_excluded_file(path.name, str(path.parent)):
                     self.logger.info(f"Skipping file '{file_path}' (excluded in config)")
+                    if self.verbose:
+                        print(f"Skipping file '{file_path}' (excluded in config)")
                     continue
 
             if self.is_excluded_output_file(path.name, str(path.parent)):
                 self.logger.info(f"Skipping file: {file_path} (excluded prepdir output file)")
+                if self.verbose:
+                    print(f"Skipping file: {file_path} (excluded prepdir output file)")
                 continue
             yield path
 

@@ -13,12 +13,21 @@ logger = logging.getLogger(__name__)
 
 def configure_logging(verbose: bool = False, loglevel: Optional[str] = None) -> None:
     """Configure logging based on environment variable or verbose flag."""
-    loglevel = loglevel or (os.environ.get("LOGLEVEL", "INFO") if not verbose else "DEBUG")
+    loglevel = loglevel or os.environ.get("LOGLEVEL", "WARNING")
     logging.basicConfig(
         level=loglevel.upper(),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     logger.debug("Set logging level to %s", loglevel)
+
+    console_handler = logging.StreamHandler()  # Handler for console output
+    if verbose:
+        console_handler.setLevel(logging.INFO)  # Only output INFO and above to console
+    else:
+        console_handler.setLevel(logging.WARNING)  # Only output WARNING and above to console
+    console_formatter = logging.Formatter('%(message)s')  # Only log messages
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
 
 
 def run(
