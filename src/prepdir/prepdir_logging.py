@@ -2,7 +2,7 @@ import logging
 import sys
 from typing import Union
 
-# Define STATUS level between INFO and WARNING
+# Define STATUS level
 logging.STATUS = 25
 logging.addLevelName(logging.STATUS, "STATUS")
 
@@ -14,30 +14,25 @@ logging.Logger.status = status
 
 def configure_logging(
     logger: logging.Logger,
-    verbosity: int = 0,
     details: bool = False,
     stdout_stream: Union[object, None] = None,
     stderr_stream: Union[object, None] = None
 ) -> None:
-    """Configure the logger with handlers for verbosity-based output.
+    """Configure the logger with handlers for status or detailed output.
 
     Args:
         logger: The logger instance to configure.
-        verbosity: Logging level (0=STATUS, 1=INFO, 2=DEBUG).
         details: If True, use detailed format; if False, use simple format.
         stdout_stream: Stream for messages (defaults to sys.stdout).
         stderr_stream: Stream for WARNING+ messages (defaults to sys.stderr).
     """
-    logging.getLogger('').setLevel(logging.CRITICAL)
-    print(f"Root logger level: {logging.getLevelName(logging.getLogger('').getEffectiveLevel())}")
-    
     logger.handlers.clear()
     print(f"Logger level before configuring: {logging.getLevelName(logger.getEffectiveLevel())}")
     print(f"Handlers before configuring: {[h.__class__.__name__ for h in logger.handlers]}")
     
-    # Set logger level based on verbosity
-    level_map = {0: logging.STATUS, 1: logging.INFO, 2: logging.DEBUG}
-    logger.setLevel(level_map.get(verbosity, logging.STATUS))
+    # Set default level to STATUS if NOTSET
+    if logger.level == logging.NOTSET:
+        logger.setLevel(logging.STATUS)
     print(f"Logger level after setting: {logging.getLevelName(logger.getEffectiveLevel())}")
     
     detailed_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s")

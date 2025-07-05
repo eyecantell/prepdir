@@ -23,7 +23,8 @@ def streams():
 
 def test_status_filter_details(caplog, capsys, streams):
     stdout, stderr = streams
-    configure_logging(logger, verbosity=2, details=True, stdout_stream=stdout, stderr_stream=stderr)
+    logger.setLevel(logging.DEBUG)
+    configure_logging(logger, details=True, stdout_stream=stdout, stderr_stream=stderr)
     with caplog.at_level(logging.DEBUG, logger="prepdir.test"):
         with capsys.disabled():
             logger.debug("Test debug")
@@ -43,7 +44,8 @@ def test_status_filter_details(caplog, capsys, streams):
 
 def test_status_filter_non_verbose(caplog, capsys, streams):
     stdout, stderr = streams
-    configure_logging(logger, verbosity=1, details=False, stdout_stream=stdout, stderr_stream=stderr)
+    logger.setLevel(logging.INFO)
+    configure_logging(logger, details=False, stdout_stream=stdout, stderr_stream=stderr)
     with caplog.at_level(logging.INFO, logger="prepdir.test"):
         with capsys.disabled():
             logger.info("Test info")
@@ -56,9 +58,10 @@ def test_status_filter_non_verbose(caplog, capsys, streams):
     assert "Test warning" in stdout.getvalue()
     assert "WARNING: Test warning" in stderr.getvalue()
 
-def test_status_filter_verbosity_0(caplog, capsys, streams):
+def test_status_filter_status_level(caplog, capsys, streams):
     stdout, stderr = streams
-    configure_logging(logger, verbosity=0, details=False, stdout_stream=stdout, stderr_stream=stderr)
+    logger.setLevel(logging.STATUS)
+    configure_logging(logger, details=False, stdout_stream=stdout, stderr_stream=stderr)
     assert logger.getEffectiveLevel() == logging.STATUS, f"Expected logger level STATUS, got {logging.getLevelName(logger.getEffectiveLevel())}"
     assert len(logger.handlers) == 2, f"Expected 2 handlers, got {len(logger.handlers)}: {[h.__class__.__name__ for h in logger.handlers]}"
     assert all(isinstance(h, logging.StreamHandler) for h in logger.handlers), "Expected StreamHandler"
@@ -78,10 +81,10 @@ def test_status_filter_verbosity_0(caplog, capsys, streams):
     assert "Regular info" not in stdout.getvalue()
     assert "WARNING: Warning status" in stderr.getvalue()
 
-def test_status_filter_verbosity_1(caplog, capsys, streams):
+def test_status_filter_default_level(caplog, capsys, streams):
     stdout, stderr = streams
-    configure_logging(logger, verbosity=1, details=False, stdout_stream=stdout, stderr_stream=stderr)
-    assert logger.getEffectiveLevel() == logging.INFO, f"Expected logger level INFO, got {logging.getLevelName(logger.getEffectiveLevel())}"
+    configure_logging(logger, details=False, stdout_stream=stdout, stderr_stream=stderr)
+    assert logger.getEffectiveLevel() == logging.STATUS, f"Expected logger level STATUS, got {logging.getLevelName(logger.getEffectiveLevel())}"
     assert len(logger.handlers) == 2, f"Expected 2 handlers, got {len(logger.handlers)}: {[h.__class__.__name__ for h in logger.handlers]}"
     assert all(isinstance(h, logging.StreamHandler) for h in logger.handlers), "Expected StreamHandler"
     with caplog.at_level(logging.DEBUG, logger="prepdir.test"):
@@ -94,15 +97,16 @@ def test_status_filter_verbosity_1(caplog, capsys, streams):
     print(f"stdout content: {stdout.getvalue()}")
     print(f"stderr content: {stderr.getvalue()}")
     assert "Debug status" not in stdout.getvalue()
-    assert "Info status" in stdout.getvalue()
+    assert "Info status" not in stdout.getvalue()
     assert "Status message" in stdout.getvalue()
     assert "Warning status" in stdout.getvalue()
-    assert "Regular info" in stdout.getvalue()
+    assert "Regular info" not in stdout.getvalue()
     assert "WARNING: Warning status" in stderr.getvalue()
 
 def test_status_filter_debug_level(caplog, capsys, streams):
     stdout, stderr = streams
-    configure_logging(logger, verbosity=2, details=True, stdout_stream=stdout, stderr_stream=stderr)
+    logger.setLevel(logging.DEBUG)
+    configure_logging(logger, details=True, stdout_stream=stdout, stderr_stream=stderr)
     with caplog.at_level(logging.DEBUG, logger="prepdir.test"):
         with capsys.disabled():
             logger.debug("Test debug")
