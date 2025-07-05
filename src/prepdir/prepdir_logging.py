@@ -1,72 +1,62 @@
 import logging
 import sys
-from typing import Union  # For Python 3.9 compatibility
+from typing import Union
 
-class StatusFilter(logging.Filter):
-    """Filter to control logging output based on status messages and logger level."""
-    def __init__(self, logger: logging.Logger, logger_level: int, always_show_status: bool = False):
-        """Initialize the filter with a logger instance, its level, and status message control.
+# Define STATUS level between INFO and WARNING
+logging.STATUS = 25
+logging.addLevelName(logging.STATUS, "STATUS")
 
-        Args:
-            logger: The logger instance to filter for.
-            logger_level: The logger's effective level to use for filtering.
-            always_show_status: If True, allow messages with is_status=True regardless of level.
-        """
-        super().__init__()
-        self.logger = logger
-        self.logger_level = logger_level
-        self.always_show_status = always_show_status
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        # Always show messages with is_status=True if always_show_status=True
-        if self.always_show_status and hasattr(record, "is_status") and record.is_status:
-            print(f"Allowing status message: {record.msg} (level={record.levelname})")
-            return True
-        # Otherwise, allow messages at or above the logger's effective level
-        allow = record.levelno >= self.logger_level
-        print(f"Filtering message: {record.msg} (level={record.levelname}, logger_level={logging.getLevelName(self.logger_level)}, allow={allow})")
-        return allow
+def status(self, message, *args, **kwargs):
+    """Custom logging method for STATUS level."""
+    if self.isEnabledFor(logging.STATUS):
+        self._log(logging.STATUS, message, args, **kwargs)
+logging.Logger.status = status
 
 def configure_logging(
     logger: logging.Logger,
-    always_show_status: bool = False,
+    verbosity: int = 0,
     details: bool = False,
     stdout_stream: Union[object, None] = None,
     stderr_stream: Union[object, None] = None
 ) -> None:
-    """Configure the provided logger with handlers and formatters for status or detailed output.
+    """Configure the logger with handlers for verbosity-based output.
 
     Args:
-        logger: The logger instance to configure (e.g., logging.getLogger(__name__)).
-        always_show_status: If True, show all messages with is_status=True on stdout,
-                           regardless of logger level. If False, respect the logger's level.
-        details: If True, use detailed formatter with timestamp, name, level, and function name.
-        stdout_stream: Stream for INFO and status messages (defaults to sys.stdout).
-        stderr_stream: Stream for WARNING and ERROR messages (defaults to sys.stderr).
+        logger: The logger instance to configure.
+        verbosity: Logging level (0=STATUS, 1=INFO, 2=DEBUG).
+        details: If True, use detailed format; if False, use simple format.
+        stdout_stream: Stream for messages (defaults to sys.stdout).
+        stderr_stream: Stream for WARNING+ messages (defaults to sys.stderr).
     """
-    # Clear existing handlers to avoid duplicates
+    logging.getLogger('').setLevel(logging.CRITICAL)
+    print(f"Root logger level: {logging.getLevelName(logging.getLogger('').getEffectiveLevel())}")
+    
     logger.handlers.clear()
     print(f"Logger level before configuring: {logging.getLevelName(logger.getEffectiveLevel())}")
+    print(f"Handlers before configuring: {[h.__class__.__name__ for h in logger.handlers]}")
     
-    # Ensure logger level is set explicitly
-    current_level = logger.getEffectiveLevel()
-    logger.setLevel(current_level if current_level != logging.NOTSET else logging.INFO)
+    # Set logger level based on verbosity
+    level_map = {0: logging.STATUS, 1: logging.INFO, 2: logging.DEBUG}
+    logger.setLevel(level_map.get(verbosity, logging.STATUS))
     print(f"Logger level after setting: {logging.getLevelName(logger.getEffectiveLevel())}")
     
-    # Define formatters
     detailed_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s")
-    info_formatter = logging.Formatter("%(message)s")  # Clean output for INFO
-    warning_formatter = logging.Formatter("%(levelname)s: %(message)s")  # Prefixed for WARNING/ERROR
+    info_formatter = logging.Formatter("%(message)s")
+    warning_formatter = logging.Formatter("%(levelname)s: %(message)s")
     
-    # stdout handler for status messages and levels allowed by logger
     stdout_handler = logging.StreamHandler(stdout_stream or sys.stdout)
-    stdout_handler.setLevel(logging.DEBUG if always_show_status else logger.getEffectiveLevel())
-    stdout_handler.addFilter(StatusFilter(logger=logger, logger_level=logger.getEffectiveLevel(), always_show_status=always_show_status))
+    stdout_handler.setLevel(logger.getEffectiveLevel())
     stdout_handler.setFormatter(detailed_formatter if details else info_formatter)
     logger.addHandler(stdout_handler)
     
-    # stderr handler for WARNING and above
     stderr_handler = logging.StreamHandler(stderr_stream or sys.stderr)
     stderr_handler.setLevel(logging.WARNING)
     stderr_handler.setFormatter(detailed_formatter if details else warning_formatter)
     logger.addHandler(stderr_handler)
+    
+    if stdout_stream and hasattr(stdout_stream, 'flush'):
+        stdout_stream.flush()
+    if stderr_stream and hasattr(stderr_stream, 'flush'):
+        stderr_stream.flush()
+    
+    print(f"Handlers after configuring: {[h.__class__.__name__ for h in logger.handlers]}")
