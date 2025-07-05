@@ -14,6 +14,7 @@ from prepdir.prepdir_file_entry import PrepdirFileEntry
 from prepdir.prepdir_output_file import PrepdirOutputFile
 from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
 from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
+import prepdir.prepdir_logging # make sure logger.status() is defined
 
 logger = logging.getLogger(__name__)
 
