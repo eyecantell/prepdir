@@ -11,8 +11,9 @@ from prepdir.prepdir_file_entry import PrepdirFileEntry, BINARY_CONTENT_PLACEHOL
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+from typing import Union  # Import Union for Python 3.9 compatibility
 
-def create_temp_file(content: str | bytes, suffix: str = ".txt") -> Path:
+def create_temp_file(content: Union[str, bytes], suffix: str = ".txt") -> Path:
     """Create a temporary file with given content."""
     with tempfile.NamedTemporaryFile(
         mode="wb" if isinstance(content, bytes) else "w", suffix=suffix, delete=False
