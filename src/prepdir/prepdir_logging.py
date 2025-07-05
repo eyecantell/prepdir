@@ -27,13 +27,13 @@ def configure_logging(
         stderr_stream: Stream for WARNING+ messages (defaults to sys.stderr).
     """
     logger.handlers.clear()
-    print(f"Logger level before configuring: {logging.getLevelName(logger.getEffectiveLevel())}")
-    print(f"Handlers before configuring: {[h.__class__.__name__ for h in logger.handlers]}")
+    #print(f"Logger level before configuring: {logging.getLevelName(logger.getEffectiveLevel())}")
+    #print(f"Handlers before configuring: {[h.__class__.__name__ for h in logger.handlers]}")
     
     # Set default level to STATUS if NOTSET
     if logger.level == logging.NOTSET:
         logger.setLevel(logging.STATUS)
-    print(f"Logger level after setting: {logging.getLevelName(logger.getEffectiveLevel())}")
+    #print(f"Logger level after setting: {logging.getLevelName(logger.getEffectiveLevel())}")
     
     detailed_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s")
     info_formatter = logging.Formatter("%(message)s")
@@ -54,4 +54,4 @@ def configure_logging(
     if stderr_stream and hasattr(stderr_stream, 'flush'):
         stderr_stream.flush()
     
-    print(f"Handlers after configuring: {[h.__class__.__name__ for h in logger.handlers]}")
+    #print(f"Handlers after configuring: {[h.__class__.__name__ for h in logger.handlers]}")
