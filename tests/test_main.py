@@ -1,5 +1,5 @@
 import pytest
-from prepdir.main import main
+from prepdir.main import main, run
 from prepdir.config import init_config
 from unittest.mock import patch
 import sys
@@ -10,9 +10,13 @@ HYPHENATED_UUID = "87654321-abcd-0000-0000-eeeeeeeeeeee"
 UNHYPHENATED_UUID = "87654321abcd00000000ffffffffffff"
 REPLACEMENT_UUID = "12340000-1234-0000-0000-000000000000"
 
-logging.getLogger("prepdir.prepdir_processor").setLevel(logging.DEBUG)
-logging.getLogger("prepdir.prepdir_output_file").setLevel(logging.DEBUG)
-logging.getLogger("prepdir.prepdir_file_entry").setLevel(logging.DEBUG)
+@pytest.fixture(autouse=True)
+def reset_loggers():
+    """Reset logger levels to avoid interference."""
+    logging.getLogger("prepdir.prepdir_processor").setLevel(logging.NOTSET)
+    logging.getLogger("prepdir.prepdir_output_file").setLevel(logging.NOTSET)
+    logging.getLogger("prepdir.prepdir_file_entry").setLevel(logging.NOTSET)
+    yield
 
 @pytest.fixture
 def custom_config(tmp_path):
@@ -32,14 +36,12 @@ def custom_config(tmp_path):
     config_file.write_text(yaml.safe_dump(config_content))
     return config_file
 
-
 @pytest.fixture
 def uuid_test_file(tmp_path):
     """Create a test file with UUIDs."""
     file = tmp_path / "test.txt"
     file.write_text(f"UUID: {HYPHENATED_UUID}\nHyphenless: {UNHYPHENATED_UUID}")
     return file
-
 
 def test_main_version(capsys):
     """Test main() with --version flag."""
@@ -49,9 +51,7 @@ def test_main_version(capsys):
         assert exc.value.code == 0
     captured = capsys.readouterr()
     from importlib.metadata import version
-
     assert "prepdir " + version("prepdir") in captured.out
-
 
 def test_main_no_scrub_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_test_file):
     """Test main() with --no-scrub-hyphenless-uuids preserves hyphenless UUIDs."""
@@ -75,7 +75,6 @@ def test_main_no_scrub_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_te
     assert f"Hyphenless: {UNHYPHENATED_UUID}" in content  # Hyphenless UUID should be unchanged
     assert f"UUID: {REPLACEMENT_UUID}" in content
 
-
 def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_test_file):
     """Test main() with default hyphenless UUID scrubbing from config."""
     output_file = tmp_path / "prepped_dir.txt"
@@ -84,7 +83,6 @@ def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_tes
     content = output_file.read_text()
     assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in content
     assert f"UUID: {REPLACEMENT_UUID}" in content
-
 
 def test_main_init_config(capfd, tmp_path):
     """Test init_config creates a config file."""
@@ -95,7 +93,6 @@ def test_main_init_config(capfd, tmp_path):
     captured = capfd.readouterr()
     assert f"Created '{config_path}' with default configuration." in captured.out
     assert config_path.exists()
-
 
 def test_main_init_config_force(capfd, tmp_path):
     """Test init_config with force=True overwrites existing config."""
@@ -111,7 +108,6 @@ def test_main_init_config_force(capfd, tmp_path):
     content = config_path.read_text()
     assert "EXCLUDE" in content
 
-
 def test_main_init_config_exists(capfd, tmp_path):
     """Test init_config fails if config exists without force=True."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
@@ -125,22 +121,16 @@ def test_main_init_config_exists(capfd, tmp_path):
     captured = capfd.readouterr()
     assert f"Error: '{config_path}' already exists. Use force=True to overwrite." in captured.err
 
-
-'''def test_main_verbose_mode(tmp_path, capsys, custom_config, caplog):
+def test_main_verbose_mode(tmp_path, capsys, custom_config, caplog):
     """Test main() with --verbose logs skipped files."""
     test_file = tmp_path / "test.pyc"
     test_file.write_text("compiled")
-    with patch.object(sys, "argv", ["prepdir", str(tmp_path), "-v", "--config", str(custom_config)]):
-        main()
-
-    caplog.set_level(logging.INFO)  # Capture INFO level and above
+    with caplog.at_level(logging.INFO, logger="prepdir"):
+        with patch.object(sys, "argv", ["prepdir", str(tmp_path), "-v", "--config", str(custom_config)]):
+            main()
     print(f"caplog.text is:\n{caplog.text}")
-    assert f"Skipping file: test.pyc (excluded in config)" in caplog.text
-
-    captured = capsys.readouterr()
-    print(f"captured is:\n{captured}")
-    assert f"Skipping file: {test_file} (excluded in config)" in captured.err'''
-
+    assert "Starting prepdir in" in caplog.text
+    assert "Skipping file: test.pyc (excluded in config)" in caplog.text
 
 def test_main_custom_replacement_uuid(tmp_path, capsys, custom_config):
     """Test main() with --replacement-uuid uses custom UUID."""
@@ -168,12 +158,8 @@ def test_main_custom_replacement_uuid(tmp_path, capsys, custom_config):
     assert replacement_uuid in content
     assert original_uuid not in content
 
-
 def test_main_invalid_directory(caplog, tmp_path):
     """Test main() with a non-existent directory."""
-    import logging
-
-    caplog.set_level(logging.ERROR)  # Capture only ERROR level and above
     with patch.object(sys, "argv", ["prepdir", str(tmp_path / "nonexistent")]):
         with pytest.raises(SystemExit) as exc:
             main()
