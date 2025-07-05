@@ -114,7 +114,7 @@ class PrepdirProcessor:
         try:
             # logger.debug(f"Checking {full_path} to see if it is an output file")
             with open(full_path, "r", encoding="utf-8") as f:
-                if PrepdirFileEntry.is_prepdir_outputfile_format(f.read()):
+                if PrepdirFileEntry.is_prepdir_outputfile_format(f.read(), file_full_path=full_path):
                     logger.debug(f"Found {full_path} is an output file")
                     return True
         except (IOError, UnicodeDecodeError):

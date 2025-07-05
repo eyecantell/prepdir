@@ -83,6 +83,8 @@ class PrepdirOutputFile(BaseModel):
         current_content = []
         current_file = None
 
+        file_being_parsed = str(self.path) if self.path else 'Unknown'
+
         for line in lines:
             begin_file_match = BEGIN_FILE_PATTERN.match(line)
             end_file_match = END_FILE_PATTERN.match(line)
@@ -92,10 +94,10 @@ class PrepdirOutputFile(BaseModel):
                 current_content = []
             elif end_file_match:
                 if current_file is None:
-                    logger.warning(f"Footer found without matching header on line: {line}")
+                    logger.warning(f"{file_being_parsed}: Footer found without matching header on line: {line}")
                 elif end_file_match.group(1) != current_file:
                     logger.warning(
-                        f"Mismatched footer '{end_file_match.group(1)}' for header '{current_file}', treating as content"
+                        f"{file_being_parsed}: Mismatched footer '{end_file_match.group(1)}' for header '{current_file}', treating as content"
                     )
                     current_content.append(line)
                 else:
@@ -114,7 +116,7 @@ class PrepdirOutputFile(BaseModel):
                     current_content = []
             elif begin_file_match or end_file_match:
                 logger.warning(
-                    f"Extra header/footer '{line}' encountered for current file '{current_file}', treating as content"
+                    f"{file_being_parsed}: Extra header/footer '{line}' encountered for current file '{current_file}', treating as content"
                 )
                 current_content.append(line)
             elif current_file:
@@ -219,6 +221,7 @@ class PrepdirOutputFile(BaseModel):
         if not new_metadata["base_directory"]:
             raise ValueError("Could not determine base directory from header and not passed in metadata")
 
+        logger.debug(f"{path_obj=}")
         instance = cls(
             path=path_obj,
             content=content,
@@ -226,6 +229,7 @@ class PrepdirOutputFile(BaseModel):
             uuid_mapping=uuid_mapping or {},
             use_unique_placeholders=use_unique_placeholders,
         )
+        logger.debug(f"{instance=}")
         instance.parse(new_metadata["base_directory"])
         return instance
 

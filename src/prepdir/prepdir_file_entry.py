@@ -199,7 +199,7 @@ class PrepdirFileEntry(BaseModel):
             return False
 
     @staticmethod
-    def is_prepdir_outputfile_format(content: str, highest_base_directory: Optional[str] = None) -> bool:
+    def is_prepdir_outputfile_format(content: str, highest_base_directory: Optional[str] = None, file_full_path : Optional[str] = None) -> bool:
         """Return true if the given content matches the format prescribed for a prepdir output file.
 
         Args:
@@ -212,7 +212,7 @@ class PrepdirFileEntry(BaseModel):
         try:
             from .prepdir_output_file import PrepdirOutputFile
 
-            PrepdirOutputFile.from_content(content, highest_base_directory)
+            PrepdirOutputFile.from_content(content, Path(file_full_path) if file_full_path else None)
             return True
         except ValueError:
             return False

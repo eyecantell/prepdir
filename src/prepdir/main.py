@@ -166,7 +166,10 @@ def main():
 
     # Set logger level based on verbosity
     level_map = {0: logging.STATUS, 1: logging.INFO, 2: logging.DEBUG}
-    logger.setLevel(level_map.get(args.verbose, logging.STATUS))
+    logging_level = level_map.get(args.verbose, logging.STATUS)
+    logger.setLevel(logging_level)
+    logging.debug(f"Logging level will be {logging.getLevelName(logger.getEffectiveLevel())}")
+    logging.getLogger("prepdir").setLevel(logging_level)
     details = args.verbose >= 2
     configure_logging(logger, details=details)
 
