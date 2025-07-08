@@ -84,7 +84,10 @@ class PrepdirOutputFile(BaseModel):
         current_content = []
         current_file = None
 
-        file_being_parsed = str(self.path) if self.path else 'Unknown'
+        file_and_line_being_parsed = "Unknown"
+        if self.path:
+            file_and_line_being_parsed = str(self.path)
+            file_and_line_being_parsed += f":{str(len(current_content))}" if current_content else ""
 
         for line in lines:
             begin_file_match = BEGIN_FILE_PATTERN.match(line)
@@ -97,10 +100,10 @@ class PrepdirOutputFile(BaseModel):
             elif end_file_match:
                 line_number = ":" + str(len(current_content)) if current_content else ""
                 if current_file is None:
-                    logger.warning(f" {file_being_parsed}{line_number}: Footer found without matching header: {line}")
+                    logger.warning(f" {file_and_line_being_parsed}: Footer found without matching header: {line}")
                 elif end_file_match.group(1) != current_file:
                     logger.warning(
-                        f" {file_being_parsed}{line_number} - Mismatched footer '{end_file_match.group(1)}' for header '{current_file}', treating as content"
+                        f" {file_and_line_being_parsed} - Mismatched footer '{end_file_match.group(1)}' for header '{current_file}', treating as content"
                     )
                     current_content.append(line)
                 else:
@@ -119,7 +122,7 @@ class PrepdirOutputFile(BaseModel):
                     current_content = []
             elif begin_file_match or end_file_match:
                 logger.warning(
-                    f" {file_being_parsed}{line_number} - Extra header/footer '{line}' encountered for current file '{current_file}', treating as content"
+                    f" {file_and_line_being_parsed} - Extra header/footer '{line}' encountered for current file '{current_file}', treating as content"
                 )
                 current_content.append(line)
             elif current_file:
