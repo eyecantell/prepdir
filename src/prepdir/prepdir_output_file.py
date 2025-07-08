@@ -93,12 +93,14 @@ class PrepdirOutputFile(BaseModel):
             if begin_file_match and current_file is None:
                 current_file = begin_file_match.group(1)
                 current_content = []
+
             elif end_file_match:
+                line_number = ":" + str(len(current_content)) if current_content else ""
                 if current_file is None:
-                    logger.warning(f"{file_being_parsed}: Footer found without matching header on line: {line}")
+                    logger.warning(f" {file_being_parsed}{line_number}: Footer found without matching header: {line}")
                 elif end_file_match.group(1) != current_file:
                     logger.warning(
-                        f"{file_being_parsed}: Mismatched footer '{end_file_match.group(1)}' for header '{current_file}', treating as content"
+                        f" {file_being_parsed}{line_number} - Mismatched footer '{end_file_match.group(1)}' for header '{current_file}', treating as content"
                     )
                     current_content.append(line)
                 else:
@@ -117,11 +119,12 @@ class PrepdirOutputFile(BaseModel):
                     current_content = []
             elif begin_file_match or end_file_match:
                 logger.warning(
-                    f"{file_being_parsed}: Extra header/footer '{line}' encountered for current file '{current_file}', treating as content"
+                    f" {file_being_parsed}{line_number} - Extra header/footer '{line}' encountered for current file '{current_file}', treating as content"
                 )
                 current_content.append(line)
             elif current_file:
                 current_content.append(line)
+
 
         if current_file:
             raise ValueError(f"Unclosed file '{current_file}' at end of content")

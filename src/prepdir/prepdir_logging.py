@@ -43,11 +43,13 @@ def configure_logging(
     stdout_handler.setLevel(logger.getEffectiveLevel())
     stdout_handler.setFormatter(detailed_formatter if details else info_formatter)
     logger.addHandler(stdout_handler)
+    logger.debug(f"STDOUT handler will use: {'detailed_formatter' if details else 'info_formatter'}")
     
     stderr_handler = logging.StreamHandler(stderr_stream or sys.stderr)
     stderr_handler.setLevel(logging.WARNING)
     stderr_handler.setFormatter(detailed_formatter if details else warning_formatter)
     logger.addHandler(stderr_handler)
+    logger.debug(f"STDERR handler will use: {'detailed_formatter' if details else 'warning_formatter'}")
     
     if stdout_stream and hasattr(stdout_stream, 'flush'):
         stdout_stream.flush()
