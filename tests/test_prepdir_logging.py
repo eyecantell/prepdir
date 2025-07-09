@@ -70,12 +70,15 @@ def test_configure_logging_verbose_info(caplog, streams):
         assert isinstance(logger.handlers[0], logging.StreamHandler)
         assert logger.handlers[0].stream is stdout
         
-        with caplog.at_level(logging.DEBUG, logger="prepdir.test"):
+        with caplog.at_level(logging.INFO, logger="prepdir.test"):  # Changed from DEBUG to INFO
             logger.debug("Test debug")
             logger.info("Test info")
             logger.warning("Test warning")
         
         assert len(caplog.records) == 2, f"Expected 2 records for verbose={verbose}, got {len(caplog.records)}: {caplog.records}"
+        for record in caplog.records:
+            assert record.levelno >= logging.INFO, f"Unexpected log level {record.levelname} for verbose={verbose}"
+        
         stdout_content = stdout.getvalue()
         assert "Test debug" not in stdout_content
         assert "Test info" in stdout_content
@@ -106,10 +109,10 @@ def test_configure_logging_default_stream(caplog):
 
 def test_configure_logging_invalid_streams():
     """Test configure_logging with invalid streams."""
-    with pytest.raises(AttributeError, match="'int' object has no attribute 'write'"):
+    with pytest.raises(AttributeError, match="'stdout_stream' must be a file-like object with a write method"):
         prepdir_logging.configure_logging(logger, verbose=0, stdout_stream=123)
     
-    with pytest.raises(AttributeError, match="'str' object has no attribute 'write'"):
+    with pytest.raises(AttributeError, match="'stderr_stream' must be a file-like object with a write method"):
         prepdir_logging.configure_logging(logger, verbose=0, stderr_stream="invalid")
 
 def test_configure_logging_stream_flushing(caplog, streams):

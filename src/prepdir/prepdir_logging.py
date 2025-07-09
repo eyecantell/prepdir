@@ -16,6 +16,12 @@ def configure_logging(
         stdout_stream: Stream for messages (defaults to sys.stdout).
         stderr_stream: Stream for errors (defaults to sys.stderr).
     """
+    # Validate streams
+    if stdout_stream is not None and not hasattr(stdout_stream, 'write'):
+        raise AttributeError("'stdout_stream' must be a file-like object with a write method")
+    if stderr_stream is not None and not hasattr(stderr_stream, 'write'):
+        raise AttributeError("'stderr_stream' must be a file-like object with a write method")
+
     # Clear existing handlers
     logger.handlers.clear()
 
@@ -26,12 +32,7 @@ def configure_logging(
 
     # Single handler for all levels
     handler = logging.StreamHandler(stdout_stream or sys.stdout)
-    handler.setLevel(logging.DEBUG)  # Capture all levels
-    '''if verbose >= 2:
-        handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"))
-    else:
-        handler.setFormatter(logging.Formatter("%(message)s"))'''
-    
+    handler.setLevel(logging_level)  # Match handler level to logger level
     handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"))
     logger.addHandler(handler)
 
