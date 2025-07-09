@@ -14,7 +14,7 @@ from prepdir.prepdir_file_entry import PrepdirFileEntry
 from prepdir.prepdir_output_file import PrepdirOutputFile
 from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
 from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
-import prepdir.prepdir_logging # make sure logger.status() is defined
+from prepdir import prepdir_logging # make sure logger.status() is defined
 
 logger = logging.getLogger(__name__)
 
@@ -174,18 +174,45 @@ class PrepdirProcessor:
             "creator": f"prepdir version {__version__} (pip install prepdir)",
         }
 
+        # Log status messages for CLI
+        self.logger.status(f"Generated {timestamp_to_use}")
+        self.logger.status(f"Traversing directory: {self.directory}")
+        self.logger.status(f"Extensions filter: {self.extensions if self.extensions else 'None'}")
+        self.logger.status(f"Output file: {self.output_file}")
+        self.logger.status(f"Ignoring exclusions: {self.ignore_exclusions}")
+        self.logger.status(f"Verbose mode: {self.verbose}")
+        
+        if (self.scrub_hyphenated_uuids or self.scrub_hyphenless_uuids) and not isinstance(
+            self.replacement_uuid, str
+        ):
+            raise ValueError(
+                f"Replacement UUID must be a string (got {self.replacement_uuid}) in order to scrub uuids"
+            )
+
+        if self.scrub_hyphenated_uuids:
+            if self.use_unique_placeholders:
+                self.logger.status(
+                    "Note: Valid (hyphenated) UUIDs in file contents will be scrubbed and replaced with unique placeholders (e.g., PREPDIR_UUID_PLACEHOLDER_n)."
+                )
+            else:
+                self.logger.status(
+                    f"Note: Valid (hyphenated) UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid}'."
+                )
+        if self.scrub_hyphenless_uuids:
+            if self.use_unique_placeholders:
+                self.logger.status(
+                    "Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with unique placeholders (e.g., PREPDIR_UUID_PLACEHOLDER_n)."
+                )
+            else:
+                self.logger.status(
+                    f"Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid.replace('-', '')}'."
+                )
+
         with redirect_stdout(output):
             files_found = False
 
             print(f"File listing generated {timestamp_to_use} by prepdir version {__version__} (pip install prepdir)")
             print(f"Base directory is '{self.directory}'")
-
-            if (self.scrub_hyphenated_uuids or self.scrub_hyphenless_uuids) and not isinstance(
-                self.replacement_uuid, str
-            ):
-                raise ValueError(
-                    f"Replacement UUID must be a string (got {self.replacement_uuid}) in order to scrub uuids"
-                )
 
             if self.scrub_hyphenated_uuids:
                 if self.use_unique_placeholders:
@@ -210,7 +237,7 @@ class PrepdirProcessor:
 
             for file_path in file_iterator:
                 files_found = True
-                logger.debug(f"adding file {file_path}")
+                self.logger.debug(f"adding file {file_path}")
                 file_entry, updated_uuid_mapping, placeholder_counter = PrepdirFileEntry.from_file_path(
                     file_path=file_path,
                     base_directory=self.directory,
@@ -227,10 +254,13 @@ class PrepdirProcessor:
 
             if not files_found:
                 if self.specific_files:
+                    self.logger.status("No valid or accessible files found from the provided list.")
                     print("No valid or accessible files found from the provided list.")
                 elif self.extensions:
+                    self.logger.status(f"No files with extension(s) {', '.join(self.extensions)} found.")
                     print(f"No files with extension(s) {', '.join(self.extensions)} found.")
                 else:
+                    self.logger.status("No files found.")
                     print("No files found.")
 
                 raise ValueError("No files found!")

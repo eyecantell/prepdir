@@ -5,8 +5,8 @@ from typing import Optional, List, Dict, Union, Tuple
 from .prepdir_processor import PrepdirProcessor
 from .prepdir_file_entry import PrepdirFileEntry
 from .prepdir_output_file import PrepdirOutputFile
-from .prepdir_logging import configure_logging
 from .config import __version__
+from prepdir import prepdir_logging # make sure logger.status() is defined
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def run(
     Returns:
         PrepdirOutputFile or tuple of (content, UUID mapping, list of PrepdirFileEntry objects, metadata).
     """
-    logger.info("Starting prepdir in %s", directory, extra={"is_status": True})
+    logger.status(f"Starting prepdir in {directory}")
     logger.debug("replacement_uuid is '%s'", replacement_uuid)
 
     processor = PrepdirProcessor(
@@ -171,7 +171,7 @@ def main():
     logging.debug(f"Logging level will be {logging.getLevelName(logger.getEffectiveLevel())}")
     logging.getLogger("prepdir").setLevel(logging_level)
     details = args.verbose >= 2
-    configure_logging(logger, details=details)
+    prepdir_logging.configure_logging(logger, details=details)
 
     if args.no_scrub_uuids:
         scrub_hyphenated_uuids = False

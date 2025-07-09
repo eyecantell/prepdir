@@ -1,6 +1,6 @@
 import logging
 import pytest
-from prepdir.prepdir_logging import configure_logging
+from prepdir import prepdir_logging
 from io import StringIO
 
 logger = logging.getLogger("prepdir.test")
@@ -24,7 +24,7 @@ def streams():
 def test_status_filter_details(caplog, capsys, streams):
     stdout, stderr = streams
     logger.setLevel(logging.DEBUG)
-    configure_logging(logger, details=True, stdout_stream=stdout, stderr_stream=stderr)
+    prepdir_logging.configure_logging(logger, details=True, stdout_stream=stdout, stderr_stream=stderr)
     with caplog.at_level(logging.DEBUG, logger="prepdir.test"):
         with capsys.disabled():
             logger.debug("Test debug")
@@ -45,7 +45,7 @@ def test_status_filter_details(caplog, capsys, streams):
 def test_status_filter_non_verbose(caplog, capsys, streams):
     stdout, stderr = streams
     logger.setLevel(logging.INFO)
-    configure_logging(logger, details=False, stdout_stream=stdout, stderr_stream=stderr)
+    prepdir_logging.configure_logging(logger, details=False, stdout_stream=stdout, stderr_stream=stderr)
     with caplog.at_level(logging.INFO, logger="prepdir.test"):
         with capsys.disabled():
             logger.info("Test info")
@@ -61,7 +61,7 @@ def test_status_filter_non_verbose(caplog, capsys, streams):
 def test_status_filter_status_level(caplog, capsys, streams):
     stdout, stderr = streams
     logger.setLevel(logging.STATUS)
-    configure_logging(logger, details=False, stdout_stream=stdout, stderr_stream=stderr)
+    prepdir_logging.configure_logging(logger, details=False, stdout_stream=stdout, stderr_stream=stderr)
     assert logger.getEffectiveLevel() == logging.STATUS, f"Expected logger level STATUS, got {logging.getLevelName(logger.getEffectiveLevel())}"
     assert len(logger.handlers) == 2, f"Expected 2 handlers, got {len(logger.handlers)}: {[h.__class__.__name__ for h in logger.handlers]}"
     assert all(isinstance(h, logging.StreamHandler) for h in logger.handlers), "Expected StreamHandler"
@@ -83,7 +83,7 @@ def test_status_filter_status_level(caplog, capsys, streams):
 
 def test_status_filter_default_level(caplog, capsys, streams):
     stdout, stderr = streams
-    configure_logging(logger, details=False, stdout_stream=stdout, stderr_stream=stderr)
+    prepdir_logging.configure_logging(logger, details=False, stdout_stream=stdout, stderr_stream=stderr)
     assert logger.getEffectiveLevel() == logging.STATUS, f"Expected logger level STATUS, got {logging.getLevelName(logger.getEffectiveLevel())}"
     assert len(logger.handlers) == 2, f"Expected 2 handlers, got {len(logger.handlers)}: {[h.__class__.__name__ for h in logger.handlers]}"
     assert all(isinstance(h, logging.StreamHandler) for h in logger.handlers), "Expected StreamHandler"
@@ -106,7 +106,7 @@ def test_status_filter_default_level(caplog, capsys, streams):
 def test_status_filter_debug_level(caplog, capsys, streams):
     stdout, stderr = streams
     logger.setLevel(logging.DEBUG)
-    configure_logging(logger, details=True, stdout_stream=stdout, stderr_stream=stderr)
+    prepdir_logging.configure_logging(logger, details=True, stdout_stream=stdout, stderr_stream=stderr)
     with caplog.at_level(logging.DEBUG, logger="prepdir.test"):
         with capsys.disabled():
             logger.debug("Test debug")

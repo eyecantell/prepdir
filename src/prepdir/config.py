@@ -4,10 +4,10 @@ import re
 from dynaconf import Dynaconf
 from pathlib import Path
 import sys
-import yaml
 from typing import Optional
 import tempfile
 from importlib.metadata import version, PackageNotFoundError
+from prepdir import prepdir_logging # make sure logger.status() is defined
 
 if sys.version_info < (3, 9):
     from importlib_resources import files, is_resource
@@ -76,7 +76,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
             raise ValueError(f"Custom config path '{config_path}' does not exist")
         else:
             settings_files.append(str(config_path))
-            logger.debug(f"Using custom config path: {config_path}")
+            logger.status(f"Using custom config path: {config_path}")
 
     elif os.getenv("PREPDIR_SKIP_CONFIG_LOAD") == "true":  # Skip default config search in test environment
         logger.warning("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true")
@@ -87,13 +87,13 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
 
         if home_config.exists():
             settings_files.append(str(home_config))
-            logger.debug(f"Found home config: {home_config}")
+            logger.status(f"Found home config: {home_config}")
         else:
             logger.debug(f"No home config found at: {home_config}")
 
         if local_config.exists():
             settings_files.append(str(local_config))
-            logger.debug(f"Found local config: {local_config}")
+            logger.status(f"Found local config: {local_config}")
         else:
             logger.debug(f"No local config found at: {local_config}")
 
@@ -110,6 +110,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
                     settings_files.append(str(temp_bundled_path))
                     bundled_config_path = temp_bundled_path
                     logger.debug(f"Loaded bundled config into temporary file: {temp_bundled_path}")
+                    logger.status("Will use default config")
                 except Exception as e:
                     logger.warning(f"Failed to load bundled config for {namespace}: {str(e)}")
                     raise ValueError(f"Failed to load bundled config for {namespace}: {str(e)}")

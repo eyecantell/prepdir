@@ -3,7 +3,7 @@ from typing import Dict, Optional, Tuple
 from pydantic import BaseModel, Field, field_validator
 import logging
 from .scrub_uuids import scrub_uuids, restore_uuids
-import prepdir.prepdir_logging # make sure logger.status() is defined
+from prepdir import prepdir_logging # make sure logger.status() is defined
 
 logger = logging.getLogger(__name__)
 

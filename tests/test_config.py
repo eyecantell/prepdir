@@ -938,7 +938,7 @@ def test_load_config_verbose_logging(sample_config_content, capture_log, tmp_pat
     log_output = capture_log.getvalue()
     print(f"verbose=False {log_output=}")
     assert f"Loading config with namespace='prepdir'" not in log_output
-    assert f"Using custom config path: {config_path}" not in log_output
+    assert f"Using custom config path: {config_path}" in log_output
     capture_log.truncate(0)
     capture_log.seek(0)
 
