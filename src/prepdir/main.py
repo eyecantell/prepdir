@@ -175,11 +175,9 @@ def main():
     # Set logger level based on verbosity
     LEVEL_MAP = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}
     logging_level = LEVEL_MAP.get(args.verbose, logging.WARNING)
-    logger.setLevel(logging_level)
-    logger.debug(f"Set logger level to {logging.getLevelName(logging_level)}")
 
     # Configure logging
-    prepdir_logging.configure_logging(logger)
+    prepdir_logging.configure_logging(logger, level=logging_level)
     logging.getLogger("dynaconf").setLevel(logging.CRITICAL)  # Suppress dynaconf logging
     logger.debug("args are: %s", args)
 

@@ -41,12 +41,15 @@ def streams():
 @pytest.fixture
 def configure_logger(streams):
     stdout, stderr = streams
-    def _configure(verbose=0):
-        prepdir_logging.configure_logging(logger, verbose=verbose, stdout_stream=stdout, stderr_stream=stderr)
-        assert len(logger.handlers) == 1
+    def _configure(level=logging.INFO):
+        prepdir_logging.configure_logging(logger, level=level, stdout_stream=stdout, stderr_stream=stderr)
+        assert len(logger.handlers) == 2, f"Expected 2 handlers, got {len(logger.handlers)}: {[h.__class__.__name__ for h in logger.handlers]}"
         assert isinstance(logger.handlers[0], logging.StreamHandler)
         assert logger.handlers[0].stream is stdout
-        assert logger.handlers[0].level == (logging.DEBUG if verbose == 2 else logging.INFO)
+        assert logger.handlers[0].level == logging.DEBUG
+        assert isinstance(logger.handlers[1], logging.StreamHandler)
+        assert logger.handlers[1].stream is stderr
+        assert logger.handlers[1].level == logging.ERROR
     return _configure
 
 # Test data
@@ -64,7 +67,7 @@ Extra =-=-= Begin File: 'file3.txt' =-=-=
 """
 
 def test_manual_instance(temp_file, configure_logger):
-    configure_logger(verbose=2)  # Enable DEBUG logs
+    configure_logger(level=logging.DEBUG)  # Enable DEBUG logs
     content = "=-=-= Begin File: 'file1.txt' =-=-=\nContent\n=-=-= End File: 'file1.txt' =-=-="
     file_path = temp_file(content)
     instance = PrepdirOutputFile(
@@ -85,7 +88,8 @@ def test_manual_instance(temp_file, configure_logger):
 
 def test_from_file(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
-    configure_logger(verbose=2)  # Enable DEBUG logs
+    configure_logger(level=logging.DEBUG)
+    caplog.clear()  # Clear configure_logging's logs
     content = SAMPLE_CONTENT
     file_path = temp_file(content)
     metadata = {
@@ -116,14 +120,14 @@ def test_from_file(temp_file, caplog, configure_logger, streams):
     assert "11 lines to parse" in caplog.text
 
 def test_from_file_no_headers(temp_file, configure_logger):
-    configure_logger(verbose=2)
+    configure_logger(level=logging.DEBUG)
     content = "No headers here"
     file_path = temp_file(content)
     with pytest.raises(ValueError, match="No begin file patterns found!"):
         PrepdirOutputFile.from_file(str(file_path), metadata={"base_directory": "test_dir"})
 
 def test_from_file_noseconds_date(temp_file, configure_logger):
-    configure_logger(verbose=0)  # INFO only
+    configure_logger(level=logging.INFO)
     content = """File listing generated 2025-06-26 01:02 by Grok 3
 Base directory is '/test_dir'
 
@@ -146,7 +150,8 @@ Content
 
 def test_from_file_base_dir_mismatch(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
-    configure_logger(verbose=2)
+    configure_logger(level=logging.DEBUG)
+    caplog.clear()  # Clear configure_logging's logs
     content = """File listing generated 2025-06-26 12:15:00 by prepdir
 Base directory is '/invalid_dir'
 
@@ -169,7 +174,7 @@ Content
     assert "6 lines to parse" in caplog.text
 
 def test_from_content_with_uuid_mapping(temp_file, configure_logger):
-    configure_logger(verbose=0)
+    configure_logger(level=logging.INFO)
     content = """File listing generated 2025-06-26T12:15:00 by prepdir
 Base directory is '/test_dir'
 =-=-= Begin File: 'file1.txt' =-=-=
@@ -192,7 +197,8 @@ Content with PREPDIR_UUID_PLACEHOLDER_1
 
 def test_from_content_no_metadata(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
-    configure_logger(verbose=2)
+    configure_logger(level=logging.DEBUG)
+    caplog.clear()  # Clear configure_logging's logs
     content = """File listing generated 2025-06-26T12:15:00 by prepdir
 Base directory is '/test_dir'
 =-=-= Begin File: 'file1.txt' =-=-=
@@ -212,7 +218,8 @@ Content
 
 def test_from_content_metadata_mismatch(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
-    configure_logger(verbose=2)
+    configure_logger(level=logging.DEBUG)
+    caplog.clear()  # Clear configure_logging's logs
     content = """File listing generated 2025-06-26T12:15:00 by prepdir
 Base directory is '/header_dir'
 =-=-= Begin File: 'file1.txt' =-=-=
@@ -244,7 +251,7 @@ Content
     assert "5 lines to parse" in caplog.text
 
 def test_parse_no_header_simple(temp_file, configure_logger):
-    configure_logger(verbose=0)
+    configure_logger(level=logging.INFO)
     content = """=-=-= Begin File: 'file1.txt' =-=-=
 Content for file1
 =-=-= End File: 'file1.txt' =-=-=
@@ -267,7 +274,8 @@ Content for file1
 
 def test_parse_extra_header_as_content(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
-    configure_logger(verbose=2)
+    configure_logger(level=logging.DEBUG)
+    caplog.clear()  # Clear configure_logging's logs
     content = """=-=-= Begin File: 'file1.txt' =-=-=
 Content
 =-=-= Begin File: 'file2.txt' =-=-=
@@ -289,7 +297,7 @@ Content
     assert "4 lines to parse" in caplog.text
 
 def test_parse_unclosed_file(temp_file, configure_logger):
-    configure_logger(verbose=0)
+    configure_logger(level=logging.INFO)
     content = """=-=-= Begin File: 'file1.txt' =-=-=
 Content
 """
@@ -300,7 +308,7 @@ Content
         instance.parse("test_dir")
 
 def test_get_changes(temp_file, configure_logger):
-    configure_logger(verbose=0)
+    configure_logger(level=logging.INFO)
     orig_content = """=-=-= Begin File: 'file1.txt' =-=-=
 File1 original content
 =-=-= End File: 'file1.txt' =-=-=
@@ -338,7 +346,7 @@ File1 changed content
     assert any(entry.relative_path == "file2.txt" for entry in changes["removed"])
 
 def test_is_prepdir_outputfile_format(configure_logger):
-    configure_logger(verbose=0)
+    configure_logger(level=logging.INFO)
     valid_content = """File listing generated 2025-06-26 12:15:00 by prepdir
 Base directory is 'test_dir'
 
@@ -358,7 +366,8 @@ Content
 
 def test_save_no_content(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
-    configure_logger(verbose=0)
+    configure_logger(level=logging.INFO)
+    caplog.clear()  # Clear configure_logging's logs
     file_path = temp_file("")
     metadata = {"base_directory": "test_dir", "version": __version__, "date": "unknown", "creator": "prepdir"}
     instance = PrepdirOutputFile(path=file_path, content="", metadata=metadata, use_unique_placeholders=False)
@@ -368,7 +377,8 @@ def test_save_no_content(temp_file, caplog, configure_logger, streams):
 
 def test_save_no_path(caplog, configure_logger, streams):
     stdout, _ = streams
-    configure_logger(verbose=0)
+    configure_logger(level=logging.INFO)
+    caplog.clear()  # Clear configure_logging's logs
     metadata = {"base_directory": "test_dir", "version": __version__, "date": "unknown", "creator": "prepdir"}
     instance = PrepdirOutputFile(content="Some content", metadata=metadata, use_unique_placeholders=False)
     with caplog.at_level(logging.WARNING):
@@ -377,7 +387,8 @@ def test_save_no_path(caplog, configure_logger, streams):
 
 def test_save_success(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
-    configure_logger(verbose=0)
+    configure_logger(level=logging.INFO)
+    caplog.clear()  # Clear configure_logging's logs
     content = "Some content"
     file_path = temp_file(content)
     metadata = {"base_directory": "test_dir", "version": __version__, "date": "unknown", "creator": "prepdir"}
@@ -387,10 +398,9 @@ def test_save_success(temp_file, caplog, configure_logger, streams):
     assert f"Saved output to {file_path}" in caplog.text
 
 def test_quiet_mode(temp_file, caplog, streams):
-    stdout, _ = streams
-    configure_logger = prepdir_logging.configure_logging
-    configure_logger(logger, verbose=0, stdout_stream=stdout)
-    logger.setLevel(logging.WARNING)  # Quiet mode: only WARNING and above
+    stdout, stderr = streams
+    prepdir_logging.configure_logging(logger, level=logging.WARNING, stdout_stream=stdout, stderr_stream=stderr)
+    caplog.clear()  # Clear configure_logging's logs
     logger.propagate = False
     content = SAMPLE_CONTENT
     file_path = temp_file(content)
@@ -409,7 +419,8 @@ def test_quiet_mode(temp_file, caplog, streams):
 
 def test_parse_footer_without_header(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
-    configure_logger(verbose=2)
+    configure_logger(level=logging.DEBUG)
+    caplog.clear()  # Clear configure_logging's logs
     content = """=-=-= End File: 'file1.txt' =-=-=
 Content
 """
@@ -424,7 +435,8 @@ Content
 
 def test_parse_mismatched_footer(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
-    configure_logger(verbose=2)
+    configure_logger(level=logging.DEBUG)
+    caplog.clear()  # Clear configure_logging's logs
     content = """=-=-= Begin File: 'file1.txt' =-=-=
 Content
 =-=-= End File: 'file2.txt' =-=-=
