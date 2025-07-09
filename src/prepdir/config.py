@@ -37,6 +37,13 @@ def check_namespace_value(namespace: str):
         raise ValueError(
             f"Invalid namespace '{namespace}': must be non-empty and contain only alphanumeric, underscore, or hyphen chars"
         )
+    
+def check_stdout_stderr(stdout, stderr):
+    # Validate stdout and stderr
+    if stdout and not hasattr(stdout, 'write'):
+        raise ValueError("stdout must be a file-like object with a write method")
+    if stderr and not hasattr(stderr, 'write'):
+        raise ValueError("stderr must be a file-like object with a write method")
 
 def load_config(namespace: str, config_path: Optional[str] = None, verbose: int = 0, quiet: bool = False, stdout=sys.stdout, stderr=sys.stderr) -> Dynaconf:
     """
@@ -180,6 +187,8 @@ def init_config(
         SystemExit: If the config file already exists and force=False, or if initialization fails.
     """
     check_namespace_value(namespace)
+    check_stdout_stderr(stdout, stderr)
+    
     logger.debug(f"Initializing config with {namespace=}, {config_path=}, {force=}")
 
     config_path = Path(config_path) if config_path else Path(f".{namespace}/config.yaml")

@@ -2,12 +2,14 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 from pydantic import BaseModel, Field, field_validator
 import logging
+import sys
 from .scrub_uuids import scrub_uuids, restore_uuids
+from .config import check_stdout_stderr
 
 logger = logging.getLogger(__name__)
 
 BINARY_CONTENT_PLACEHOLDER = "[Binary file or encoding not currently supported by prepdir]"
-
+PREPDIR_DASHES = "=-" * 7 + "="   # The dases used on either side of a Begin File: or End File: label - See LENIENT_DELIM_PATTERN for requirements here if considering changing this
 
 class PrepdirFileEntry(BaseModel):
     """Represents a single project file's metadata, content, and UUID mappings for prepdir processing."""
@@ -45,9 +47,12 @@ class PrepdirFileEntry(BaseModel):
         scrub_hyphenless_uuids: bool,
         replacement_uuid: str = "00000000-0000-0000-0000-000000000000",
         use_unique_placeholders: bool = False,
-        verbose: bool = False,
+        verbose: int = 0,
+        quiet: bool = False,
         placeholder_counter: int = 1,
         uuid_mapping: Dict[str, str] = None,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
     ) -> Tuple["PrepdirFileEntry", Dict[str, str], int]:
         """Create a PrepdirFileEntry by reading a file, optionally scrubbing UUIDs.
 
@@ -58,24 +63,41 @@ class PrepdirFileEntry(BaseModel):
             scrub_hyphenless_uuids: If True, scrub hyphen-less UUIDs (e.g., 123e4567e89b12d3a456426614174000).
             replacement_uuid: UUID to use as replacement when use_unique_placeholders=False.
             use_unique_placeholders: If True, use unique placeholders (e.g., PREPDIR_UUID_PLACEHOLDER_n).
-            verbose: If True, log scrubbing details.
+            verbose: Verbosity level (0: WARNING, 1: INFO, 2: DEBUG).
+            quiet: If True, suppress user-facing output to stdout/stderr.
             placeholder_counter: Starting counter for unique placeholders.
             uuid_mapping: Shared mapping of placeholders to original UUIDs for reuse.
+            stdout: Stream for user-facing output.
+            stderr: Stream for error messages.
 
         Returns:
             Tuple of (PrepdirFileEntry instance, updated uuid_mapping, updated placeholder_counter).
 
         Raises:
             FileNotFoundError: If file_path does not exist.
-            ValueError: If replacement_uuid is invalid or paths are invalid.
+            ValueError: If replacement_uuid is invalid, paths are invalid, or stdout/stderr are not file-like objects.
         """
         import os
+
+        # Validate stdout and stderr
+        check_stdout_stderr(stdout, stderr)
+
+        # Set logger level based on verbose
+        if verbose >= 2:
+            logger.setLevel(logging.DEBUG)
+        elif verbose >= 1:
+            logger.setLevel(logging.INFO)
+        else:
+            logger.setLevel(logging.WARNING)
 
         # Ensure file_path is absolute
         file_path = file_path if file_path.is_absolute() else Path(base_directory) / file_path
         file_path = file_path.resolve()
 
         if not file_path.exists():
+            logger.error(f"File not found: {file_path}")
+            if not quiet:
+                print(f"Error: File not found: {file_path}", file=stderr)
             raise FileNotFoundError(f"File not found: {file_path}")
 
         logger.debug(f"instantiating from {file_path}")
@@ -105,13 +127,20 @@ class PrepdirFileEntry(BaseModel):
                             uuid_mapping=uuid_mapping,
                         )
                         uuid_mapping.update(updated_uuid_mapping)
+                        if not quiet and is_scrubbed:
+                            print(f"Scrubbed UUIDs in {relative_path}", file=stdout)
                 except UnicodeDecodeError:
                     logger.debug("got UnicodeDecodeError with utf-8, presuming binary")
                     is_binary = True
                     content = BINARY_CONTENT_PLACEHOLDER
+                    if not quiet:
+                        print(f"File {relative_path} is binary or encoding not supported", file=stdout)
         except Exception as e:
             error = str(e)
             content = f"[Error reading file: {error}]"
+            logger.error(f"Failed to read {file_path}: {error}")
+            if not quiet:
+                print(f"Error: Failed to read {file_path}: {error}", file=stderr)
 
         return (
             cls(
@@ -140,70 +169,117 @@ class PrepdirFileEntry(BaseModel):
         """
         if format != "text":
             raise ValueError(f"Unsupported output format: {format}")
-        dashes = "=-" * 7 + "="  # See LENIENT_DELIM_PATTERN for requirements here if considering changing this
         output = [
-            f"{dashes} Begin File: '{self.relative_path}' {dashes}",
+            f"{PREPDIR_DASHES} Begin File: '{self.relative_path}' {PREPDIR_DASHES}",
             self.content,
-            f"{dashes} End File: '{self.relative_path}' {dashes}",
+            f"{PREPDIR_DASHES} End File: '{self.relative_path}' {PREPDIR_DASHES}",
         ]
         return "\n".join(output)
 
-    def restore_uuids(self, uuid_mapping: Dict[str, str]) -> str:
+    def restore_uuids(self, uuid_mapping: Dict[str, str], verbose: int = 0, quiet: bool = False, stdout=sys.stdout, stderr=sys.stderr) -> str:
         """Restore original UUIDs in content using uuid_mapping.
 
         Args:
             uuid_mapping: Dictionary mapping placeholders to original UUIDs.
+            verbose: Verbosity level (0: WARNING, 1: INFO, 2: DEBUG).
+            quiet: If True, suppress user-facing output to stdout/stderr.
+            stdout: Stream for user-facing output.
+            stderr: Stream for error messages.
 
         Returns:
             Content with placeholders replaced by original UUIDs.
 
         Raises:
-            ValueError: If uuid_mapping is None or empty when is_scrubbed is True.
+            ValueError: If uuid_mapping is None or empty when is_scrubbed is True, or stdout/stderr are not file-like objects.
         """
+        
+        # Validate stdout and stderr
+        check_stdout_stderr(stdout, stderr)
+
+        # Set logger level based on verbose
+        if verbose >= 2:
+            logger.setLevel(logging.DEBUG)
+        elif verbose >= 1:
+            logger.setLevel(logging.INFO)
+        else:
+            logger.setLevel(logging.WARNING)
+
         if self.is_scrubbed and (not uuid_mapping or not isinstance(uuid_mapping, dict)):
             logger.error(f"No valid uuid_mapping provided for {self.relative_path}")
+            if not quiet:
+                print(f"Error: No valid uuid_mapping provided for {self.relative_path}", file=stderr)
             raise ValueError("uuid_mapping must be a non-empty dictionary when is_scrubbed is True")
+
         restored_content = restore_uuids(
             content=self.content,
             uuid_mapping=uuid_mapping,
             is_scrubbed=self.is_scrubbed,
         )
-        return restored_content  # Return new content instead of modifying in-place
+        if not quiet and self.is_scrubbed:
+            print(f"Restored UUIDs in {self.relative_path}", file=stdout)
+        logger.info(f"Restored UUIDs in {self.relative_path}")
+        return restored_content
 
-    def apply_changes(self, uuid_mapping: Dict[str, str]) -> bool:
+    def apply_changes(self, uuid_mapping: Dict[str, str], verbose: int = 0, quiet: bool = False, stdout=sys.stdout, stderr=sys.stderr) -> bool:
         """Write restored content to absolute_path.
 
         Args:
             uuid_mapping: Dictionary mapping placeholders to original UUIDs.
+            verbose: Verbosity level (0: WARNING, 1: INFO, 2: DEBUG).
+            quiet: If True, suppress user-facing output to stdout/stderr.
+            stdout: Stream for user-facing output.
+            stderr: Stream for error messages.
 
         Returns:
             True if successful, False otherwise.
 
         Raises:
-            Exception: If writing to file fails.
+            ValueError: If stdout/stderr are not file-like objects.
         """
+        
+        # Validate stdout and stderr
+        check_stdout_stderr(stdout, stderr)
+
+        # Set logger level based on verbose
+        if verbose >= 2:
+            logger.setLevel(logging.DEBUG)
+        elif verbose >= 1:
+            logger.setLevel(logging.INFO)
+        else:
+            logger.setLevel(logging.WARNING)
+
         if self.is_binary or self.error:
             logger.warning(
                 f"Skipping apply_changes for {self.relative_path}: {'binary' if self.is_binary else 'error'}"
             )
+            if not quiet:
+                print(
+                    f"Warning: Skipping apply_changes for {self.relative_path}: {'binary' if self.is_binary else 'error'}",
+                    file=stdout
+                )
             return False
         try:
-            restored_content = self.restore_uuids(uuid_mapping)
+            restored_content = self.restore_uuids(uuid_mapping, verbose=verbose, quiet=quiet, stdout=stdout, stderr=stderr)
             self.absolute_path.write_text(restored_content, encoding="utf-8")
             logger.info(f"Applied changes to {self.relative_path}")
+            if not quiet:
+                print(f"Applied changes to {self.relative_path}", file=stdout)
             return True
         except Exception as e:
             logger.error(f"Failed to apply changes to {self.relative_path}: {str(e)}")
+            if not quiet:
+                print(f"Error: Failed to apply changes to {self.relative_path}: {str(e)}", file=stderr)
             self.error = str(e)
             return False
 
     @staticmethod
-    def is_prepdir_outputfile_format(content: str, highest_base_directory: Optional[str] = None, file_full_path : Optional[str] = None) -> bool:
+    def is_prepdir_outputfile_format(content: str, highest_base_directory: Optional[str] = None, file_full_path: Optional[str] = None) -> bool:
         """Return true if the given content matches the format prescribed for a prepdir output file.
 
         Args:
             content: The file content to check.
             highest_base_directory: The base directory for resolving relative paths (optional, defaults to None for format-only check).
+            file_full_path: Full path to the file (optional, used for validation).
 
         Returns:
             bool: True if the content matches the prepdir output format, False otherwise.
