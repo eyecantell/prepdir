@@ -1,10 +1,10 @@
 import logging
 import sys
-from typing import Union
+from typing import Union, Optional
 
 def configure_logging(
     logger: logging.Logger,
-    verbose: int = 0,
+    level: Optional[int] = None,
     stdout_stream: Union[object, None] = None,
     stderr_stream: Union[object, None] = None
 ) -> None:
@@ -12,7 +12,7 @@ def configure_logging(
 
     Args:
         logger: The logger instance to configure.
-        verbose: Verbosity level (0: INFO, 1: INFO with more details, 2: DEBUG).
+        level: Logging level (e.g., logging.DEBUG, logging.INFO, logging.WARNING). If None, preserves the logger's current level.
         stdout_stream: Stream for messages (defaults to sys.stdout).
         stderr_stream: Stream for errors (defaults to sys.stderr).
     """
@@ -22,19 +22,31 @@ def configure_logging(
     if stderr_stream is not None and not hasattr(stderr_stream, 'write'):
         raise AttributeError("'stderr_stream' must be a file-like object with a write method")
 
+    # Set logger level if provided
+    if level is not None:
+        logger.setLevel(level)
+        logger.debug(f"Set logger level to {logging.getLevelName(level)}")
+    else:
+        logger.debug(f"Preserving logger level: {logging.getLevelName(logger.level)}")
+
     # Clear existing handlers
     logger.handlers.clear()
+    logger.debug(f"Cleared existing handlers for {logger.name}")
 
-    # Set logger level based on verbosity
-    level_map = {0: logging.INFO, 1: logging.INFO, 2: logging.DEBUG}
-    logging_level = level_map.get(verbose, logging.INFO)
-    logger.setLevel(logging_level)
+    # Handler for DEBUG, INFO, WARNING to stdout
+    stdout_handler = logging.StreamHandler(stdout_stream or sys.stdout)
+    stdout_handler.setLevel(logging.DEBUG)
+    stdout_handler.addFilter(lambda record: record.levelno <= logging.WARNING)
+    stdout_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"))
+    logger.addHandler(stdout_handler)
+    logger.debug(f"Added stdout StreamHandler with level {logging.getLevelName(logging.DEBUG)}")
 
-    # Single handler for all levels
-    handler = logging.StreamHandler(stdout_stream or sys.stdout)
-    handler.setLevel(logging_level)  # Match handler level to logger level
-    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"))
-    logger.addHandler(handler)
+    # Handler for ERROR and above to stderr
+    stderr_handler = logging.StreamHandler(stderr_stream or sys.stderr)
+    stderr_handler.setLevel(logging.ERROR)
+    stderr_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"))
+    logger.addHandler(stderr_handler)
+    logger.debug(f"Added stderr StreamHandler with level {logging.getLevelName(logging.ERROR)}")
 
     # Flush streams
     if stdout_stream and hasattr(stdout_stream, 'flush'):
