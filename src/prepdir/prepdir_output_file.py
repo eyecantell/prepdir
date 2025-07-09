@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Dict, Optional, List
 from prepdir.prepdir_file_entry import PrepdirFileEntry, BINARY_CONTENT_PLACEHOLDER
-from prepdir import prepdir_logging # make sure logger.status() is defined
 from prepdir.config import __version__
 import logging
 import re

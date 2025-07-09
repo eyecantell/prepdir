@@ -2,72 +2,40 @@ import logging
 import sys
 from typing import Union
 
-# Define STATUS level
-logging.STATUS = 25
-logging.addLevelName(logging.STATUS, "STATUS")
-
-def status(self, message, *args, **kwargs):
-    """Custom logging method for STATUS level."""
-    if self.isEnabledFor(logging.STATUS):
-        self._log(logging.STATUS, message, args, **kwargs)
-logging.Logger.status = status
-
-class StatusFormatter(logging.Formatter):
-    """Custom formatter to output only the message for STATUS level, detailed for others."""
-    def __init__(self, fmt: str = None, *args, **kwargs):
-        super().__init__(fmt, *args, **kwargs)
-
-    def format(self, record: logging.LogRecord) -> str:
-        if record.levelno == logging.STATUS:
-            return record.getMessage()  # Clean output for STATUS
-        return super().format(record)  # Detailed or simple format for other levels
-
 def configure_logging(
     logger: logging.Logger,
-    details: bool = False,
+    verbose: int = 0,
     stdout_stream: Union[object, None] = None,
-    stderr_stream: Union[object, None] = None,
-    clear_root_handlers: bool = False
+    stderr_stream: Union[object, None] = None
 ) -> None:
-    """Configure the logger with handlers for status or detailed output.
+    """Configure the logger for diagnostic messages.
 
     Args:
         logger: The logger instance to configure.
-        details: If True, use detailed format for non-STATUS levels; if False, use simple format.
+        verbose: Verbosity level (0: INFO, 1: INFO with more details, 2: DEBUG).
         stdout_stream: Stream for messages (defaults to sys.stdout).
-        stderr_stream: Stream for WARNING+ messages (defaults to sys.stderr).
-        clear_root_handlers: If True, clear root logger handlers (use with caution in programmatic use).
+        stderr_stream: Stream for errors (defaults to sys.stderr).
     """
-    # Clear existing handlers on the logger
+    # Clear existing handlers
     logger.handlers.clear()
 
-    # Optionally clear root logger handlers (for CLI use)
-    if clear_root_handlers:
-        root_logger = logging.getLogger()
-        root_logger.handlers.clear()
-        root_logger.setLevel(logging.CRITICAL + 1)  # Disable root logger
+    # Set logger level based on verbosity
+    level_map = {0: logging.INFO, 1: logging.INFO, 2: logging.DEBUG}
+    logging_level = level_map.get(verbose, logging.INFO)
+    logger.setLevel(logging_level)
 
-    # Set default level to STATUS if NOTSET
-    if logger.level == logging.NOTSET:
-        logger.setLevel(logging.STATUS)
+    # Single handler for all levels
+    handler = logging.StreamHandler(stdout_stream or sys.stdout)
+    handler.setLevel(logging.DEBUG)  # Capture all levels
+    '''if verbose >= 2:
+        handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"))
+    else:
+        handler.setFormatter(logging.Formatter("%(message)s"))'''
+    
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"))
+    logger.addHandler(handler)
 
-    # Formatters
-    detailed_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s")
-    simple_formatter = logging.Formatter("%(message)s")
-
-    # Configure stdout handler for DEBUG, INFO, STATUS
-    stdout_handler = logging.StreamHandler(stdout_stream or sys.stdout)
-    stdout_handler.setLevel(logging.DEBUG)
-    stdout_handler.setFormatter(StatusFormatter(detailed_formatter.fmt if details else simple_formatter.fmt))
-    stdout_handler.addFilter(lambda record: record.levelno <= logging.STATUS)
-    logger.addHandler(stdout_handler)
-
-    # Configure stderr handler for WARNING and above
-    stderr_handler = logging.StreamHandler(stderr_stream or sys.stderr)
-    stderr_handler.setLevel(logging.WARNING)
-    stderr_handler.setFormatter(StatusFormatter(detailed_formatter.fmt if details else "%(levelname)s: %(message)s"))
-    logger.addHandler(stderr_handler)
-
+    # Flush streams
     if stdout_stream and hasattr(stdout_stream, 'flush'):
         stdout_stream.flush()
     if stderr_stream and hasattr(stderr_stream, 'flush'):

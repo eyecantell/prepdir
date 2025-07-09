@@ -7,30 +7,28 @@ import sys
 from typing import Optional
 import tempfile
 from importlib.metadata import version, PackageNotFoundError
-from prepdir import prepdir_logging # make sure logger.status() is defined
-
-if sys.version_info < (3, 9):
-    from importlib_resources import files, is_resource
-else:
-    from importlib.resources import files, is_resource
 
 logger = logging.getLogger(__name__)
 
 try:
     __version__ = version("prepdir")
 except PackageNotFoundError:
-    __version__ = "0.0.0"  # Fallback to hardcoded version
+    __version__ = "0.0.0"
 
+if sys.version_info < (3, 9):
+    from importlib_resources import files, is_resource
+else:
+    from importlib.resources import files, is_resource
 
 def check_namespace_value(namespace: str):
     """
     Validate the namespace string.
 
     Args:
-        namespace (str): The package namespace to validate.
+        namespace: The namespace string to validate.
 
     Raises:
-        ValueError: If namespace is invalid.
+        ValueError: If the namespace is empty or contains invalid characters.
     """
     if not namespace or not re.match(r"^[a-zA-Z0-9_-]+$", namespace):
         logger.error(
@@ -40,64 +38,69 @@ def check_namespace_value(namespace: str):
             f"Invalid namespace '{namespace}': must be non-empty and contain only alphanumeric, underscore, or hyphen chars"
         )
 
-
-def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool = False) -> Dynaconf:
+def load_config(namespace: str, config_path: Optional[str] = None, verbose: int = 0, quiet: bool = False, stdout=sys.stdout, stderr=sys.stderr) -> Dynaconf:
     """
     Load configuration settings using Dynaconf from various sources.
 
     Args:
-        namespace (str): The package namespace (e.g., "prepdir", "applydir", "vibedir") for bundled config.
-        config_path (Optional[str]): Custom path to a configuration file, overriding defaults if provided.
-        verbose (bool): If True, enable detailed logging.
+        namespace: Configuration namespace (e.g., 'prepdir').
+        config_path: Path to custom config file.
+        verbose: Verbosity level (0: no diagnostics, 1: INFO, 2: DEBUG).
+        quiet: If True, suppress user-facing output to stdout.
+        stdout: Stream for user-facing output.
+        stderr: Stream for error messages.
 
     Returns:
-        Dynaconf: Config object with loaded settings.
+        Dynaconf: Configured Dynaconf instance with loaded settings.
 
     Raises:
-        ValueError: If no valid config files are found, YAML is invalid, config_path is missing, or namespace is invalid.
-
-    Notes:
-        - Priority: custom_config > local_config (./{namespace}/config.yaml) > home_config (~/{namespace}/config.yaml) > bundled_config.
-        - In PREPDIR_SKIP_CONFIG_LOAD=true, only custom_config is used.
-        - If no bundled config exists for the namespace, returns an empty Dynaconf object.
+        ValueError: If no configuration files are found or if YAML is invalid.
     """
-    if verbose:
+    if verbose >= 2:
         logger.setLevel(logging.DEBUG)
-    logger.debug(f"Loading config with {namespace=}, {config_path=}, {verbose=}")
+    elif verbose >= 1:
+        logger.setLevel(logging.INFO)
+    logger.debug(f"Loading config with {namespace=}, {config_path=}, {verbose=}, {quiet=}")
 
     check_namespace_value(namespace)
     settings_files = []
 
-    # Use custom config path if provided
     if config_path:
         config_path = Path(config_path).resolve()
         if not config_path.exists():
             logger.error(f"Custom config path '{config_path}' does not exist")
+            print(f"Error: Custom config path '{config_path}' does not exist", file=stderr)
             raise ValueError(f"Custom config path '{config_path}' does not exist")
         else:
             settings_files.append(str(config_path))
-            logger.status(f"Using custom config path: {config_path}")
+            if not quiet:
+                print(f"Using custom config path: {config_path}", file=stdout)
+            logger.info(f"Using custom config path: {config_path}")
 
-    elif os.getenv("PREPDIR_SKIP_CONFIG_LOAD") == "true":  # Skip default config search in test environment
+    elif os.getenv("PREPDIR_SKIP_CONFIG_LOAD") == "true":
         logger.warning("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true")
+        if not quiet and verbose >= 1:
+            print("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true", file=stdout)
     else:
-        # Check home config first, then local config. The order of the settings files matters (later override earlier)
         local_config = Path(f".{namespace}/config.yaml").resolve()
         home_config = Path(os.path.expanduser(f"~/.{namespace}/config.yaml")).resolve()
 
         if home_config.exists():
             settings_files.append(str(home_config))
-            logger.status(f"Found home config: {home_config}")
+            if not quiet:
+                print(f"Found home config: {home_config}", file=stdout)
+            logger.info(f"Found home config: {home_config}")
         else:
             logger.debug(f"No home config found at: {home_config}")
 
         if local_config.exists():
             settings_files.append(str(local_config))
-            logger.status(f"Found local config: {local_config}")
+            if not quiet:
+                print(f"Found local config: {local_config}", file=stdout)
+            logger.info(f"Found local config: {local_config}")
         else:
             logger.debug(f"No local config found at: {local_config}")
 
-        # Fallback to bundled config if it exists
         if not settings_files:
             bundled_config = files(namespace) / "config.yaml"
             if is_resource(namespace, "config.yaml"):
@@ -110,9 +113,12 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
                     settings_files.append(str(temp_bundled_path))
                     bundled_config_path = temp_bundled_path
                     logger.debug(f"Loaded bundled config into temporary file: {temp_bundled_path}")
-                    logger.status("Will use default config")
+                    if not quiet:
+                        print("Will use default config", file=stdout)
+                    logger.info("Will use default config")
                 except Exception as e:
                     logger.warning(f"Failed to load bundled config for {namespace}: {str(e)}")
+                    print(f"Error: Failed to load bundled config for {namespace}: {str(e)}", file=stderr)
                     raise ValueError(f"Failed to load bundled config for {namespace}: {str(e)}")
             else:
                 logger.debug(f"No bundled config found for {namespace}, using defaults")
@@ -136,14 +142,13 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
             lowercase_read=True,
             default_settings_paths=[],
         )
-        # Force loading to catch YAML errors early
-        config._wrapped  # Access internal storage to trigger loading
+        config._wrapped
         logger.debug(f"Final config values for UUIDS:\nREPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}\n")
     except Exception as e:
         logger.error(f"Invalid YAML in config file(s): {str(e)}")
+        print(f"Error: Invalid YAML in config file(s): {str(e)}", file=stderr)
         raise ValueError(f"Invalid YAML in config file(s): {str(e)}")
 
-    # Clean up temporary bundled config if it exists
     if "bundled_config_path" in locals() and bundled_config_path.exists():
         try:
             bundled_config_path.unlink()
@@ -153,7 +158,6 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: bool
 
     logger.debug(f"Loaded config for {namespace} from: {settings_files}")
     return config
-
 
 def init_config(
     namespace: str = "prepdir",
@@ -166,15 +170,14 @@ def init_config(
     Initialize a local config.yaml with the package's default config.
 
     Args:
-        namespace: Name associated with config (e.g., "prepdir", "applydir", "vibedir").
-        config_path (str): Path to the configuration file to create (defaults to .{namespace}/config.yaml).
-        force (bool): If True, overwrite existing config file.
-        stdout (file-like): Stream for success messages (default: sys.stdout).
-        stderr (file-like): Stream for error messages (default: sys.stderr).
+        namespace: Configuration namespace (default: 'prepdir').
+        config_path: Path to save the config file (default: .prepdir/config.yaml).
+        force: If True, overwrite existing config file.
+        stdout: Stream for user-facing output.
+        stderr: Stream for error messages.
 
     Raises:
-        SystemExit: If the config file exists and force=False, or if creation fails.
-        ValueError: If namespace is invalid or bundled config is missing.
+        SystemExit: If the config file already exists and force=False, or if initialization fails.
     """
     check_namespace_value(namespace)
     logger.debug(f"Initializing config with {namespace=}, {config_path=}, {force=}")

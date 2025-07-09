@@ -3,10 +3,8 @@ from typing import Dict, Optional, Tuple
 from pydantic import BaseModel, Field, field_validator
 import logging
 from .scrub_uuids import scrub_uuids, restore_uuids
-from prepdir import prepdir_logging # make sure logger.status() is defined
 
 logger = logging.getLogger(__name__)
-
 
 BINARY_CONTENT_PLACEHOLDER = "[Binary file or encoding not currently supported by prepdir]"
 
