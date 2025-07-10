@@ -68,8 +68,13 @@ class PrepdirOutputFile(BaseModel):
 
         if path_for_save:
             if self.content:
-                path_for_save.write_text(self.content, encoding="utf-8")
-                logger.info(f"Saved output to {path_for_save}")
+                try:
+                    path_for_save.write_text(self.content, encoding="utf-8")
+                    logger.info(f"Saved output to {path_for_save}")
+                except FileNotFoundError as e:
+                    logger.error(f"Could not save output to {path_for_save}: {str(e)}")
+                    raise ValueError(f"Could not save output to {path_for_save}: {str(e)}") from e
+                
             else:
                 logger.warning("No content specified, content not saved")
         else:

@@ -193,9 +193,14 @@ def init_config(
 
     config_path = Path(config_path) if config_path else Path(f".{namespace}/config.yaml")
     config_dir = config_path.parent
-    config_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        config_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        raise FileNotFoundError(f"Invalid config_path '{config_path}'. Could not create dir '{config_dir}': {e}")
 
     if config_path.exists() and not force:
+        logger.error(f"Error: '{config_path}' already exists. Use force=True to overwrite.")
         print(f"Error: '{config_path}' already exists. Use force=True to overwrite.", file=stderr)
         raise SystemExit(1)
 
@@ -210,6 +215,7 @@ def init_config(
             config_content = src.read()
         with config_path.open("w", encoding="utf-8") as dest:
             dest.write(config_content)
+        logger.info(f"Created '{config_path}' with default configuration.")
         print(f"Created '{config_path}' with default configuration.", file=stdout)
     except Exception as e:
         logger.error(f"Failed to create {config_path}: {str(e)}")
