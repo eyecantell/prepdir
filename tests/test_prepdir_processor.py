@@ -700,8 +700,9 @@ def test_init_config_invalid_path(tmp_path, caplog):
     invalid_path = "/invalid/path/config.yaml"
     with caplog.at_level(logging.ERROR):
         caplog.clear()
-        with pytest.raises(FileNotFoundError, match=f"Could not create dir"):
+        with pytest.raises(SystemExit, match=f"Failed to create config file '{invalid_path}': \\[Errno 13\\] Permission denied: '/invalid'"):
             PrepdirProcessor.init_config(config_path=invalid_path)
+    assert f"Failed to create config file '{invalid_path}': [Errno 13] Permission denied: '/invalid'" in caplog.text
 
 def test_is_excluded_output_file_valid_prepdir_file(temp_dir, config_path, caplog):
     """Test is_excluded_output_file with a valid prepdir output file."""

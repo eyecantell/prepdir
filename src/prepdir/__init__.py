@@ -4,7 +4,6 @@ prepdir - Directory traversal utility to prepare project contents for review
 
 from .config import (
     init_config,
-    check_stdout_stderr,
     __version__,
 )
 
@@ -19,7 +18,6 @@ __all__ = [
     "__version__",
     "BINARY_CONTENT_PLACEHOLDER",
     "PREPDIR_DASHES",
-    "check_stdout_stderr",
     "configure_logging",
     "init_config",
     "is_excluded_dir",

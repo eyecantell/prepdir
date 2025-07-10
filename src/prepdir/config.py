@@ -14,6 +14,7 @@ try:
     __version__ = version("prepdir")
 except PackageNotFoundError:
     __version__ = "0.0.0"
+    logger.warning("Failed to load package version")
 
 if sys.version_info < (3, 9):
     from importlib_resources import files, is_resource
@@ -37,25 +38,15 @@ def check_namespace_value(namespace: str):
         raise ValueError(
             f"Invalid namespace '{namespace}': must be non-empty and contain only alphanumeric, underscore, or hyphen chars"
         )
-    
-def check_stdout_stderr(stdout, stderr):
-    # Validate stdout and stderr
-    if stdout and not hasattr(stdout, 'write'):
-        raise ValueError("stdout must be a file-like object with a write method")
-    if stderr and not hasattr(stderr, 'write'):
-        raise ValueError("stderr must be a file-like object with a write method")
 
-def load_config(namespace: str, config_path: Optional[str] = None, verbose: int = 0, quiet: bool = False, stdout=sys.stdout, stderr=sys.stderr) -> Dynaconf:
+def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool = False) -> Dynaconf:
     """
     Load configuration settings using Dynaconf from various sources.
 
     Args:
         namespace: Configuration namespace (e.g., 'prepdir').
         config_path: Path to custom config file.
-        verbose: Verbosity level (0: no diagnostics, 1: INFO, 2: DEBUG).
         quiet: If True, suppress user-facing output to stdout.
-        stdout: Stream for user-facing output.
-        stderr: Stream for error messages.
 
     Returns:
         Dynaconf: Configured Dynaconf instance with loaded settings.
@@ -63,11 +54,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: int 
     Raises:
         ValueError: If no configuration files are found or if YAML is invalid.
     """
-    if verbose >= 2:
-        logger.setLevel(logging.DEBUG)
-    elif verbose >= 1:
-        logger.setLevel(logging.INFO)
-    logger.debug(f"Loading config with {namespace=}, {config_path=}, {verbose=}, {quiet=}")
+    logger.debug(f"Loading config with {namespace=}, {config_path=}, {quiet=}")
 
     check_namespace_value(namespace)
     settings_files = []
@@ -76,18 +63,18 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: int 
         config_path = Path(config_path).resolve()
         if not config_path.exists():
             logger.error(f"Custom config path '{config_path}' does not exist")
-            print(f"Error: Custom config path '{config_path}' does not exist", file=stderr)
+            print(f"Error: Custom config path '{config_path}' does not exist", file=sys.stderr)
             raise ValueError(f"Custom config path '{config_path}' does not exist")
         else:
             settings_files.append(str(config_path))
             if not quiet:
-                print(f"Using custom config path: {config_path}", file=stdout)
+                print(f"Using custom config path: {config_path}", file=sys.stdout)
             logger.info(f"Using custom config path: {config_path}")
 
     elif os.getenv("PREPDIR_SKIP_CONFIG_LOAD") == "true":
         logger.warning("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true")
-        if not quiet and verbose >= 1:
-            print("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true", file=stdout)
+        if not quiet:
+            print("Skipping default config files due to PREPDIR_SKIP_CONFIG_LOAD=true", file=sys.stdout)
     else:
         local_config = Path(f".{namespace}/config.yaml").resolve()
         home_config = Path(os.path.expanduser(f"~/.{namespace}/config.yaml")).resolve()
@@ -95,7 +82,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: int 
         if home_config.exists():
             settings_files.append(str(home_config))
             if not quiet:
-                print(f"Found home config: {home_config}", file=stdout)
+                print(f"Found home config: {home_config}", file=sys.stdout)
             logger.info(f"Found home config: {home_config}")
         else:
             logger.debug(f"No home config found at: {home_config}")
@@ -103,7 +90,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: int 
         if local_config.exists():
             settings_files.append(str(local_config))
             if not quiet:
-                print(f"Found local config: {local_config}", file=stdout)
+                print(f"Found local config: {local_config}", file=sys.stdout)
             logger.info(f"Found local config: {local_config}")
         else:
             logger.debug(f"No local config found at: {local_config}")
@@ -121,11 +108,11 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: int 
                     bundled_config_path = temp_bundled_path
                     logger.debug(f"Loaded bundled config into temporary file: {temp_bundled_path}")
                     if not quiet:
-                        print("Will use default config", file=stdout)
+                        print("Will use default config", file=sys.stdout)
                     logger.info("Will use default config")
                 except Exception as e:
                     logger.warning(f"Failed to load bundled config for {namespace}: {str(e)}")
-                    print(f"Error: Failed to load bundled config for {namespace}: {str(e)}", file=stderr)
+                    print(f"Error: Failed to load bundled config for {namespace}: {str(e)}", file=sys.stderr)
                     raise ValueError(f"Failed to load bundled config for {namespace}: {str(e)}")
             else:
                 logger.debug(f"No bundled config found for {namespace}, using defaults")
@@ -153,7 +140,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, verbose: int 
         logger.debug(f"Final config values for UUIDS:\nREPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}\n")
     except Exception as e:
         logger.error(f"Invalid YAML in config file(s): {str(e)}")
-        print(f"Error: Invalid YAML in config file(s): {str(e)}", file=stderr)
+        print(f"Error: Invalid YAML in config file(s): {str(e)}", file=sys.stderr)
         raise ValueError(f"Invalid YAML in config file(s): {str(e)}")
 
     if "bundled_config_path" in locals() and bundled_config_path.exists():
@@ -170,8 +157,6 @@ def init_config(
     namespace: str = "prepdir",
     config_path: Optional[str] = None,
     force: bool = False,
-    stdout=sys.stdout,
-    stderr=sys.stderr,
 ):
     """
     Initialize a local config.yaml with the package's default config.
@@ -180,14 +165,11 @@ def init_config(
         namespace: Configuration namespace (default: 'prepdir').
         config_path: Path to save the config file (default: .prepdir/config.yaml).
         force: If True, overwrite existing config file.
-        stdout: Stream for user-facing output.
-        stderr: Stream for error messages.
 
     Raises:
         SystemExit: If the config file already exists and force=False, or if initialization fails.
     """
     check_namespace_value(namespace)
-    check_stdout_stderr(stdout, stderr)
     
     logger.debug(f"Initializing config with {namespace=}, {config_path=}, {force=}")
 
@@ -197,18 +179,20 @@ def init_config(
     try:
         config_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
-        raise FileNotFoundError(f"Invalid config_path '{config_path}'. Could not create dir '{config_dir}': {e}")
+        logger.error(f"Failed to create config file '{config_path}': {str(e)}")
+        print(f"Error: Failed to create config file '{config_path}': {str(e)}", file=sys.stderr)
+        raise SystemExit(f"Failed to create config file '{config_path}': {str(e)}")
 
     if config_path.exists() and not force:
-        logger.error(f"Error: '{config_path}' already exists. Use force=True to overwrite.")
-        print(f"Error: '{config_path}' already exists. Use force=True to overwrite.", file=stderr)
-        raise SystemExit(1)
+        logger.error(f"Config file '{config_path}' already exists. Use force=True to overwrite")
+        print(f"Error: Config file '{config_path}' already exists. Use force=True to overwrite", file=sys.stderr)
+        raise SystemExit(f"Config file '{config_path}' already exists. Use force=True to overwrite")
 
     bundled_config = files(namespace) / "config.yaml"
     if not is_resource(namespace, "config.yaml"):
         logger.error(f"No bundled config found for {namespace}, cannot initialize")
-        print(f"Error: No bundled config found for {namespace}", file=stderr)
-        raise SystemExit(1)
+        print(f"Error: No bundled config found for {namespace}", file=sys.stderr)
+        raise SystemExit(f"No bundled config found for {namespace}")
 
     try:
         with bundled_config.open("r", encoding="utf-8") as src:
@@ -216,8 +200,8 @@ def init_config(
         with config_path.open("w", encoding="utf-8") as dest:
             dest.write(config_content)
         logger.info(f"Created '{config_path}' with default configuration.")
-        print(f"Created '{config_path}' with default configuration.", file=stdout)
+        print(f"Created '{config_path}' with default configuration.", file=sys.stdout)
     except Exception as e:
-        logger.error(f"Failed to create {config_path}: {str(e)}")
-        print(f"Error: Failed to create '{config_path}': {str(e)}", file=stderr)
-        raise SystemExit(1)
+        logger.error(f"Failed to create config file '{config_path}': {str(e)}")
+        print(f"Error: Failed to create config file '{config_path}': {str(e)}", file=sys.stderr)
+        raise SystemExit(f"Failed to create config file '{config_path}': {str(e)}")

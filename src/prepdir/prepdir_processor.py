@@ -63,7 +63,7 @@ class PrepdirProcessor:
         if not os.path.isdir(self.directory):
             raise ValueError(f"'{self.directory}' is not a directory")
 
-        self.config = self._load_config(config_path, level, quiet)
+        self.config = self._load_config(config_path, quiet=quiet)
         prepdir_logging.configure_logging(self.logger, level=level)
         self.extensions = extensions or self.config.get("DEFAULT_EXTENSIONS", [])
         self.specific_files = specific_files or []
@@ -126,19 +126,18 @@ class PrepdirProcessor:
                     f"Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid.replace('-', '')}'."
                 )
 
-    def _load_config(self, config_path: Optional[str], level: Optional[int], quiet: bool) -> Dynaconf:
+    def _load_config(self, config_path: Optional[str], quiet: bool = False) -> Dynaconf:
         """
         Load configuration using Dynaconf.
 
         Args:
             config_path: Path to custom config file.
-            level: Logging level (e.g., logging.DEBUG, logging.INFO).
             quiet: If True, suppress user-facing output.
 
         Returns:
             Dynaconf: Configured Dynaconf instance.
         """
-        return load_config("prepdir", config_path, level, quiet)
+        return load_config("prepdir", config_path, quiet)
 
     def is_excluded_output_file(self, filename: str, root: str) -> bool:
         """
