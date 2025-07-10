@@ -137,7 +137,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
             default_settings_paths=[],
         )
         config._wrapped
-        logger.debug(f"Final config values for UUIDS:\nREPLACEMENT_UUID={config.get('REPLACEMENT_UUID', 'Not set')}\n")
+        
     except Exception as e:
         logger.error(f"Invalid YAML in config file(s): {str(e)}")
         print(f"Error: Invalid YAML in config file(s): {str(e)}", file=sys.stderr)
@@ -157,6 +157,7 @@ def init_config(
     namespace: str = "prepdir",
     config_path: Optional[str] = None,
     force: bool = False,
+    quiet: bool = False,
 ):
     """
     Initialize a local config.yaml with the package's default config.
@@ -165,6 +166,7 @@ def init_config(
         namespace: Configuration namespace (default: 'prepdir').
         config_path: Path to save the config file (default: .prepdir/config.yaml).
         force: If True, overwrite existing config file.
+        quiet: If True, suppress user-facing output to stdout.
 
     Raises:
         SystemExit: If the config file already exists and force=False, or if initialization fails.
@@ -200,7 +202,8 @@ def init_config(
         with config_path.open("w", encoding="utf-8") as dest:
             dest.write(config_content)
         logger.info(f"Created '{config_path}' with default configuration.")
-        print(f"Created '{config_path}' with default configuration.", file=sys.stdout)
+        if not quiet:
+            print(f"Created '{config_path}' with default configuration.", file=sys.stdout)
     except Exception as e:
         logger.error(f"Failed to create config file '{config_path}': {str(e)}")
         print(f"Error: Failed to create config file '{config_path}': {str(e)}", file=sys.stderr)

@@ -74,6 +74,12 @@ class PrepdirOutputFile(BaseModel):
                 except FileNotFoundError as e:
                     logger.error(f"Could not save output to {path_for_save}: {str(e)}")
                     raise ValueError(f"Could not save output to {path_for_save}: {str(e)}") from e
+                except PermissionError as e:
+                    logger.exception(f"Could not save output to {path_for_save}: PermissionError: {str(e)}")
+                    raise
+                except Exception as e:
+                    logger.exception(f"Could not save output to {path_for_save}: Unexpected exception: {str(e)}")
+                    raise
                 
             else:
                 logger.warning("No content specified, content not saved")
@@ -102,7 +108,6 @@ class PrepdirOutputFile(BaseModel):
                 current_content = []
 
             elif end_file_match:
-                line_number = ":" + str(len(current_content)) if current_content else ""
                 if current_file is None:
                     logger.warning(f" {file_and_line_being_parsed}: Footer found without matching header: {line}")
                 elif end_file_match.group(1) != current_file:
@@ -122,6 +127,7 @@ class PrepdirOutputFile(BaseModel):
                             is_scrubbed=False,
                         )
                         entries[abs_path] = entry
+                        logger.debug(f"Added {abs_path} to entries")
                     current_file = None
                     current_content = []
             elif begin_file_match or end_file_match:

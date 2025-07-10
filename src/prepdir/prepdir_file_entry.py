@@ -271,3 +271,6 @@ class PrepdirFileEntry(BaseModel):
             return True
         except ValueError:
             return False
+        except Exception as e:
+            logger.exception(f"Unexpected error: {e}")
+            raise
