@@ -106,12 +106,6 @@ class PrepdirProcessor:
             self.logger.info(f"Ignoring exclusions: {self.ignore_exclusions}")
             self.logger.info(f"Logging level: {logging.getLevelName(self.logger.getEffectiveLevel())}")
         
-        if (self.scrub_hyphenated_uuids or self.scrub_hyphenless_uuids) and not isinstance(
-            self.replacement_uuid, str
-        ):
-            raise ValueError(
-                f"Replacement UUID must be a string (got {self.replacement_uuid}) in order to scrub uuids"
-            )
 
         if self.scrub_hyphenated_uuids and not quiet:
             if self.use_unique_placeholders:

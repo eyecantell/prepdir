@@ -573,21 +573,6 @@ def test_validate_output_file_path_outside_highest_base(temp_dir, config_path):
     with pytest.raises(ValueError, match="File path '.*outside.py' is outside highest base directory"):
         processor.validate_output(content=content, highest_base_directory=str(temp_dir))
 
-def test_init_invalid_replacement_uuid_type(temp_dir, config_path, caplog):
-    """Test initialization with non-string replacement_uuid when scrubbing is enabled."""
-    prepdir_logging.configure_logging(logger, level=logging.INFO)
-    with caplog.at_level(logging.ERROR):
-        caplog.clear()
-        PrepdirProcessor(
-            directory=str(temp_dir),
-            scrub_hyphenated_uuids=True,
-            replacement_uuid=12345,  # Non-string UUID
-            config_path=config_path,
-            level=logging.INFO,
-        )
-    print(f"caplog text is:\n{caplog.text}\n--")
-    assert "Invalid replacement UUID type: '<class 'int'>'" in caplog.text
-
 
 def test_init_invalid_config_path(temp_dir):
     """Test initialization with invalid config path."""
@@ -621,7 +606,6 @@ def test_is_excluded_output_file_unicode_decode_error(temp_dir, config_path, cap
         config_path=config_path,
         level=logging.DEBUG,
     )
-    
     
     with patch("builtins.open", side_effect=UnicodeDecodeError("utf-8", b"", 0, 1, "invalid")):
         assert processor.is_excluded_output_file("file1.py", str(temp_dir)) is False
@@ -718,6 +702,177 @@ def test_init_config_invalid_path(tmp_path, caplog):
         caplog.clear()
         with pytest.raises(FileNotFoundError, match=f"Could not create dir"):
             PrepdirProcessor.init_config(config_path=invalid_path)
+
+def test_is_excluded_output_file_valid_prepdir_file(temp_dir, config_path, caplog):
+    """Test is_excluded_output_file with a valid prepdir output file."""
+    prepdir_logging.configure_logging(logger, level=logging.DEBUG)
+    processor = PrepdirProcessor(
+        directory=str(temp_dir),
+        output_file="different_output.txt",
+        include_prepdir_files=False,
+        config_path=config_path,
+        level=logging.DEBUG,
+    )
+    with caplog.at_level(logging.DEBUG):
+        caplog.clear()
+        assert processor.is_excluded_output_file("output.txt", str(temp_dir)) is True
+        assert "Found " + str(temp_dir / "output.txt") + " is an output file" in caplog.text
+       
+def test_init_invalid_replacement_uuid_type(temp_dir, config_path, caplog):
+    """Test initialization with non-string replacement_uuid when scrubbing is enabled."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    with caplog.at_level(logging.ERROR):
+        caplog.clear()
+        PrepdirProcessor(
+            directory=str(temp_dir),
+            scrub_hyphenated_uuids=True,
+            replacement_uuid=12345,  # Non-string UUID
+            config_path=config_path,
+            level=logging.INFO,
+        )
+    assert "Invalid replacement UUID type: '<class 'int'>'" in caplog.text
+
+def test_init_invalid_config_path(temp_dir):
+    """Test initialization with invalid config path."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    with pytest.raises(ValueError, match="Custom config path '/nonexistent/invalid.yaml' does not exist"):
+        PrepdirProcessor(
+            directory=str(temp_dir),
+            config_path="/nonexistent/invalid.yaml",
+            level=logging.INFO,
+        )
+
+def test_is_excluded_output_file_non_prepdir_with_include(temp_dir, config_path):
+    """Test is_excluded_output_file with non-prepdir file when include_prepdir_files=True."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    processor = PrepdirProcessor(
+        directory=str(temp_dir),
+        output_file="different_output.txt",
+        include_prepdir_files=True,
+        config_path=config_path,
+        level=logging.INFO,
+    )
+    assert processor.is_excluded_output_file("file1.py", str(temp_dir)) is False
+
+def test_is_excluded_output_file_valid_prepdir_file(temp_dir, config_path, caplog):
+    """Test is_excluded_output_file with a valid prepdir output file."""
+    prepdir_logging.configure_logging(logger, level=logging.DEBUG)
+    processor = PrepdirProcessor(
+        directory=str(temp_dir),
+        output_file="different_output.txt",
+        include_prepdir_files=False,
+        config_path=config_path,
+        level=logging.DEBUG,
+    )
+    with caplog.at_level(logging.DEBUG):
+        caplog.clear()
+        assert processor.is_excluded_output_file("output.txt", str(temp_dir)) is True
+        assert "Found " + str(temp_dir / "output.txt") + " is an output file" in caplog.text
+
+def test_traverse_specific_files(temp_dir, config_path, caplog):
+    """Test traversal of specific files."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    processor = PrepdirProcessor(
+        directory=str(temp_dir),
+        specific_files=["nonexistent.txt", "logs"],
+        config_path=config_path,
+        level=logging.INFO,
+    )
+    with caplog.at_level(logging.INFO):
+        caplog.clear()
+        files = list(processor._traverse_specific_files())
+    assert len(files) == 0
+    assert "File 'nonexistent.txt' does not exist" in caplog.text
+    assert "'logs' is not a file" in caplog.text
+    with caplog.at_level(logging.INFO):
+        caplog.clear()
+        with pytest.raises(ValueError, match="No files found!"):
+            processor.generate_output()
+    assert "No valid or accessible files found from the provided list." in caplog.text
+
+def test_traverse_specific_files_exclusions(temp_dir, config_path, caplog):
+    """Test _traverse_specific_files with excluded files and directories."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    processor = PrepdirProcessor(
+        directory=str(temp_dir),
+        specific_files=["file2.txt", "logs/app.log"],
+        config_path=config_path,
+        level=logging.INFO,
+    )
+    with caplog.at_level(logging.INFO):
+        caplog.clear()
+        files = list(processor._traverse_specific_files())
+    assert len(files) == 0
+    assert "Skipping file 'file2.txt' (excluded in config)" in caplog.text
+    assert "Skipping file 'logs/app.log' (parent directory excluded)" in caplog.text
+
+def test_traverse_directory_permission_error(temp_dir, config_path, caplog):
+    """Test _traverse_directory with permission error."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    processor = PrepdirProcessor(
+        directory=str(temp_dir),
+        extensions=["py"],
+        config_path=config_path,
+        level=logging.INFO,
+    )
+    with patch("os.walk", side_effect=PermissionError("Permission denied")):
+        with caplog.at_level(logging.INFO):
+            caplog.clear()
+            files = list(processor._traverse_directory())
+    assert len(files) == 0
+    assert "Permission denied traversing directory" in caplog.text
+
+def test_save_output_invalid_path(temp_dir, config_path):
+    """Test save_output with invalid path."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    processor = PrepdirProcessor(
+        directory=str(temp_dir),
+        extensions=["py"],
+        config_path=config_path,
+        level=logging.INFO,
+    )
+    output = processor.generate_output()
+    with pytest.raises(ValueError, match="Could not save output"):
+        processor.save_output(output, "/invalid/path/output.txt")
+
+def test_validate_output_both_content_and_file_path(temp_dir, config_path):
+    """Test validate_output with both content and file_path."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path, level=logging.INFO)
+    with pytest.raises(ValueError, match="Cannot provide both content and file_path"):
+        processor.validate_output(content="some content", file_path=str(temp_dir / "output.txt"))
+
+def test_validate_output_neither_content_nor_file_path(temp_dir, config_path):
+    """Test validate_output with neither content nor file_path."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path, level=logging.INFO)
+    with pytest.raises(ValueError, match="Must provide either content or file_path"):
+        processor.validate_output()
+
+def test_validate_output_partial_file_existence(temp_dir, config_path, caplog):
+    """Test validate_output with validate_files_exist=True and partial file existence."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    content = (
+        f"File listing generated {datetime.now().isoformat()} by test_validator\n"
+        f"Base directory is '{temp_dir}'\n\n"
+        "=-=-= Begin File: 'file1.py' =-=-=\n"
+        'print("Hello")\n'
+        "=-=-= End File: 'file1.py' =-=-=\n"
+        "=-=-= Begin File: 'nonexistent.py' =-=-=\n"
+        'print("Missing")\n'
+        "=-=-= End File: 'nonexistent.py' =-=-=\n"
+    )
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path, level=logging.INFO)
+    with caplog.at_level(logging.WARNING):
+        caplog.clear()
+        output = processor.validate_output(
+            content=content,
+            highest_base_directory=str(temp_dir),
+            validate_files_exist=True,
+        )
+    assert len(output.files) == 2
+    assert "File " + str(temp_dir / "nonexistent.py") + " does not exist in filesystem" in caplog.text
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
