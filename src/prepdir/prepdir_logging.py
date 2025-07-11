@@ -33,7 +33,7 @@ def configure_logging(
     logger.handlers.clear()
     logger.debug(f"Cleared existing handlers for {logger.name}")
 
-    # Handler for DEBUG, INFO, WARNING to stdout
+    # Handler for DEBUG, INFO to stdout
     stdout_handler = logging.StreamHandler(stdout_stream or sys.stdout)
     stdout_handler.setLevel(logging.DEBUG)
     stdout_handler.addFilter(lambda record: record.levelno <= logging.WARNING)
@@ -41,9 +41,9 @@ def configure_logging(
     logger.addHandler(stdout_handler)
     logger.debug(f"Added stdout StreamHandler with level {logging.getLevelName(logging.DEBUG)}")
 
-    # Handler for ERROR and above to stderr
+    # Handler for WARNING and above to stderr
     stderr_handler = logging.StreamHandler(stderr_stream or sys.stderr)
-    stderr_handler.setLevel(logging.ERROR)
+    stderr_handler.setLevel(logging.WARNING)
     stderr_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"))
     logger.addHandler(stderr_handler)
     logger.debug(f"Added stderr StreamHandler with level {logging.getLevelName(logging.ERROR)}")
