@@ -94,7 +94,7 @@ class PrepdirProcessor:
         )
         self.use_unique_placeholders = use_unique_placeholders or self.config.get("USE_UNIQUE_PLACEHOLDERS", False)
 
-        self._print_and_log(f"Generated {datetime.now().isoformat()}")
+        self._print_and_log(f"Generated timestamp: {datetime.now().isoformat()}")
         self._print_and_log(f"Traversing directory: {self.directory}")
         self._print_and_log(f"Extensions filter: {self.extensions if self.extensions else 'None'}")
         self._print_and_log(f"Output file: {self.output_file}")
