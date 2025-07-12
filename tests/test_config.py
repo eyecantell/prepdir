@@ -119,6 +119,13 @@ def test_expected_bundled_config_values(expected_bundled_config_content):
     assert all(item in bundled_yaml["EXCLUDE"]["DIRECTORIES"] for item in expected_bundled_config_content["EXCLUDE"]["DIRECTORIES"])
     assert all(item in bundled_yaml["EXCLUDE"]["FILES"] for item in expected_bundled_config_content["EXCLUDE"]["FILES"])
 
+def test_nonexistent_bundled_config():
+    '''Try to load a bundled config for a namespace that does not exist'''
+    # Load the bundled config and make sure its valid
+    namespace = 'namespace_that_does_not_exist'
+    with pytest.raises(ModuleNotFoundError, match=f"No module named '{namespace}'"):
+        get_bundled_config(namespace)
+
 def test_load_config_from_specific_path(sample_config_content, clean_cwd, clean_logger):
     """Test loading local configuration from mydir/config.yaml."""
     config_path = clean_cwd / "mydir" / "config.yaml"

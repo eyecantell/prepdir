@@ -217,7 +217,7 @@ def init_config(namespace: str, config_path: str, force: bool = False) -> None:
 
     try:
         config_content = get_bundled_config(namespace)
-    except ValueError as e:
+    except Exception as e:
         logger.error(f"Failed to initialize config: {e}", exc_info=True)
         raise SystemExit(f"Error: Failed to initialize config: {e}")
 
