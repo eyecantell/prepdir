@@ -46,7 +46,7 @@ def configure_logging(
     stderr_handler.setLevel(logging.WARNING)
     stderr_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"))
     logger.addHandler(stderr_handler)
-    logger.debug(f"Added stderr StreamHandler with level {logging.getLevelName(logging.ERROR)}")
+    logger.debug(f"Added stderr StreamHandler with level {logging.getLevelName(logging.WARNING)}")
 
     # Flush streams
     if stdout_stream and hasattr(stdout_stream, 'flush'):

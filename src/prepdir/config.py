@@ -81,7 +81,7 @@ def get_bundled_config(namespace: str) -> str:
     try:
         with resources.files(namespace).joinpath("config.yaml").open("r", encoding="utf-8") as f:
             config_content = f.read()
-        logger.debug(f"Bundled config content: {config_content}")
+        #logger.debug(f"Bundled config content: {config_content}")
         check_config_format(config_content, f"bundled config for '{namespace}'")
         return config_content
     except Exception as e:
@@ -123,7 +123,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
         with config_path_obj.open("r", encoding="utf-8") as f:
             content = f.read()
         check_config_format(content, f"custom config '{config_path_obj}'")
-        settings_files.append(config_path_obj)
+        settings_files.append(config_path_obj.resolve())
         logger.info(f"Using custom config path: {config_path_obj.resolve()}")
         if not quiet:
             print(f"Using custom config path: {config_path_obj.resolve()}")
@@ -136,7 +136,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
             with home_config_path.open("r", encoding="utf-8") as f:
                 content = f.read()
             check_config_format(content, f"home config '{home_config_path}'")
-            settings_files.append(home_config_path)
+            settings_files.append(home_config_path.resolve())
             logger.info(f"Found home config: {home_config_path.resolve()}")
             if not quiet:
                 print(f"Found home config: {home_config_path.resolve()}")
@@ -147,7 +147,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
             with local_config_path.open("r", encoding="utf-8") as f:
                 content = f.read()
             check_config_format(content, f"local config '{local_config_path}'")
-            settings_files.append(local_config_path)
+            settings_files.append(local_config_path.resolve())
             logger.info(f"Found local config: {local_config_path.resolve()}")
             if not quiet:
                 print(f"Found local config: {local_config_path.resolve()}")
@@ -158,36 +158,50 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
     if not settings_files and not skip_bundled_config:
         try:
             config_content = get_bundled_config(namespace)
+            logger.warning(f"config_content for bundled config is:\n{config_content}\n--")
             with tempfile.NamedTemporaryFile(mode="w", suffix=f"_{namespace}_bundled_config.yaml", delete=False) as temp:
                 temp.write(config_content)
                 temp_path = temp.name
-            settings_files.append(Path(temp_path))
-            logger.info("Will use default config")
+            settings_files.append(Path(temp_path).resolve())
+            logger.info("Will use default (bundled) config")
             if not quiet:
-                print("Will use default config")
+                print("Will use default (bundled) config")
             logger.debug(f"Loaded bundled config into temporary file: {temp_path}")
         except ValueError as e:
             logger.warning(f"No bundled config available for {namespace}: {e}")
-        finally:
-            if temp_path and Path(temp_path).is_file():
-                try:
-                    Path(temp_path).unlink()
-                    logger.debug(f"Removed temporary bundled config: {temp_path}")
-                except Exception as e:
-                    logger.warning(f"Failed to remove temporary bundled config {temp_path}: {e}", exc_info=True)
+        
 
     if not settings_files:
         logger.debug(f"No custom, home, local, or bundled config files found for {namespace}, using defaults")
 
-    logger.debug(f"Initializing Dynaconf with settings files: {settings_files}")
-    settings = Dynaconf(
-        settings_files=settings_files,
-        merge_enabled=True,
-        load_dotenv=False,
-        default_settings_paths=[],
-    )
-    logger.debug(f"Loaded config dictionary: {settings.to_dict()}")
-    logger.debug(f"Loaded config for {namespace} from: {settings_files}")
+    try:
+        logger.debug(f"Initializing Dynaconf with settings files: {settings_files}")
+        
+        if temp_path:
+            with open(temp_path, "r") as f:
+                logger.warning(f"read content is:\n{f.read()}\n--")
+        else:
+            logger.warning("No temp_path defined")
+
+        settings = Dynaconf(
+            settings_files=settings_files,
+            merge_enabled=True,
+            load_dotenv=False,
+            default_settings_paths=[],
+        )
+        #logger.debug(f"Loaded config dictionary: {settings.to_dict()}")
+        logger.debug(f"Loaded config for {namespace} from: {settings_files}")
+
+    finally:
+        # If a bundled config was used, remove the temporary file
+        if temp_path and Path(temp_path).is_file():
+            try:
+                settings.to_dict() # Force the actual config load before the file is removed
+                Path(temp_path).unlink()
+                logger.debug(f"Removed temporary bundled config: {temp_path}")
+            except Exception as e:
+                logger.warning(f"Failed to remove temporary bundled config {temp_path}: {e}", exc_info=True)
+                
     return settings
 
 def init_config(namespace: str, config_path: str, force: bool = False) -> None:
