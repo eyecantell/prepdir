@@ -13,6 +13,18 @@ from prepdir import prepdir_logging
 # Set up logger
 logger = logging.getLogger("prepdir.config")
 
+# Custom handler to capture log records in a list
+class LoggingListHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.records = []
+    
+    def emit(self, record):
+        self.records.append(record)
+    
+    def flush(self):
+        pass
+
 @pytest.fixture
 def clean_cwd(tmp_path):
     """Change working directory to a clean temporary path to avoid loading real configs."""
@@ -49,13 +61,22 @@ def expected_bundled_config_content():
         "SCRUB_HYPHENLESS_UUIDS": True,
     }
 
-
 @pytest.fixture
 def clean_logger():
-    """Clean logger setup and teardown."""
+    """Clean logger setup and teardown with a LoggingListHandler to capture log records."""
     logger.handlers.clear()
     prepdir_logging.configure_logging(logger, level=logging.DEBUG)
+    
+    # Add LoggingListHandler to capture log records
+    list_handler = LoggingListHandler()
+    list_handler.setLevel(logging.DEBUG)
+    logger.addHandler(list_handler)
+    
     yield logger
+    
+    # Clean up
+    logger.removeHandler(list_handler)
+    list_handler.close()
     logger.handlers.clear()
 
 def assert_config_content_equal(config: Dynaconf, expected_config_content: dict):
@@ -100,6 +121,11 @@ def test_is_resource_bundled_config():
 def test_is_resource_false():
     '''Test resource check for a non-existent file'''
     assert not is_resource('prepdir', "nonexistent.yaml")
+
+def test_is_resource_exception(clean_logger):
+    """Test is_resource exception handling (line 47)."""
+    with patch("importlib.resources.files", side_effect=TypeError("Invalid resource")):
+        assert not is_resource("prepdir", "config.yaml")
 
 def test_expected_bundled_config_values(expected_bundled_config_content):
 
@@ -369,5 +395,82 @@ def test_multiple_namespaces(clean_cwd, clean_logger):
             assert config.get("default_output_file") == f"{namespace}.txt"
             assert config.get("exclude.directories") == [f"{namespace}_dir"]
 
+
+def test_load_config_no_files_no_bundled(clean_cwd, clean_logger):
+    """Test load_config when no files are found and bundled config is skipped (lines 195-196)."""
+    with patch.dict(os.environ, {
+        "PREPDIR_SKIP_CONFIG_FILE_LOAD": "true",
+        "PREPDIR_SKIP_BUNDLED_CONFIG_LOAD": "true"
+    }):
+        config = load_config("prepdir", quiet=True)
+        assert config.get("exclude.directories", []) == []
+        assert config.get("exclude.files", []) == []
+        assert any("No custom, home, local, or bundled config files found" in record.message
+                  for record in clean_logger.handlers[-1].records)
+
+def test_load_config_temp_file_cleanup_failure(clean_cwd, clean_logger):
+    """Test load_config temporary file cleanup failure (lines 220-222)."""
+    with patch.dict(os.environ, {
+        "PREPDIR_SKIP_CONFIG_FILE_LOAD": "true",
+        "PREPDIR_SKIP_BUNDLED_CONFIG_LOAD": "false"
+    }):
+        with patch("pathlib.Path.unlink", side_effect=OSError("Cannot delete")):
+            config = load_config("prepdir", quiet=True)
+            assert isinstance(config, Dynaconf)
+            assert any("Failed to remove temporary bundled config" in record.message
+                      for record in clean_logger.handlers[-1].records)
+
+def test_init_config_create_failure(clean_cwd, clean_logger):
+    """Test init_config file creation failure (lines 229-231)."""
+    config_path = clean_cwd / ".prepdir" / "config.yaml"
+    with patch("pathlib.Path.write_text", side_effect=OSError("Permission denied")):
+        with pytest.raises(SystemExit, match="Error: Failed to create config file"):
+            init_config("prepdir", str(config_path), force=True)
+        assert any("Failed to create config file" in record.message
+                  for record in clean_logger.handlers[-1].records)
+
+def test_load_config_no_home_no_local(clean_cwd, clean_logger):
+    """Test load_config when no home or local config exists (lines 167, 169-170)."""
+    home_dir = clean_cwd / "home"
+    home_dir.mkdir()
+    with patch.dict(os.environ, {
+        "HOME": str(home_dir),
+        "PREPDIR_SKIP_CONFIG_FILE_LOAD": "false",
+        "PREPDIR_SKIP_BUNDLED_CONFIG_LOAD": "true"
+    }):
+        config = load_config("prepdir", quiet=True)
+        assert config.get("exclude.directories", []) == []
+        assert any("No home config found at" in record.message
+                  for record in clean_logger.handlers[-1].records)
+        assert any("No local config found at" in record.message
+                  for record in clean_logger.handlers[-1].records)
+
+def test_version_load_failure(clean_logger):
+    """Test version load failure in config.py (lines 15-16)."""
+    with patch("importlib.metadata.version", side_effect=Exception("Version load failed")):
+        import importlib
+        import sys
+        if "prepdir.config" in sys.modules:
+            del sys.modules["prepdir.config"]
+        import prepdir.config
+        assert prepdir.config.__version__ == "0.0.0"
+        assert any("Failed to load package version" in record.message
+                  for record in clean_logger.handlers[-1].records)
+
+def test_is_resource_exception(clean_logger):
+    """Test is_resource exception handling (line 47)."""
+    with patch("importlib.resources.files", side_effect=TypeError("Invalid resource")):
+        assert not is_resource("prepdir", "config.yaml")
+
+def test_load_config_debug_log(clean_cwd, clean_logger):
+    """Test load_config debug log (line 129)."""
+    with patch.dict(os.environ, {
+        "PREPDIR_SKIP_CONFIG_FILE_LOAD": "true",
+        "PREPDIR_SKIP_BUNDLED_CONFIG_LOAD": "true"
+    }):
+        config = load_config("prepdir", quiet=True)
+        assert any("Loading config with namespace='prepdir'" in record.message
+                  for record in clean_logger.handlers[-1].records)
+        
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
