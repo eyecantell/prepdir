@@ -266,24 +266,19 @@ def test_init_config_existing_file_no_force(sample_config_content, clean_cwd, cl
 
 def test_init_config_force_overwrite(sample_config_content, clean_cwd, clean_logger):
     """Test init_config with force=True overwrites existing config file using get_bundled_config."""
-    bundled_yaml = yaml.safe_dump(sample_config_content)
     
     config_path = clean_cwd / ".prepdir" / "config.yaml"
     config_path.parent.mkdir()
     config_path.write_text(yaml.safe_dump({"OLD_KEY": "old_value"}))
-
-    mock_resource = MagicMock()
-    mock_resource.is_file.return_value = True
-    mock_resource.open.return_value.__enter__.return_value.read.return_value = bundled_yaml
     
-    with patch("importlib.resources.files") as mock_files:
-        mock_files.return_value.__truediv__.return_value = mock_resource
-        init_config(namespace="prepdir", config_path=str(config_path), force=True)
+    init_config(namespace="prepdir", config_path=str(config_path), force=True)
+    
+    bundled_yaml = yaml.safe_load(get_bundled_config('prepdir'))
 
     with config_path.open("r") as f:
         new_config = yaml.safe_load(f)
     
-    assert new_config == sample_config_content
+    assert new_config == bundled_yaml
 
 def test_config_precedence(sample_config_content, clean_cwd, clean_logger, expected_bundled_config_content):
     """Test configuration precedence: custom > local > home > bundled."""
@@ -335,12 +330,12 @@ def test_config_precedence(sample_config_content, clean_cwd, clean_logger, expec
         assert config.get("default_output_file") == "home_dir.txt"
         assert config.get("exclude.directories") == ["home_dir"]
 
-        # Test bundled config only
+        # Test bundled config only (local and home have been removed)
         home_config_path.unlink()
         config = load_config("prepdir", quiet=True)
         assert config.get("default_output_file") == expected_bundled_config_content["DEFAULT_OUTPUT_FILE"]
         assert config.get("replacement_uuid") == expected_bundled_config_content["REPLACEMENT_UUID"]
-        assert bundled_yaml["scrub_hyphenated_uuids"] == expected_bundled_config_content["SCRUB_HYPHENATED_UUIDS"]
+        assert config.get("scrub_hyphenated_uuids") == expected_bundled_config_content["SCRUB_HYPHENATED_UUIDS"]
 
     
 
@@ -352,7 +347,7 @@ def test_multiple_namespaces(clean_cwd, clean_logger):
         config_path = clean_cwd / f".{namespace}" / "config.yaml"
         config_path.parent.mkdir()
         config_content = {
-            "REPLACEMENT_UUID": f"{namespace}-uuid-1234-5678-9012",
+            "DEFAULT_OUTPUT_FILE": f"{namespace}.txt",
             "EXCLUDE": {"DIRECTORIES": [f"{namespace}_dir"]},
         }
         config_path.write_text(yaml.safe_dump(config_content))
@@ -361,10 +356,10 @@ def test_multiple_namespaces(clean_cwd, clean_logger):
         with patch.dict(os.environ, {
             "HOME": str(clean_cwd / "home"),
             "PREPDIR_SKIP_CONFIG_FILE_LOAD": "false",
-            "PREPDIR_SKIP_BUNDLED_CONFIG_LOAD": "true"
+            "PREPDIR_SKIP_BUNDLED_CONFIG_LOAD": "false"
         }):
             config = load_config(namespace, quiet=True)
-            assert config.get("replacement_uuid") == f"{namespace}-uuid-1234-5678-9012"
+            assert config.get("default_output_file") == f"{namespace}.txt"
             assert config.get("exclude.directories") == [f"{namespace}_dir"]
 
 if __name__ == "__main__":

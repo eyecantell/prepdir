@@ -158,7 +158,6 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
     if not settings_files and not skip_bundled_config:
         try:
             config_content = get_bundled_config(namespace)
-            logger.warning(f"config_content for bundled config is:\n{config_content}\n--")
             with tempfile.NamedTemporaryFile(mode="w", suffix=f"_{namespace}_bundled_config.yaml", delete=False) as temp:
                 temp.write(config_content)
                 temp_path = temp.name
@@ -176,12 +175,6 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
 
     try:
         logger.debug(f"Initializing Dynaconf with settings files: {settings_files}")
-        
-        if temp_path:
-            with open(temp_path, "r") as f:
-                logger.warning(f"read content is:\n{f.read()}\n--")
-        else:
-            logger.warning("No temp_path defined")
 
         settings = Dynaconf(
             settings_files=settings_files,
