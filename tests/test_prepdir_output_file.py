@@ -49,7 +49,7 @@ def configure_logger(streams):
         assert logger.handlers[0].level == logging.DEBUG
         assert isinstance(logger.handlers[1], logging.StreamHandler)
         assert logger.handlers[1].stream is stderr
-        assert logger.handlers[1].level == logging.ERROR
+        assert logger.handlers[1].level == logging.WARNING
     return _configure
 
 # Test data

@@ -197,13 +197,14 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
                 
     return settings
 
-def init_config(namespace: str, config_path: str, force: bool = False) -> None:
+def init_config(namespace: str, config_path: str, force: bool = False, quiet: bool = False) -> None:
     """Initialize a configuration file at the specified path.
 
     Args:
         namespace (str): The namespace for the configuration (e.g., 'prepdir').
         config_path (str): Path where the configuration file will be created.
         force (bool): If True, overwrite the config file if it exists. Defaults to False.
+        quiet (bool): If True, suppresses console output. Defaults to False.
 
     Raises:
         SystemExit: If the config file exists and force=False, or if the bundled config cannot be loaded,
@@ -212,8 +213,11 @@ def init_config(namespace: str, config_path: str, force: bool = False) -> None:
     check_namespace_value(namespace)
     config_path_obj = Path(config_path)
     if config_path_obj.exists() and not force:
-        logger.error(f"Config file '{config_path_obj}' already exists. Use force=True to overwrite", exc_info=True)
-        raise SystemExit(f"Error: Config file '{config_path_obj}' already exists. Use force=True to overwrite")
+        msg = f"Config file '{config_path_obj}' already exists. Use force=True to overwrite"
+        logger.error(msg)
+        if not quiet:
+            print(msg)
+        raise SystemExit(msg)
 
     try:
         config_content = get_bundled_config(namespace)
@@ -225,7 +229,8 @@ def init_config(namespace: str, config_path: str, force: bool = False) -> None:
         config_path_obj.parent.mkdir(parents=True, exist_ok=True)
         config_path_obj.write_text(config_content, encoding="utf-8")
         logger.info(f"Created '{config_path_obj}' with default configuration.")
-        print(f"Created '{config_path_obj}' with default configuration.")
+        if not quiet:
+            print(f"Created '{config_path_obj}' with default configuration.")
     except Exception as e:
         logger.error(f"Failed to create config file '{config_path_obj}': {e}", exc_info=True)
         raise SystemExit(f"Error: Failed to create config file '{config_path_obj}': {e}")

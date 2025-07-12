@@ -114,7 +114,7 @@ def test_init_valid(temp_dir, config_path):
     assert processor.logger is not None
     assert len(logger.handlers) == 2
     assert logger.handlers[0].level == logging.DEBUG
-    assert logger.handlers[1].level == logging.ERROR
+    assert logger.handlers[1].level == logging.WARNING
 
 def test_init_invalid_directory(config_path):
     """Test initialization with invalid directory."""

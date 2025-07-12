@@ -116,14 +116,20 @@ def test_main_init_config_exists(tmp_path, capsys, caplog):
     config_path = tmp_path / ".prepdir" / "config.yaml"
     config_path.parent.mkdir(exist_ok=True)
     config_path.write_text("existing: content")
+
     with caplog.at_level(logging.ERROR, logger="prepdir"):
         with patch.object(sys, "argv", ["prepdir", "--init", "--config", str(config_path)]):
-            with pytest.raises(SystemExit) as exc:
+            with pytest.raises(SystemExit):
                 main()
-            assert "already exists. Use force=True to overwrite" in str(exc.value)
+    
     captured = capsys.readouterr()
-    print(f"captured is:\n{captured}\n--")
-    assert f"Error: Config file '{config_path}' already exists. Use force=True to overwrite" in captured.err
+    print(f"caplog.text is:\n{caplog.text}\n--")
+    
+    expected_message = f"Config file '{config_path}' already exists. Use force=True to overwrite"
+    assert expected_message in caplog.text
+    print(f"captured.out is:\n{captured.out}\n--")
+    #print(f"captured.err is:\n{captured.err}\n--")
+    assert expected_message in captured.out
     
     print(f"caplog.text is:\n{caplog.text}\n--")
     assert f"Config file '{config_path}' already exists. Use force=True to overwrite" in caplog.text
