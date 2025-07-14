@@ -51,10 +51,7 @@ def is_resource(namespace: str, resource_name: str) -> bool:
         bool: True if the resource exists, False otherwise.
     """
     try:
-        if sys.version_info < (3, 9):
-            resource_path = importlib_resources.files(namespace) / resource_name
-        else:
-            resource_path = resources.files(namespace) / resource_name
+        resource_path = resources.files(namespace) / resource_name
         return resource_path.is_file()
     except (TypeError, FileNotFoundError, AttributeError):
         return False
