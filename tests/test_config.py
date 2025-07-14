@@ -16,6 +16,7 @@ from prepdir.config import (
     is_resource,
 )
 from prepdir import prepdir_logging
+import sys
 
 # Set up logger
 logger = logging.getLogger("prepdir.config")
