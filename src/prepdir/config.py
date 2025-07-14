@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import Optional
 import yaml
 from dynaconf import Dynaconf
-from importlib import resources
+
+# Conditional import for importlib.resources or importlib_resources
+try:
+    from importlib import resources
+except ImportError:
+    import importlib_resources as resources
 
 __version__ = "0.0.0"
 
@@ -45,8 +50,9 @@ def is_resource(namespace: str, resource_name: str) -> bool:
         bool: True if the resource exists, False otherwise.
     """
     try:
-        return resources.files(namespace).__truediv__(resource_name).is_file()
-    except (TypeError, FileNotFoundError):
+        resource_path = resources.files(namespace) / resource_name
+        return resource_path.is_file()
+    except (TypeError, FileNotFoundError, AttributeError):
         return False
 
 
