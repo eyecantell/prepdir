@@ -12,6 +12,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - [PyPI](https://pypi.org/project/prepdir/)
 - [Dynaconf Documentation](https://dynaconf.com)
 
+
+## [0.15.0] - 2025-07-14
+
+### Added
+- Introduced object-oriented architecture with new classes `PrepdirProcessor`, `PrepdirFileEntry`, and `PrepdirOutputFile` to encapsulate file traversal, content processing, and output generation/parsing.
+- Added `PrepdirFileEntry` class to represent individual file metadata, content, and UUID mappings, supporting serialization with Pydantic and methods like `to_output()` and `restore_uuids()`.
+- Added `PrepdirOutputFile` class to encapsulate the `prepped_dir.txt` file, including content, metadata, and a list of `PrepdirFileEntry` objects, with methods for saving, parsing, and serialization.
+- Integrated Pydantic for serialization of `PrepdirFileEntry` and `PrepdirOutputFile`, enabling JSON-compatible output, type safety, and validation for debugging, inter-process communication, and caching.
+- Added support for `applydir` integration, allowing `PrepdirOutputFile` to be passed to `applydir` for applying LLM-generated changes to the filesystem.
+- Added `vibedir` integration, enabling `prepdir` to generate `prepped_dir.txt` for LLM processing and parse modified outputs for `applydir`.
+- Added new design decision documents (`docs/prepdir_design_decisions_20250621.md` and `docs/prepdir_design_decisions_20250628.md`) detailing the object-oriented architecture and integration with `applydir` and `vibedir`.
+- Added comprehensive tests for UUID scrubbing in `test_core.py`, covering unique placeholders, fixed UUID replacements, no scrubbing, reused mappings, logging, and edge cases like empty content, malformed UUIDs, and case sensitivity.
+- Added `return_raw` option in `run()` to maintain backward compatibility, returning a tuple `(content, uuid_mapping, files_list, metadata)` for existing users.
+- Added `.ruff_cache` to default excluded directories in `.prepdir/config.yaml`.
+- Added `pydantic>=2.5.0` as a dependency for serialization support.
+
+### Changed
+- Refactored `PrepdirProcessor` to use `PrepdirFileEntry` and `PrepdirOutputFile`, streamlining output generation and parsing logic for better maintainability and interoperability.
+- Updated `run()` to return `PrepdirOutputFile` by default, with `return_raw=True` for legacy tuple output, ensuring backward compatibility.
+- Renamed `PrepdirFile` to `SinglePrepdirFile`, then to `PrepdirFileEntry` for clarity and to reflect its role as an entry in `PrepdirOutputFile`.
+- Updated `.prepdir/config.yaml` to remove `LOAD_DOTENV` and `MERGE_LISTS`, and renamed `SCRUB_UUIDS` to `SCRUB_HYPHENATED_UUIDS` for consistency.
+- Reordered dependencies in `.devcontainer/Dockerfile` for clarity and added `pydantic` to the list of installed development tools.
+- Overhauled `README.md` to simplify content, improve clarity, and reflect new object-oriented features and integrations.
+- Updated `__version__` to 0.15.0 in `src/prepdir/__init__.py` and `pyproject.toml`.
+- Enhanced `validate_output_file()` to return `PrepdirOutputFile` instead of a dictionary, aligning with the new object-oriented structure.
+- Improved UUID scrubbing to support consistent placeholder reuse across multiple calls with a shared `uuid_mapping`.
+
+### Removed
+- Deleted `tests/test_validate_output_file.py` as validation logic is now integrated into `PrepdirProcessor` and tested within `test_core.py`.
+- Removed `SCRUB_UUIDS` configuration key in favor of `SCRUB_HYPHENATED_UUIDS` for clearer naming.
+
+### Fixed
+- Ensured consistent UUID mapping across multiple calls by reusing `uuid_mapping` in `scrub_uuids()`, preventing duplicate placeholders for the same UUID.
+- Fixed validation of malformed delimiters and headers/footers to handle edge cases more robustly.
+- Corrected handling of case-sensitive UUIDs to treat them as distinct in `scrub_uuids()`.
+
 ## [0.14.1] - 2025-06-20
 
 ### Fixed

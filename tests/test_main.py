@@ -13,6 +13,7 @@ HYPHENATED_UUID = "87654321-abcd-0000-0000-eeeeeeeeeeee"
 UNHYPHENATED_UUID = "87654321abcd00000000ffffffffffff"
 REPLACEMENT_UUID = "12340000-1234-0000-0000-000000000000"
 
+
 @pytest.fixture(autouse=True)
 def reset_loggers():
     """Reset logger levels to avoid interference."""
@@ -21,6 +22,7 @@ def reset_loggers():
     logging.getLogger("prepdir.prepdir_file_entry").setLevel(logging.NOTSET)
     logging.getLogger("prepdir").setLevel(logging.NOTSET)
     yield
+
 
 @pytest.fixture
 def custom_config(tmp_path):
@@ -40,12 +42,14 @@ def custom_config(tmp_path):
     config_file.write_text(yaml.safe_dump(config_content))
     return config_file
 
+
 @pytest.fixture
 def uuid_test_file(tmp_path):
     """Create a test file with UUIDs."""
     file = tmp_path / "test.txt"
     file.write_text(f"UUID: {HYPHENATED_UUID}\nHyphenless: {UNHYPHENATED_UUID}")
     return file
+
 
 def test_main_version(capsys):
     """Test main() with --version flag."""
@@ -55,7 +59,9 @@ def test_main_version(capsys):
         assert exc.value.code == 0
     captured = capsys.readouterr()
     from importlib.metadata import version
+
     assert "prepdir " + version("prepdir") in captured.out
+
 
 def test_main_no_scrub_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_test_file):
     """Test main() with --no-scrub-hyphenless-uuids preserves hyphenless UUIDs."""
@@ -78,6 +84,7 @@ def test_main_no_scrub_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_te
     assert f"Hyphenless: {UNHYPHENATED_UUID}" in content
     assert f"UUID: {REPLACEMENT_UUID}" in content
 
+
 def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_test_file):
     """Test main() with default hyphenless UUID scrubbing from config."""
     output_file = tmp_path / "prepped_dir.txt"
@@ -86,6 +93,7 @@ def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_tes
     content = output_file.read_text()
     assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in content
     assert f"UUID: {REPLACEMENT_UUID}" in content
+
 
 def test_main_init_config(tmp_path, caplog):
     """Test main() with --init creates a config file."""
@@ -97,6 +105,7 @@ def test_main_init_config(tmp_path, caplog):
     assert config_path.exists()
     content = config_path.read_text()
     assert "EXCLUDE" in content
+
 
 def test_main_init_config_force(tmp_path, caplog):
     """Test main() with --init and force=True overwrites existing config."""
@@ -111,6 +120,7 @@ def test_main_init_config_force(tmp_path, caplog):
     content = config_path.read_text()
     assert "EXCLUDE" in content
 
+
 def test_main_init_config_exists(tmp_path, capsys, caplog):
     """Test main() with --init fails if config exists without force=True."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
@@ -121,18 +131,19 @@ def test_main_init_config_exists(tmp_path, capsys, caplog):
         with patch.object(sys, "argv", ["prepdir", "--init", "--config", str(config_path)]):
             with pytest.raises(SystemExit):
                 main()
-    
+
     captured = capsys.readouterr()
     print(f"caplog.text is:\n{caplog.text}\n--")
-    
+
     expected_message = f"Config file '{config_path}' already exists. Use force=True to overwrite"
     assert expected_message in caplog.text
     print(f"captured.out is:\n{captured.out}\n--")
-    #print(f"captured.err is:\n{captured.err}\n--")
+    # print(f"captured.err is:\n{captured.err}\n--")
     assert expected_message in captured.out
-    
+
     print(f"caplog.text is:\n{caplog.text}\n--")
     assert f"Config file '{config_path}' already exists. Use force=True to overwrite" in caplog.text
+
 
 def test_main_init_config_invalid_path(tmp_path, capsys, caplog):
     """Test main() with --init and invalid config path."""
@@ -145,6 +156,7 @@ def test_main_init_config_invalid_path(tmp_path, capsys, caplog):
     print(f"caplog.text is {caplog.text}")
     assert f"Failed to create config file '{invalid_path}'" in caplog.text
 
+
 def test_main_verbose_mode(tmp_path, capsys, custom_config, caplog, uuid_test_file):
     """Test main() with --verbose logs skipped files and prints to stdout."""
     test_file = tmp_path / "test.pyc"
@@ -155,6 +167,7 @@ def test_main_verbose_mode(tmp_path, capsys, custom_config, caplog, uuid_test_fi
     captured = capsys.readouterr()
     assert f"Starting prepdir in {tmp_path}" in captured.out
     assert "Skipping file: test.pyc (excluded in config)" in caplog.text
+
 
 def test_main_custom_replacement_uuid(tmp_path, capsys, custom_config, uuid_test_file):
     """Test main() with --replacement-uuid uses custom UUID."""
@@ -182,6 +195,7 @@ def test_main_custom_replacement_uuid(tmp_path, capsys, custom_config, uuid_test
     assert replacement_uuid in content
     assert original_uuid not in content
 
+
 def test_main_invalid_directory(tmp_path, capsys, caplog):
     """Test main() with a non-existent directory."""
     invalid_dir = str(tmp_path / "nonexistent")
@@ -195,6 +209,7 @@ def test_main_invalid_directory(tmp_path, capsys, caplog):
     print(f"captured.out is:\n{captured.out}\n--")
     assert f"Error: Directory '{invalid_dir}' does not exist" in captured.err
 
+
 def test_run_basic(tmp_path, uuid_test_file, custom_config):
     """Test run() with basic directory processing."""
     output = run(
@@ -207,6 +222,7 @@ def test_run_basic(tmp_path, uuid_test_file, custom_config):
     assert f"UUID: {REPLACEMENT_UUID}" in output.content
     assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in output.content
     assert output.metadata["base_directory"] == str(tmp_path)
+
 
 def test_run_with_output_file(tmp_path, uuid_test_file, custom_config, tmp_path_factory):
     """Test run() with output file."""
@@ -223,6 +239,7 @@ def test_run_with_output_file(tmp_path, uuid_test_file, custom_config, tmp_path_
     assert "test.txt" in content
     assert f"UUID: {REPLACEMENT_UUID}" in content
     assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in content
+
 
 def test_run_quiet_no_output_file(tmp_path, uuid_test_file, custom_config, capsys, caplog):
     """Test run() with quiet=False and no output file prints to stdout."""
@@ -243,12 +260,14 @@ def test_run_quiet_no_output_file(tmp_path, uuid_test_file, custom_config, capsy
     assert "Starting prepdir in" in captured.out
     assert output.content in captured.out
 
+
 def test_main_debug_logging(tmp_path, caplog, uuid_test_file):
     """Test main() with -vv enables DEBUG logging."""
     with caplog.at_level(logging.DEBUG, logger="prepdir"):
         with patch.object(sys, "argv", ["prepdir", str(tmp_path), "-vv"]):
             main()
     assert "args are:" in caplog.text
+
 
 def test_main_no_scrub_uuids(tmp_path, capsys, custom_config, uuid_test_file):
     """Test main() with --no-scrub-uuids preserves all UUIDs."""
@@ -270,6 +289,7 @@ def test_main_no_scrub_uuids(tmp_path, capsys, custom_config, uuid_test_file):
     content = output_file.read_text()
     assert f"UUID: {HYPHENATED_UUID}" in content
     assert f"Hyphenless: {UNHYPHENATED_UUID}" in content
+
 
 def test_main_all_flag(tmp_path, capsys, custom_config, uuid_test_file):
     """Test main() with --all ignores exclusions."""
@@ -302,23 +322,25 @@ def test_main_quiet_suppresses_stdout(tmp_path, capsys, caplog, custom_config, u
 
     def open_side_effect(*args, **kwargs):
         path_obj = args[0] if args and isinstance(args[0], (str, Path)) else None
-        mode = kwargs.get('mode', 'r') if not args or len(args) < 2 else args[1]
+        mode = kwargs.get("mode", "r") if not args or len(args) < 2 else args[1]
         path_resolved = Path(path_obj).resolve() if path_obj else None
         print(f"open_side_effect: args={args}, kwargs={kwargs}")
         print(f"open_side_effect: path={path_obj}, resolved={path_resolved}, mode={mode}")
-        if path_resolved and path_resolved == invalid_file.resolve() and 'r' in mode:
+        if path_resolved and path_resolved == invalid_file.resolve() and "r" in mode:
             print(f"Raising PermissionError for {path_obj}")
             raise PermissionError(f"[Errno 13] Permission denied: '{invalid_file}'")
         read_data = ""
         if path_resolved and path_resolved == uuid_test_file.resolve():
             read_data = f"UUID: {HYPHENATED_UUID}\nHyphenless: {UNHYPHENATED_UUID}"
         elif path_resolved and path_resolved == custom_config.resolve():
-            read_data = yaml.safe_dump({
-                "EXCLUDE": {"DIRECTORIES": [], "FILES": ["*.pyc"]},
-                "SCRUB_HYPHENATED_UUIDS": True,
-                "REPLACEMENT_UUID": REPLACEMENT_UUID,
-                "SCRUB_HYPHENLESS_UUIDS": True,
-            })
+            read_data = yaml.safe_dump(
+                {
+                    "EXCLUDE": {"DIRECTORIES": [], "FILES": ["*.pyc"]},
+                    "SCRUB_HYPHENATED_UUIDS": True,
+                    "REPLACEMENT_UUID": REPLACEMENT_UUID,
+                    "SCRUB_HYPHENLESS_UUIDS": True,
+                }
+            )
         return mock_open(read_data=read_data)(*args, **kwargs)
 
     with patch("builtins.open", side_effect=open_side_effect):
@@ -347,6 +369,7 @@ def test_main_quiet_suppresses_stdout(tmp_path, capsys, caplog, custom_config, u
     assert output_file.exists()
     output_content = output_file.read_text()
     assert f"[Error reading file: [Errno 13] Permission denied: '{invalid_file}']" in output_content
+
 
 def test_main_include_prepdir_files(tmp_path, capsys, custom_config):
     """Test main() with --include-prepdir-files includes prepdir-generated files."""

@@ -13,6 +13,7 @@ from typing import Union
 # Configure logging for testing
 logger = logging.getLogger(__name__)
 
+
 def create_temp_file(content: Union[str, bytes], suffix: str = ".txt") -> Path:
     """Create a temporary file with given content."""
     with tempfile.NamedTemporaryFile(
@@ -24,37 +25,43 @@ def create_temp_file(content: Union[str, bytes], suffix: str = ".txt") -> Path:
             f.write(content)
     return Path(f.name)
 
+
 @pytest.fixture
 def capture_log():
     """Capture log output during tests for the prepdir package."""
     log_stream = StringIO()
     handler = logging.StreamHandler(log_stream)
-    
+
     # Configure logger at the parent 'prepdir' level to capture all sub-loggers
     prepdir_logger = logging.getLogger("prepdir")
-    
+
     # Store original state
     original_handlers = prepdir_logger.handlers[:]
     original_level = prepdir_logger.level
     original_propagate = prepdir_logger.propagate
-    
+
     # Clear existing handlers, set level to DEBUG, and disable propagation
     prepdir_logger.handlers = []
     prepdir_logger.setLevel(logging.DEBUG)
     prepdir_logger.propagate = False
     prepdir_logger.addHandler(handler)
-    
+
     # Debug print to verify logger state
-    print(f"capture_log setup: Logger=prepdir, Level={prepdir_logger.level}, Handlers={prepdir_logger.handlers}, Propagate={prepdir_logger.propagate}")
-    
+    print(
+        f"capture_log setup: Logger=prepdir, Level={prepdir_logger.level}, Handlers={prepdir_logger.handlers}, Propagate={prepdir_logger.propagate}"
+    )
+
     yield log_stream
-    
+
     # Clean up
     prepdir_logger.removeHandler(handler)
     prepdir_logger.handlers = original_handlers
     prepdir_logger.setLevel(original_level)
     prepdir_logger.propagate = original_propagate
-    print(f"capture_log cleanup: Logger=prepdir, Level={prepdir_logger.level}, Handlers={prepdir_logger.handlers}, Propagate={prepdir_logger.propagate}")
+    print(
+        f"capture_log cleanup: Logger=prepdir, Level={prepdir_logger.level}, Handlers={prepdir_logger.handlers}, Propagate={prepdir_logger.propagate}"
+    )
+
 
 @pytest.fixture
 def tmp_dir():
@@ -62,11 +69,12 @@ def tmp_dir():
     with tempfile.TemporaryDirectory() as tmp_dir:
         yield Path(tmp_dir)
 
+
 def test_from_file_path_success(capture_log, tmp_dir):
     """Test successful file reading and UUID scrubbing with quiet settings."""
     file_path = tmp_dir / "test.txt"
     file_path.write_text("Content with UUID 123e4567-e89b-12d3-a456-426614174000")
-    
+
     # Capture stdout for print statements
     stdout_capture = StringIO()
     with patch("sys.stdout", stdout_capture):
@@ -117,11 +125,12 @@ def test_from_file_path_success(capture_log, tmp_dir):
     assert f"Scrubbed UUID: 123e4567-e89b-12d3-a456-426614174000 -> PREPDIR_UUID_PLACEHOLDER_1" in log_output
     assert stdout_capture.getvalue() == ""  # No print output in quiet mode
 
+
 def test_from_file_path_binary(capture_log, tmp_dir):
     """Test handling of binary files with quiet settings."""
     file_path = tmp_dir / "test.jpg"
     file_path.write_bytes(b"\xff\xd8\xff")
-    
+
     # Test with quiet=False
     stdout_capture = StringIO()
     with patch("sys.stdout", stdout_capture):
@@ -160,10 +169,11 @@ def test_from_file_path_binary(capture_log, tmp_dir):
     assert "got UnicodeDecodeError with utf-8, presuming binary" in log_output
     assert stdout_capture.getvalue() == ""  # No print output in quiet mode
 
+
 def test_from_file_path_error(capture_log, tmp_dir):
     """Test handling of file not found with quiet settings."""
     file_path = tmp_dir / "nonexistent.txt"
-    
+
     # Test with quiet=False
     stderr_capture = StringIO()
     with patch("sys.stderr", stderr_capture):
@@ -199,11 +209,12 @@ def test_from_file_path_error(capture_log, tmp_dir):
     assert f"File not found: {file_path}" in log_output
     assert stderr_capture.getvalue() == ""  # No print output in quiet mode
 
+
 def test_from_file_path_read_error(capture_log, tmp_dir):
     """Test from_file_path with non-UnicodeDecodeError exception."""
     file_path = tmp_dir / "test.txt"
     file_path.write_text("Sample content")
-    
+
     stderr_capture = StringIO()
     with patch("builtins.open", side_effect=PermissionError("Permission denied")):
         with patch("sys.stderr", stderr_capture):
@@ -225,11 +236,12 @@ def test_from_file_path_read_error(capture_log, tmp_dir):
     assert f"Failed to read {file_path}: Permission denied" in log_output
     assert f"Error: Failed to read {file_path}: Permission denied" in stderr_capture.getvalue()
 
+
 def test_from_file_path_empty_file(capture_log, tmp_dir):
     """Test from_file_path with empty file and scrubbing enabled."""
     file_path = tmp_dir / "test.txt"
     file_path.write_text("")
-    
+
     entry, uuid_mapping, counter = PrepdirFileEntry.from_file_path(
         file_path=file_path,
         base_directory=str(tmp_dir),
@@ -249,11 +261,12 @@ def test_from_file_path_empty_file(capture_log, tmp_dir):
     assert f"instantiating from {file_path}" in log_output
     assert "decoded with utf-8" in log_output
 
+
 def test_restore_uuids(capture_log, tmp_dir):
     """Test UUID restoration with valid and invalid uuid_mapping."""
     file_path = tmp_dir / "test.txt"
     file_path.write_text("Content with PREPDIR_UUID_PLACEHOLDER_1")
-    
+
     # Create entry
     entry, _, _ = PrepdirFileEntry.from_file_path(
         file_path=file_path,
@@ -263,7 +276,7 @@ def test_restore_uuids(capture_log, tmp_dir):
         quiet=True,
     )
     entry.is_scrubbed = True
-    
+
     # Valid mapping with quiet=False
     stdout_capture = StringIO()
     capture_log.truncate(0)
@@ -310,11 +323,12 @@ def test_restore_uuids(capture_log, tmp_dir):
     assert f"No valid uuid_mapping provided for test.txt" in log_output
     assert stderr_capture.getvalue() == ""  # No print output in quiet mode
 
+
 def test_restore_uuids_empty_mapping(capture_log, tmp_dir):
     """Test restore_uuids with empty mapping when is_scrubbed=True."""
     file_path = tmp_dir / "test.txt"
     file_path.write_text("Content with PREPDIR_UUID_PLACEHOLDER_1")
-    
+
     entry, _, _ = PrepdirFileEntry.from_file_path(
         file_path=file_path,
         base_directory=str(tmp_dir),
@@ -323,7 +337,7 @@ def test_restore_uuids_empty_mapping(capture_log, tmp_dir):
         quiet=True,
     )
     entry.is_scrubbed = True
-    
+
     stderr_capture = StringIO()
     with patch("sys.stderr", stderr_capture):
         with pytest.raises(ValueError, match="uuid_mapping must be a non-empty dictionary when is_scrubbed is True"):
@@ -336,11 +350,12 @@ def test_restore_uuids_empty_mapping(capture_log, tmp_dir):
     assert f"No valid uuid_mapping provided for test.txt" in log_output
     assert "Error: No valid uuid_mapping provided for test.txt" in stderr_capture.getvalue()
 
+
 def test_apply_changes(capture_log, tmp_dir):
     """Test applying changes to a file with quiet settings."""
     file_path = tmp_dir / "test.txt"
     file_path.write_text("Content with PREPDIR_UUID_PLACEHOLDER_1")
-    
+
     # Create entry
     entry, _, _ = PrepdirFileEntry.from_file_path(
         file_path=file_path,
@@ -350,7 +365,7 @@ def test_apply_changes(capture_log, tmp_dir):
         quiet=True,
     )
     entry.is_scrubbed = True
-    
+
     # Successful apply with quiet=False
     stdout_capture = StringIO()
     capture_log.truncate(0)
@@ -392,11 +407,12 @@ def test_apply_changes(capture_log, tmp_dir):
     assert "Skipping apply_changes for test.jpg: binary" in log_output
     assert "Warning: Skipping apply_changes for test.jpg: binary" in stdout_capture.getvalue()
 
+
 def test_apply_changes_write_error(capture_log, tmp_dir):
     """Test apply_changes with write failure."""
     file_path = tmp_dir / "test.txt"
     file_path.write_text("Content with PREPDIR_UUID_PLACEHOLDER_1")
-    
+
     entry, _, _ = PrepdirFileEntry.from_file_path(
         file_path=file_path,
         base_directory=str(tmp_dir),
@@ -405,7 +421,7 @@ def test_apply_changes_write_error(capture_log, tmp_dir):
         quiet=True,
     )
     entry.is_scrubbed = True
-    
+
     stderr_capture = StringIO()
     with patch.object(Path, "write_text", side_effect=OSError("Write error")):
         with patch("sys.stderr", stderr_capture):
@@ -421,6 +437,7 @@ def test_apply_changes_write_error(capture_log, tmp_dir):
     assert f"Failed to apply changes to test.txt: Write error" in log_output
     assert f"Error: Failed to apply changes to test.txt: Write error" in stderr_capture.getvalue()
 
+
 def test_validation_errors():
     """Test Pydantic validation errors."""
     # Invalid absolute_path (relative)
@@ -431,14 +448,13 @@ def test_validation_errors():
     with pytest.raises(ValidationError):
         PrepdirFileEntry(absolute_path=Path("/abs/path"), relative_path="/abs/valid", content="")
 
+
 def test_from_file_path_separate_paths():
     """Test handling of separate relative and absolute paths."""
     with tempfile.TemporaryDirectory() as tmp_dir1:
         base_dir = Path(tmp_dir1)
-        file_path = create_temp_file(
-            "Content with UUID 123e4567-e89b-12d3-a456-426614174000", suffix=".txt"
-        )
-        
+        file_path = create_temp_file("Content with UUID 123e4567-e89b-12d3-a456-426614174000", suffix=".txt")
+
         entry, uuid_mapping, counter = PrepdirFileEntry.from_file_path(
             file_path=file_path,
             base_directory=str(base_dir),
@@ -458,11 +474,12 @@ def test_from_file_path_separate_paths():
         assert counter > 0
         os.unlink(file_path)
 
+
 def test_to_output_text(tmp_dir):
     """Test to_output method for text files."""
     file_path = tmp_dir / "test.txt"
     file_path.write_text("Sample content")
-    
+
     entry, _, _ = PrepdirFileEntry.from_file_path(
         file_path=file_path,
         base_directory=str(tmp_dir),
@@ -475,11 +492,12 @@ def test_to_output_text(tmp_dir):
     assert "Sample content" in output
     assert f"{PREPDIR_DASHES} End File: 'test.txt' {PREPDIR_DASHES}" in output
 
+
 def test_to_output_invalid_format(tmp_dir):
     """Test to_output with unsupported format."""
     file_path = tmp_dir / "test.txt"
     file_path.write_text("Sample content")
-    
+
     entry, _, _ = PrepdirFileEntry.from_file_path(
         file_path=file_path,
         base_directory=str(tmp_dir),
@@ -489,6 +507,7 @@ def test_to_output_invalid_format(tmp_dir):
     )
     with pytest.raises(ValueError, match="Unsupported output format: json"):
         entry.to_output(format="json")
+
 
 def test_is_prepdir_outputfile_format_valid():
     """Test is_prepdir_outputfile_format with valid content."""
@@ -500,11 +519,13 @@ def test_is_prepdir_outputfile_format_valid():
         )
         assert PrepdirFileEntry.is_prepdir_outputfile_format(content, highest_base_directory="/tmp")
 
+
 def test_is_prepdir_outputfile_format_invalid():
     """Test is_prepdir_outputfile_format with invalid content."""
     with patch("prepdir.prepdir_output_file.PrepdirOutputFile.from_content", side_effect=ValueError("Invalid format")):
         content = "Invalid content"
         assert not PrepdirFileEntry.is_prepdir_outputfile_format(content)
+
 
 if __name__ == "__main__":
     pytest.main(["-v", __file__])

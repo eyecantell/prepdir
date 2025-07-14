@@ -11,11 +11,13 @@ __version__ = "0.0.0"
 
 try:
     from importlib.metadata import version
+
     __version__ = version(__name__.split(".", 1)[0])
 except Exception as e:
     logging.getLogger(__name__).debug(f"Failed to load package version: {e}")
 
 logger = logging.getLogger(__name__)
+
 
 def check_namespace_value(namespace: str) -> None:
     """Validate the namespace value to ensure it's a valid Python identifier.
@@ -30,6 +32,7 @@ def check_namespace_value(namespace: str) -> None:
         raise ValueError("Invalid namespace '': must be non-empty")
     if not namespace.isidentifier():
         raise ValueError(f"Invalid namespace '{namespace}': must be a valid Python identifier")
+
 
 def is_resource(namespace: str, resource_name: str) -> bool:
     """Check if a resource exists in the given namespace.
@@ -46,6 +49,7 @@ def is_resource(namespace: str, resource_name: str) -> bool:
     except (TypeError, FileNotFoundError):
         return False
 
+
 def check_config_format(content: str, config_name: str) -> None:
     """Validate that the given content is valid YAML.
 
@@ -61,6 +65,7 @@ def check_config_format(content: str, config_name: str) -> None:
     except yaml.YAMLError as e:
         logger.error(f"Invalid YAML in {config_name}: {e}", exc_info=True)
         raise ValueError(f"Invalid YAML in {config_name}: {e}")
+
 
 def get_bundled_config(namespace: str) -> str:
     """Retrieve and validate the bundled configuration content.
@@ -81,12 +86,13 @@ def get_bundled_config(namespace: str) -> str:
     try:
         with resources.files(namespace).joinpath("config.yaml").open("r", encoding="utf-8") as f:
             config_content = f.read()
-        #logger.debug(f"Bundled config content: {config_content}")
+        # logger.debug(f"Bundled config content: {config_content}")
         check_config_format(config_content, f"bundled config for '{namespace}'")
         return config_content
     except Exception as e:
         logger.error(f"Failed to load bundled config for {namespace}: {e}", exc_info=True)
         raise ValueError(f"Failed to load bundled config for {namespace}: {e}")
+
 
 def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool = False) -> Dynaconf:
     """Load configuration with precedence: custom > local > home > bundled.
@@ -158,7 +164,9 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
     if not settings_files and not skip_bundled_config:
         try:
             config_content = get_bundled_config(namespace)
-            with tempfile.NamedTemporaryFile(mode="w", suffix=f"_{namespace}_bundled_config.yaml", delete=False) as temp:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=f"_{namespace}_bundled_config.yaml", delete=False
+            ) as temp:
                 temp.write(config_content)
                 temp_path = temp.name
             settings_files.append(Path(temp_path).resolve())
@@ -168,7 +176,6 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
             logger.debug(f"Loaded bundled config into temporary file: {temp_path}")
         except ValueError as e:
             logger.warning(f"No bundled config available for {namespace}: {e}")
-        
 
     if not settings_files:
         logger.debug(f"No custom, home, local, or bundled config files found for {namespace}, using defaults")
@@ -182,20 +189,21 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
             load_dotenv=False,
             default_settings_paths=[],
         )
-        #logger.debug(f"Loaded config dictionary: {settings.to_dict()}")
+        # logger.debug(f"Loaded config dictionary: {settings.to_dict()}")
         logger.debug(f"Loaded config for {namespace} from: {settings_files}")
 
     finally:
         # If a bundled config was used, remove the temporary file
         if temp_path and Path(temp_path).is_file():
             try:
-                settings.to_dict() # Force the actual config load before the file is removed
+                settings.to_dict()  # Force the actual config load before the file is removed
                 Path(temp_path).unlink()
                 logger.debug(f"Removed temporary bundled config: {temp_path}")
             except Exception as e:
                 logger.warning(f"Failed to remove temporary bundled config {temp_path}: {e}", exc_info=True)
-                
+
     return settings
+
 
 def init_config(namespace: str, config_path: str, force: bool = False, quiet: bool = False) -> None:
     """Initialize a configuration file at the specified path.

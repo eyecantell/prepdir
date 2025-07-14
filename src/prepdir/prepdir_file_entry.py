@@ -8,7 +8,10 @@ from .scrub_uuids import scrub_uuids, restore_uuids
 logger = logging.getLogger("prepdir.prepdir_file_entry")
 
 BINARY_CONTENT_PLACEHOLDER = "[Binary file or encoding not currently supported by prepdir]"
-PREPDIR_DASHES = "=-" * 7 + "=" # The dases used on either side of a Begin File: or End File: label - See LENIENT_DELIM_PATTERN for requirements here if considering changing this
+PREPDIR_DASHES = (
+    "=-" * 7 + "="
+)  # The dases used on either side of a Begin File: or End File: label - See LENIENT_DELIM_PATTERN for requirements here if considering changing this
+
 
 class PrepdirFileEntry(BaseModel):
     """Pydantic model for file entries in the prepdir package.
@@ -23,7 +26,7 @@ class PrepdirFileEntry(BaseModel):
         is_binary (bool): Whether the file is binary (or has an unsupported encoding).
         error (Optional[str]): Error message if the file could not be read or processed.
     """
-    
+
     relative_path: str = Field(..., description="Path relative to base directory")
     absolute_path: Path = Field(..., description="Absolute path to the file")
     content: str = Field(..., description="File content, possibly scrubbed")
@@ -237,7 +240,7 @@ class PrepdirFileEntry(BaseModel):
                 if not quiet:
                     print(
                         f"Warning: Skipping apply_changes for {self.relative_path}: {'binary' if self.is_binary else 'error'}",
-                        file=sys.stdout
+                        file=sys.stdout,
                     )
                 return False
             restored_content = self.restore_uuids(uuid_mapping, quiet=quiet)
@@ -254,7 +257,9 @@ class PrepdirFileEntry(BaseModel):
             return False
 
     @staticmethod
-    def is_prepdir_outputfile_format(content: str, highest_base_directory: Optional[str] = None, file_full_path: Optional[str] = None) -> bool:
+    def is_prepdir_outputfile_format(
+        content: str, highest_base_directory: Optional[str] = None, file_full_path: Optional[str] = None
+    ) -> bool:
         """Check if the given content matches the format expected for a prepdir output file.
 
         Args:
@@ -267,6 +272,7 @@ class PrepdirFileEntry(BaseModel):
         """
         try:
             from .prepdir_output_file import PrepdirOutputFile
+
             PrepdirOutputFile.from_content(content, Path(file_full_path) if file_full_path else None)
             return True
         except ValueError:

@@ -15,9 +15,10 @@ from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
 
 logger = logging.getLogger(__name__)
 
+
 class PrepdirProcessor:
     """Manages generation and parsing of prepdir output files."""
-    
+
     def __init__(
         self,
         directory: str,
@@ -81,12 +82,14 @@ class PrepdirProcessor:
 
         if replacement_uuid is not None:
             if not isinstance(replacement_uuid, str):
-                self.logger.error(f"Invalid replacement UUID type: '{type(replacement_uuid)}'. Replacement UUID must be a string. Using config default.")
+                self.logger.error(
+                    f"Invalid replacement UUID type: '{type(replacement_uuid)}'. Replacement UUID must be a string. Using config default."
+                )
                 replacement_uuid = None
             elif not re.fullmatch(HYPHENATED_UUID_PATTERN, replacement_uuid):
                 self.logger.error(f"Invalid replacement UUID: '{replacement_uuid}'. Using config default.")
                 replacement_uuid = None
-        
+
         self.replacement_uuid = (
             replacement_uuid
             if replacement_uuid is not None
@@ -99,7 +102,6 @@ class PrepdirProcessor:
         self._print_and_log(f"Extensions filter: {self.extensions if self.extensions else 'None'}")
         self._print_and_log(f"Output file: {self.output_file}")
         self._print_and_log(f"Ignoring exclusions: {self.ignore_exclusions}")
-        
 
         if self.scrub_hyphenated_uuids:
             if self.use_unique_placeholders:
@@ -122,7 +124,7 @@ class PrepdirProcessor:
                 )
 
     def _print_and_log(self, msg: str):
-        '''Helper routine to print a message and and log it at the INFO level'''
+        """Helper routine to print a message and and log it at the INFO level"""
         self.logger.info(msg)
         if not self.quiet:
             print(msg)
@@ -168,7 +170,7 @@ class PrepdirProcessor:
         except Exception as e:
             self.logger.error(f"Could not read {full_path} - unexpected error")
             raise
-        
+
         self.logger.debug(f"Found {full_path} is NOT an output file")
         return False
 
@@ -260,7 +262,7 @@ class PrepdirProcessor:
                     scrub_hyphenless_uuids=self.scrub_hyphenless_uuids,
                     replacement_uuid=self.replacement_uuid,
                     use_unique_placeholders=self.use_unique_placeholders,
-                    quiet = self.quiet,
+                    quiet=self.quiet,
                     placeholder_counter=placeholder_counter,
                     uuid_mapping=uuid_mapping,
                 )
@@ -324,7 +326,6 @@ class PrepdirProcessor:
                 logger.exception(f"Issue accessing '{file_path}': {str(e)}")
                 continue
 
-                
             self.logger.debug(f"Will include file at {path}")
             yield path
 
@@ -351,14 +352,14 @@ class PrepdirProcessor:
                         continue
 
                     path = Path(root) / filename
-                    
+
                     self.logger.debug(f"Will include file at {path}")
                     yield path
 
         except PermissionError as e:
             self.logger.warning(f"Permission denied traversing directory '{self.directory}': {str(e)}")
             return
-        
+
         except Exception as e:
             logger.exception(f"Issue accessing '{self.directory}': {str(e)}")
             return

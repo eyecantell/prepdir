@@ -10,6 +10,7 @@ from prepdir import prepdir_logging
 
 logger = logging.getLogger(__name__)
 
+
 def run(
     directory: str = ".",
     extensions: Optional[List[str]] = None,
@@ -66,14 +67,14 @@ def run(
     output = processor.generate_output()
 
     if not output_file:
-            print(output.content)
+        print(output.content)
     else:
         processor.save_output(output, output_file)
         if not quiet:
             print(f"Saved output to {output_file}")
 
-
     return output
+
 
 def main():
     """Command-line interface for prepdir."""
@@ -216,6 +217,7 @@ def main():
     except Exception as e:
         print(f"Unexpected error: {str(e)}", file=sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

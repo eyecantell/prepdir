@@ -89,28 +89,25 @@ prepdir --all
 prepdir --no-scrub-uuids
 ```
 
-### Python Library
+### Programmatic Use
+
+Use `prepdir` as a library to process directories programmatically:
 
 ```python
-from prepdir import run, validate_output_file
+from prepdir import run, PrepdirOutputFile
 
-# Basic usage
-content, _ = run(directory="/path/to/project", extensions=["py", "md"])
+# Run and get a PrepdirOutputFile object
+output: PrepdirOutputFile = run(directory="my_project", extensions=["py", "md"], use_unique_placeholders=True)
 
-# Save to file with custom settings
-content, _ = run(
-    directory="/path/to/project",
-    extensions=["py"],
-    output_file="review.txt", 
-    scrub_hyphenated_uuids=False
-)
+# Access processed files
+for file_entry in output.files:
+    print(f"File: {file_entry.path}, Content: {file_entry.content}")
 
-# Validate prepdir output
-result = validate_output_file("review.txt")
-if result["is_valid"]:
-    print("✅ Valid prepdir file")
-else:
-    print(f"❌ Errors: {result['errors']}")
+# Save to file
+output.save("prepped_dir.txt")
+
+# For legacy use, get raw output
+content, uuid_mapping, files_list, metadata = run(directory="my_project", return_raw=True)
 ```
 
 ### Sample Output
@@ -187,7 +184,7 @@ EOF
 
 ### Default Exclusions
 - **Version control**: `.git`
-- **Cache files**: `__pycache__`, `.pytest_cache`, `.mypy_cache`
+- **Cache files**: `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`
 - **Build artifacts**: `dist`, `build`, `*.egg-info`
 - **IDE files**: `.idea`, `.vscode`
 - **Dependencies**: `node_modules`

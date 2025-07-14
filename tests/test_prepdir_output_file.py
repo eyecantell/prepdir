@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 logger = logging.getLogger(__name__)
 
+
 # Test fixtures
 @pytest.fixture
 def temp_file(tmp_path):
@@ -17,7 +18,9 @@ def temp_file(tmp_path):
         file_path = tmp_path / "test_prepped_dir.txt"
         file_path.write_text(content, encoding="utf-8")
         return file_path
+
     return _create_file
+
 
 @pytest.fixture(autouse=True)
 def reset_logger():
@@ -30,6 +33,7 @@ def reset_logger():
     logger.setLevel(logging.NOTSET)
     logger.propagate = True
 
+
 @pytest.fixture
 def streams():
     stdout = StringIO()
@@ -38,19 +42,25 @@ def streams():
     stdout.close()
     stderr.close()
 
+
 @pytest.fixture
 def configure_logger(streams):
     stdout, stderr = streams
+
     def _configure(level=logging.INFO):
         prepdir_logging.configure_logging(logger, level=level, stdout_stream=stdout, stderr_stream=stderr)
-        assert len(logger.handlers) == 2, f"Expected 2 handlers, got {len(logger.handlers)}: {[h.__class__.__name__ for h in logger.handlers]}"
+        assert len(logger.handlers) == 2, (
+            f"Expected 2 handlers, got {len(logger.handlers)}: {[h.__class__.__name__ for h in logger.handlers]}"
+        )
         assert isinstance(logger.handlers[0], logging.StreamHandler)
         assert logger.handlers[0].stream is stdout
         assert logger.handlers[0].level == logging.DEBUG
         assert isinstance(logger.handlers[1], logging.StreamHandler)
         assert logger.handlers[1].stream is stderr
         assert logger.handlers[1].level == logging.WARNING
+
     return _configure
+
 
 # Test data
 SAMPLE_CONTENT = """File listing generated 2025-06-26T12:15:00.123456 by prepdir version 0.14.1 (pip install prepdir)
@@ -65,6 +75,7 @@ Content for file2
 Extra =-=-= Begin File: 'file3.txt' =-=-=
 =-=-= End File: 'file2.txt' =-=-=
 """
+
 
 def test_manual_instance(temp_file, configure_logger):
     configure_logger(level=logging.DEBUG)  # Enable DEBUG logs
@@ -85,6 +96,7 @@ def test_manual_instance(temp_file, configure_logger):
         placeholder_counter=1,
     )
     assert isinstance(instance, PrepdirOutputFile)
+
 
 def test_from_file(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
@@ -113,11 +125,14 @@ def test_from_file(temp_file, caplog, configure_logger, streams):
     assert Path("/test_dir/file1.txt") in entries
     assert Path("/test_dir/file2.txt") in entries
     assert entries[Path("/test_dir/file1.txt")].content == "Content for file1\n"
-    assert entries[Path("/test_dir/file2.txt")].content == "Content for file2\nExtra =-=-= Begin File: 'file3.txt' =-=-=\n"
+    assert (
+        entries[Path("/test_dir/file2.txt")].content == "Content for file2\nExtra =-=-= Begin File: 'file3.txt' =-=-=\n"
+    )
     # Verify DEBUG logs from from_content and parse
     assert "Got 11 lines of content" in caplog.text
     assert "Found begin file pattern in line" in caplog.text
     assert "11 lines to parse" in caplog.text
+
 
 def test_from_file_no_headers(temp_file, configure_logger):
     configure_logger(level=logging.DEBUG)
@@ -125,6 +140,7 @@ def test_from_file_no_headers(temp_file, configure_logger):
     file_path = temp_file(content)
     with pytest.raises(ValueError, match="No begin file patterns found!"):
         PrepdirOutputFile.from_file(str(file_path), metadata={"base_directory": "test_dir"})
+
 
 def test_from_file_noseconds_date(temp_file, configure_logger):
     configure_logger(level=logging.INFO)
@@ -147,6 +163,7 @@ Content
     assert instance.metadata["base_directory"] == "/test_dir"
     assert len(instance.files) == 1
     assert instance.files[Path("/test_dir/file1.txt")].content == "Content\n"
+
 
 def test_from_file_base_dir_mismatch(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
@@ -173,6 +190,7 @@ Content
     assert "Got 6 lines of content" in caplog.text
     assert "6 lines to parse" in caplog.text
 
+
 def test_from_content_with_uuid_mapping(temp_file, configure_logger):
     configure_logger(level=logging.INFO)
     content = """File listing generated 2025-06-26T12:15:00 by prepdir
@@ -195,6 +213,7 @@ Content with PREPDIR_UUID_PLACEHOLDER_1
     assert len(instance.files) == 1
     assert instance.files[Path("/test_dir/file1.txt")].content == "Content with PREPDIR_UUID_PLACEHOLDER_1\n"
 
+
 def test_from_content_no_metadata(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
     configure_logger(level=logging.DEBUG)
@@ -215,6 +234,7 @@ Content
     assert instance.metadata["version"] == ""
     assert "Got 5 lines of content" in caplog.text
     assert "5 lines to parse" in caplog.text
+
 
 def test_from_content_metadata_mismatch(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
@@ -250,6 +270,7 @@ Content
     assert "Got 5 lines of content" in caplog.text
     assert "5 lines to parse" in caplog.text
 
+
 def test_parse_no_header_simple(temp_file, configure_logger):
     configure_logger(level=logging.INFO)
     content = """=-=-= Begin File: 'file1.txt' =-=-=
@@ -271,6 +292,7 @@ Content for file1
     assert entry.content == "Content for file1\n"
     assert not entry.is_binary
     assert not entry.is_scrubbed
+
 
 def test_parse_extra_header_as_content(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
@@ -296,6 +318,7 @@ Content
     assert not entry.is_scrubbed
     assert "4 lines to parse" in caplog.text
 
+
 def test_parse_unclosed_file(temp_file, configure_logger):
     configure_logger(level=logging.INFO)
     content = """=-=-= Begin File: 'file1.txt' =-=-=
@@ -306,6 +329,7 @@ Content
     instance = PrepdirOutputFile(path=file_path, content=content, metadata=metadata, use_unique_placeholders=False)
     with pytest.raises(ValueError, match="Unclosed file 'file1.txt'"):
         instance.parse("test_dir")
+
 
 def test_get_changes(temp_file, configure_logger):
     configure_logger(level=logging.INFO)
@@ -345,6 +369,7 @@ File1 changed content
     assert len(changes["removed"]) == 1
     assert any(entry.relative_path == "file2.txt" for entry in changes["removed"])
 
+
 def test_is_prepdir_outputfile_format(configure_logger):
     configure_logger(level=logging.INFO)
     valid_content = """File listing generated 2025-06-26 12:15:00 by prepdir
@@ -364,6 +389,7 @@ Content
     empty_content = ""
     assert PrepdirFileEntry.is_prepdir_outputfile_format(empty_content, None) == False
 
+
 def test_save_no_content(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
     configure_logger(level=logging.INFO)
@@ -375,6 +401,7 @@ def test_save_no_content(temp_file, caplog, configure_logger, streams):
         instance.save()
     assert "No content specified, content not saved" in caplog.text
 
+
 def test_save_no_path(caplog, configure_logger, streams):
     stdout, _ = streams
     configure_logger(level=logging.INFO)
@@ -384,6 +411,7 @@ def test_save_no_path(caplog, configure_logger, streams):
     with caplog.at_level(logging.WARNING):
         instance.save()
     assert "No path specified, content not saved" in caplog.text
+
 
 def test_save_success(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
@@ -396,6 +424,7 @@ def test_save_success(temp_file, caplog, configure_logger, streams):
     with caplog.at_level(logging.INFO):
         instance.save()
     assert f"Saved output to {file_path}" in caplog.text
+
 
 def test_quiet_mode(temp_file, caplog, streams):
     stdout, stderr = streams
@@ -417,6 +446,7 @@ def test_quiet_mode(temp_file, caplog, streams):
     assert "11 lines to parse" not in caplog.text  # DEBUG log suppressed
     assert len(instance.files) == 2
 
+
 def test_parse_footer_without_header(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
     configure_logger(level=logging.DEBUG)
@@ -432,6 +462,7 @@ Content
     assert len(entries) == 0
     assert "Footer found without matching header" in caplog.text
     assert "2 lines to parse" in caplog.text
+
 
 def test_parse_mismatched_footer(temp_file, caplog, configure_logger, streams):
     stdout, _ = streams
@@ -449,6 +480,7 @@ Content
             instance.parse("test_dir")
     assert "Mismatched footer 'file2.txt' for header 'file1.txt', treating as content" in caplog.text
     assert "3 lines to parse" in caplog.text
+
 
 if __name__ == "__main__":
     pytest.main(["-v", __file__])

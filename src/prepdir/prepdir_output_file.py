@@ -80,7 +80,7 @@ class PrepdirOutputFile(BaseModel):
                 except Exception as e:
                     logger.exception(f"Could not save output to {path_for_save}: Unexpected exception: {str(e)}")
                     raise
-                
+
             else:
                 logger.warning("No content specified, content not saved")
         else:
@@ -137,7 +137,6 @@ class PrepdirOutputFile(BaseModel):
                 current_content.append(line)
             elif current_file:
                 current_content.append(line)
-
 
         if current_file:
             raise ValueError(f"Unclosed file '{current_file}' at end of content")
