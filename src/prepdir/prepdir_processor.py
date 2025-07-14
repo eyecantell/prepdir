@@ -104,21 +104,21 @@ class PrepdirProcessor:
         if self.scrub_hyphenated_uuids:
             if self.use_unique_placeholders:
                 self._print_and_log(
-                    "Valid (hyphenated) UUIDs in file contents will be scrubbed and replaced with unique placeholders (e.g., PREPDIR_UUID_PLACEHOLDER_n)."
+                    "Regular (hyphenated) UUIDs in file contents will be scrubbed and replaced with unique placeholders (e.g., PREPDIR_UUID_PLACEHOLDER_n)."
                 )
             else:
                 self._print_and_log(
-                    f"Valid (hyphenated) UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid}'."
+                    f"Regular (hyphenated) UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid}'."
                 )
         if self.scrub_hyphenless_uuids:
             if self.use_unique_placeholders:
                 self._print_and_log(
-                    "Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with unique placeholders (e.g., PREPDIR_UUID_PLACEHOLDER_n)."
+                    "Hyphen-less UUIDs in file contents will be scrubbed and replaced with unique placeholders (e.g., PREPDIR_UUID_PLACEHOLDER_n)."
                 )
 
             else:
                 self._print_and_log(
-                    f"Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid.replace('-', '')}'."
+                    f"Hyphen-less UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid.replace('-', '')}'."
                 )
 
     def _print_and_log(self, msg: str):

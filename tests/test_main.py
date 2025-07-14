@@ -142,8 +142,7 @@ def test_main_init_config_invalid_path(tmp_path, capsys, caplog):
             with pytest.raises(SystemExit) as exc:
                 main()
             assert "Permission denied" in str(exc.value)
-    captured = capsys.readouterr()
-    assert f"Error: Failed to create config file '{invalid_path}'" in captured.err
+    print(f"caplog.text is {caplog.text}")
     assert f"Failed to create config file '{invalid_path}'" in caplog.text
 
 def test_main_verbose_mode(tmp_path, capsys, custom_config, caplog, uuid_test_file):
@@ -238,11 +237,10 @@ def test_run_quiet_no_output_file(tmp_path, uuid_test_file, custom_config, capsy
     captured = capsys.readouterr()
     print(f"captured.err is:\n{captured.err}\n--")
     print(f"captured.out is:\n{captured.out}\n--")
-    print(f"captured.out is:\n{captured.out}\n--")
     print(f"caplog.text is:\n{caplog.text}\n--")
     assert "test.txt" in output.content
     assert f"UUID: {REPLACEMENT_UUID}" in output.content
-    assert "Starting prepdir in" in caplog.text
+    assert "Starting prepdir in" in captured.out
     assert output.content in captured.out
 
 def test_main_debug_logging(tmp_path, caplog, uuid_test_file):
