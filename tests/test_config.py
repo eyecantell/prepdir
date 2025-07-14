@@ -70,6 +70,9 @@ def expected_bundled_config_content():
         "REPLACEMENT_UUID": "00000000-0000-0000-0000-000000000000",
         "SCRUB_HYPHENATED_UUIDS": True,
         "SCRUB_HYPHENLESS_UUIDS": True,
+        "USE_UNIQUE_PLACEHOLDERS": False,
+        "INCLUDE_PREPDIR_FILES": False,
+        "VERBOSE": False,
     }
 
 
@@ -141,8 +144,10 @@ def test_is_resource_false():
 
 
 def test_is_resource_exception(clean_logger):
-    """Test is_resource exception handling (line 47)."""
-    with patch("importlib.resources.files", side_effect=TypeError("Invalid resource")):
+    """Test is_resource exception handling."""
+    # Mock the correct module based on Python version
+    mock_target = "importlib_resources.files" if sys.version_info < (3, 9) else "importlib.resources.files"
+    with patch(mock_target, side_effect=TypeError("Invalid resource")):
         assert not is_resource("prepdir", "config.yaml")
 
 
