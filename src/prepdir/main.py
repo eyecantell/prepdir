@@ -64,10 +64,14 @@ def run(
     )
 
     output = processor.generate_output()
-    processor.save_output(output, output_file)
 
-    if not quiet and not output_file:
-        print(output.content)
+    if not output_file:
+            print(output.content)
+    else:
+        processor.save_output(output, output_file)
+        if not quiet:
+            print(f"Saved output to {output_file}")
+
 
     return output
 
