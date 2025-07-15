@@ -4,7 +4,7 @@ This document provides instructions for installing `prepdir` version 0.13.0, a l
 
 ## 📋 Prerequisites
 
-- **Python**: Version 3.8 or higher. Check with:
+- **Python**: Version 3.9 or higher. Check with:
   ```bash
   python --version
   ```
@@ -179,9 +179,9 @@ For contributing to `prepdir`:
   source venv/bin/activate  # On Windows: venv\Scripts\activate
   pip install prepdir
   ```
-- **Python version errors**: Verify Python 3.8+ with `python --version`. Upgrade if needed:
+- **Python version errors**: Verify Python 3.9+ with `python --version`. Upgrade if needed:
   ```bash
-  sudo apt-get install python3.8  # Example for Ubuntu
+  sudo apt-get install python3.9  # Example for Ubuntu
   ```
 - **pdm errors**: Ensure `pdm` is installed (`pip install pdm`) and run `pdm install` in the project directory.
 - **Missing dependencies**: Run `pip install --upgrade pip` and retry installation.
