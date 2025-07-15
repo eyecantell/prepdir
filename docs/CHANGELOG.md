@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - [PyPI](https://pypi.org/project/prepdir/)
 - [Dynaconf Documentation](https://dynaconf.com)
 
+## [0.16.0] - 2025-07-14
+### Changed
+- Deprecated support for python 3.8
 
 ## [0.15.0] - 2025-07-14
 

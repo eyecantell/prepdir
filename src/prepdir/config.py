@@ -1,17 +1,11 @@
 import logging
 import os
-import sys
 import tempfile
 from pathlib import Path
 from typing import Optional
 import yaml
 from dynaconf import Dynaconf
-
-# Conditional import for importlib.resources or importlib_resources
-try:
-    from importlib import resources
-except ImportError:
-    import importlib_resources as resources
+from importlib import resources
 
 __version__ = "0.0.0"
 
