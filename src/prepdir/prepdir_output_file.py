@@ -68,8 +68,19 @@ class PrepdirOutputFile(BaseModel):
 
         if path_for_save:
             if self.content:
-                path_for_save.write_text(self.content, encoding="utf-8")
-                logger.info(f"Saved output to {path_for_save}")
+                try:
+                    path_for_save.write_text(self.content, encoding="utf-8")
+                    logger.info(f"Saved output to {path_for_save}")
+                except FileNotFoundError as e:
+                    logger.error(f"Could not save output to {path_for_save}: {str(e)}")
+                    raise ValueError(f"Could not save output to {path_for_save}: {str(e)}") from e
+                except PermissionError as e:
+                    logger.exception(f"Could not save output to {path_for_save}: PermissionError: {str(e)}")
+                    raise
+                except Exception as e:
+                    logger.exception(f"Could not save output to {path_for_save}: Unexpected exception: {str(e)}")
+                    raise
+
             else:
                 logger.warning("No content specified, content not saved")
         else:
@@ -83,7 +94,10 @@ class PrepdirOutputFile(BaseModel):
         current_content = []
         current_file = None
 
-        file_being_parsed = str(self.path) if self.path else 'Unknown'
+        file_and_line_being_parsed = "Unknown"
+        if self.path:
+            file_and_line_being_parsed = str(self.path)
+            file_and_line_being_parsed += f":{str(len(current_content))}" if current_content else ""
 
         for line in lines:
             begin_file_match = BEGIN_FILE_PATTERN.match(line)
@@ -92,12 +106,13 @@ class PrepdirOutputFile(BaseModel):
             if begin_file_match and current_file is None:
                 current_file = begin_file_match.group(1)
                 current_content = []
+
             elif end_file_match:
                 if current_file is None:
-                    logger.warning(f"{file_being_parsed}: Footer found without matching header on line: {line}")
+                    logger.warning(f" {file_and_line_being_parsed}: Footer found without matching header: {line}")
                 elif end_file_match.group(1) != current_file:
                     logger.warning(
-                        f"{file_being_parsed}: Mismatched footer '{end_file_match.group(1)}' for header '{current_file}', treating as content"
+                        f" {file_and_line_being_parsed} - Mismatched footer '{end_file_match.group(1)}' for header '{current_file}', treating as content"
                     )
                     current_content.append(line)
                 else:
@@ -112,11 +127,12 @@ class PrepdirOutputFile(BaseModel):
                             is_scrubbed=False,
                         )
                         entries[abs_path] = entry
+                        logger.debug(f"Added {abs_path} to entries")
                     current_file = None
                     current_content = []
             elif begin_file_match or end_file_match:
                 logger.warning(
-                    f"{file_being_parsed}: Extra header/footer '{line}' encountered for current file '{current_file}', treating as content"
+                    f" {file_and_line_being_parsed} - Extra header/footer '{line}' encountered for current file '{current_file}', treating as content"
                 )
                 current_content.append(line)
             elif current_file:
