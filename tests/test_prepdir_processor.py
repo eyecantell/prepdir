@@ -825,7 +825,7 @@ def test_traverse_specific_files(temp_dir, config_path, caplog):
 def test_traverse_specific_files_exclusions(temp_dir, config_path, caplog):
     """Test _traverse_specific_files with excluded files and directories."""
     prepdir_logging.configure_logging(logger, level=logging.INFO)
-    
+
     with caplog.at_level(logging.DEBUG):
         processor = PrepdirProcessor(
             directory=str(temp_dir),

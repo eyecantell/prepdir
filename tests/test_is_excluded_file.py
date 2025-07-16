@@ -7,6 +7,7 @@ from prepdir.prepdir_logging import configure_logging
 logger = logging.getLogger(__name__)
 logging.getLogger("prepdir").setLevel(logging.DEBUG)
 
+
 @pytest.fixture
 def excluded_dir_patterns():
     """Fixture providing the excluded directory patterns from config.yaml."""
@@ -198,7 +199,7 @@ def test_path_component_match(base_directory):
 
 def test_exact_match_file(exact_file_patterns, base_directory):
     """Test exact match for file name."""
-    
+
     assert is_excluded_file(".gitignore", "/base/path", base_directory, [], exact_file_patterns), (
         "File '.gitignore' should be excluded"
     )

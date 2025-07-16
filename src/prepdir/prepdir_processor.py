@@ -11,7 +11,8 @@ from prepdir.config import load_config, __version__, init_config
 from prepdir.prepdir_file_entry import PrepdirFileEntry
 from prepdir.prepdir_output_file import PrepdirOutputFile
 from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
-from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file, glob_to_regex
+from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
+from prepdir.glob_translate import glob_translate
 
 logger = logging.getLogger(__name__)
 
@@ -123,15 +124,19 @@ class PrepdirProcessor:
                     f"Hyphen-less UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid.replace('-', '')}'."
                 )
 
-        self.excluded_dir_regexes = [re.compile(glob_to_regex(p)) for p in self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])]
+        self.excluded_dir_regexes = [
+            re.compile(glob_translate(p)) for p in self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
+        ]
         logger.debug(f"{self.excluded_dir_regexes=}")
-        self.excluded_file_regexes = [re.compile(glob_to_regex(p)) for p in self.config.get("EXCLUDE", {}).get("FILES", [])]
+        self.excluded_file_regexes = [
+            re.compile(glob_translate(p)) for p in self.config.get("EXCLUDE", {}).get("FILES", [])
+        ]
         logger.debug(f"{self.excluded_dir_regexes=}")
-        
+
         self.excluded_file_glob_regexes = []
         for p in self.config.get("EXCLUDE", {}).get("FILES", []):
-            if '**' in p:
-                self.excluded_file_glob_regexes.append(re.compile(glob_to_regex(p)))
+            if "**" in p:
+                self.excluded_file_glob_regexes.append(re.compile(glob_translate(p)))
         logger.debug(f"{self.excluded_dir_regexes=}")
 
     def _print_and_log(self, msg: str):
