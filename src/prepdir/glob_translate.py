@@ -42,8 +42,8 @@ def glob_translate(pat, *, recursive=True, include_hidden=True, seps=None):
     not_sep = f"[^{escaped_seps}]"
     if include_hidden:
         one_last_segment = f"{not_sep}+"  # e.g. "[^/]+"
-        one_segment = f"{one_last_segment}{any_sep}" # e.g. "[^/]+/"
-        any_segments = f"(?:.+{any_sep})?" # e.g. "(?:.+/)?"
+        one_segment = f"{one_last_segment}{any_sep}"  # e.g. "[^/]+/"
+        any_segments = f"(?:.+{any_sep})?"  # e.g. "(?:.+/)?"
         any_last_segments = ".*"
     else:
         one_last_segment = f"[^{escaped_seps}.]{not_sep}*"
