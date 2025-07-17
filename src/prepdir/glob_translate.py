@@ -26,6 +26,9 @@ def glob_translate(pat, *, recursive=True, include_hidden=True, seps=None):
 
     if not pat:
         return r"^\Z"
+    
+    home_dir = os.path.expanduser("~")
+    pat = re.sub(r"^~", home_dir, pat)
 
     pat = os.path.normpath(pat.rstrip(os.sep))
     if os.altsep:

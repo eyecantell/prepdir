@@ -133,11 +133,16 @@ class PrepdirProcessor:
         ]
         logger.debug(f"{self.excluded_dir_regexes=}")
 
+        self.excluded_file_regexes = []
         self.excluded_file_glob_regexes = []
         for p in self.config.get("EXCLUDE", {}).get("FILES", []):
             if "**" in p:
                 self.excluded_file_glob_regexes.append(re.compile(glob_translate(p)))
-        logger.debug(f"{self.excluded_dir_regexes=}")
+            else:
+                self.excluded_file_regexes.append(re.compile(glob_translate(p)))
+
+        logger.debug(f"{self.excluded_file_regexes=}")
+        logger.debug(f"{self.excluded_file_glob_regexes=}")
 
     def _print_and_log(self, msg: str):
         """Helper routine to print a message and and log it at the INFO level"""
@@ -203,8 +208,9 @@ class PrepdirProcessor:
         """
         if self.ignore_exclusions:
             return False
+        
         relative_path = os.path.relpath(os.path.join(root, dirname), self.directory)
-        return any(regex.search(relative_path) for regex in self.excluded_dir_regexes)
+        return is_excluded_dir(relative_path, excluded_dir_regexes=self.excluded_dir_regexes)
 
     def is_excluded_file(self, filename: str, root: str) -> bool:
         """
