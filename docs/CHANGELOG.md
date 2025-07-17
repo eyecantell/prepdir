@@ -12,6 +12,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - [PyPI](https://pypi.org/project/prepdir/)
 - [Dynaconf Documentation](https://dynaconf.com)
 
+## [Unreleased]
+
+### Added
+- Added `glob_translate.py` module to convert glob patterns to regex patterns, supporting recursive `**` patterns, hidden files, and custom separators, adapted from Python 3.14's `glob.translate()`.
+- Added `profile_prepdir.py` script for profiling `prepdir` performance using `cProfile`, outputting results for the top 20 functions by cumulative time.
+- Added comprehensive tests for `glob_translate()` in `test_glob_translate.py`, covering basic patterns, character classes, `**` patterns, cross-platform separators, edge cases, non-recursive mode, hidden files, and consecutive `**` patterns.
+- Added support for precompiled regexes in `is_excluded_dir()` and `is_excluded_file()` to improve performance by compiling glob patterns once during `PrepdirProcessor` initialization.
+- Added logging for file inclusion/exclusion counts in `_traverse_directory()` to track the number of files checked and included.
+- Added `Path` object support in `is_excluded_file()` and `is_excluded_dir()` with conversion to string and appropriate type checking.
+
+### Changed
+- Improved `_traverse_directory()` to skip excluded directories early, preventing unnecessary recursion, and to log file counts, significantly improving performance for large directories.
+- Updated `.devcontainer/Dockerfile` to use `python:3.13-slim` as the base image, upgrading from `python:3.9-slim`.
+- Changed `.devcontainer/devcontainer.json` to use `pdm install` instead of `pip install -e .` for dependency installation.
+- Refactored `is_excluded_file.py` to use `glob_translate()` for glob-to-regex conversion, removing custom `glob_to_regex()` function for improved accuracy and maintainability.
+- Modified `PrepdirProcessor` to compile glob patterns into regexes during initialization, storing them as `excluded_dir_regexes`, `excluded_file_regexes`, and `excluded_file_recursive_glob_regexes` for efficient reuse.
+- Updated `is_excluded_dir()` and `is_excluded_file()` to accept precompiled regexes and full paths, simplifying path handling and removing `base_directory` parameter.
+- Enhanced logging in `test_prepdir_processor.py` and `test_is_excluded_file.py` to use `DEBUG` level for detailed output during testing.
+
+### Fixed
+- Fixed handling of consecutive `**` patterns in `glob_translate()` to collapse them correctly, ensuring accurate regex generation.
+
 ## [0.16.0] - 2025-07-14
 ### Changed
 - Deprecated support for python 3.8
