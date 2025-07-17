@@ -78,7 +78,7 @@ def glob_translate(pat, *, recursive=True, include_hidden=True, seps=None):
                 results.append(any_sep)
 
     regex = "".join(results)
-    logger.debug(f"regex from {pat} is: {regex}")
+    logger.debug(rf"regex from {pat} is: ^{regex}\Z")
 
     return rf"^{regex}\Z"  # Changed from original: fr'(?s:{regex})\z'
 

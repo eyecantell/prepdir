@@ -145,10 +145,18 @@ def is_excluded_file(
             logger.debug(f"Path {path} matched regex {regex.pattern}")
             return True
 
-    for regex in glob_regexes:
-        if regex.search(path):
-            logger.debug(f"Path {path} matched glob regex {regex.pattern}")
-            return True
+    # Split the relative path into components
+    path_components = path.split(os.sep)
+            
+    # Check the filename with each parent path
+    for i in range(len(path_components)):
+        path_to_check = os.sep.join(path_components[i:])
+        logger.debug(f"checking {path_to_check}")
+        for regex in glob_regexes:
+            if regex.search(path_to_check):
+                logger.debug(f"Path '{path_to_check}' in {path} matched exclusion pattern '{regex.pattern}'")
+                return True
+
 
     logger.debug(f"no regex matched path:{path}")
     return False
