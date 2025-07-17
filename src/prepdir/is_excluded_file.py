@@ -58,6 +58,7 @@ def is_excluded_dir(
 
     # Split the relative path into components
     path_components = path.split(os.sep)
+    logger.debug(f"{path_components=}")
 
     # Check each individual directory component
     for dirname in path_components:

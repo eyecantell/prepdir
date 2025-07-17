@@ -353,17 +353,22 @@ class PrepdirProcessor:
             yield path
 
     def _traverse_directory(self) -> Iterator[Path]:
-        """
-        Traverse the directory and yield paths to valid files.
-
-        Yields:
-            Path: Paths to valid files that pass exclusion and extension checks.
-        """
         self.logger.debug(f"traversing {self.directory}")
         try:
+            file_count_checked = 0
+            file_count_included = 0
             for root, dirnames, filenames in sorted(os.walk(self.directory)):
+                # Check if the current directory is excluded
+                relative_root = os.path.relpath(root, self.directory)
+                if self.is_excluded_dir(relative_root, root):
+                    self.logger.debug(f"Skipping directory: {root} (excluded in config)")
+                    dirnames[:] = []  # Prevent further recursion
+                    continue
+                # Filter subdirectories to avoid recursion into excluded ones
                 dirnames[:] = [d for d in dirnames if not self.is_excluded_dir(d, root)]
                 for filename in sorted(filenames):
+                    file_count_checked += 1
+                    #self.logger.debug(f"Processing file {file_count}: {filename}")
                     if self.extensions and not any(filename.endswith(f".{ext}") for ext in self.extensions):
                         self.logger.info(f"Skipping file: {filename} (extension not in {self.extensions})")
                         continue
@@ -373,16 +378,13 @@ class PrepdirProcessor:
                     if self.is_excluded_file(filename, root):
                         self.logger.info(f"Skipping file: {filename} (excluded in config)")
                         continue
-
                     path = Path(root) / filename
-
-                    self.logger.debug(f"Will include file at {path}")
+                    file_count_included += 1
+                    self.logger.debug(f"Will include file at {path} (included:{file_count_included}, checked:{file_count_checked})")
                     yield path
-
         except PermissionError as e:
             self.logger.warning(f"Permission denied traversing directory '{self.directory}': {str(e)}")
             return
-
         except Exception as e:
             logger.exception(f"Issue accessing '{self.directory}': {str(e)}")
             return
