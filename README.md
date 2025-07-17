@@ -32,8 +32,8 @@ That's it! You now have a `prepped_dir.txt` file containing all your project fil
 from prepdir import run
 
 # Generate content for Python files
-content, _ = run(directory="/path/to/project", extensions=["py"])
-print(content)  # Use the content directly
+output = run(directory="/path/to/project", extensions=["py"])
+print(output.content)  # Use the content directly
 ```
 
 ## 🎯 Why Use prepdir?
@@ -87,6 +87,9 @@ prepdir --all
 
 # Disable UUID scrubbing
 prepdir --no-scrub-uuids
+
+# Initialize default configuration
+prepdir --init
 ```
 
 ### Programmatic Use
@@ -94,31 +97,32 @@ prepdir --no-scrub-uuids
 Use `prepdir` as a library to process directories programmatically:
 
 ```python
-from prepdir import run, PrepdirOutputFile
+from prepdir import run, PrepdirOutputFile, PrepdirProcessor
 
 # Run and get a PrepdirOutputFile object
 output: PrepdirOutputFile = run(directory="my_project", extensions=["py", "md"], use_unique_placeholders=True)
 
 # Access processed files
-for file_entry in output.files:
-    print(f"File: {file_entry.path}, Content: {file_entry.content}")
+for abs_path, file_entry in output.files.items():
+    print(f"File: {file_entry.relative_path}, Content: {file_entry.content}")
 
 # Save to file
 output.save("prepped_dir.txt")
 
 # For legacy use, get raw output
-content, uuid_mapping, files_list, metadata = run(directory="my_project", return_raw=True)
+content, uuid_mapping, files_list, metadata = run(directory="my_project")
 ```
 
 ### Sample Output
 
 ```plaintext
-File listing generated 2025-06-14 23:24:00.123456 by prepdir version 0.14.1
+File listing generated 2025-07-17T19:50:21.946603 by prepdir version 0.17.1
 Base directory is '/path/to/project'
+Note: Valid (hyphenated) UUIDs in file contents will be scrubbed and replaced with '00000000-0000-0000-0000-000000000000'.
+Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '00000000000000000000000000000000'.
 =-=-=-=-=-=-=-= Begin File: 'src/main.py' =-=-=-=-=-=-=-=
 print("Hello, World!")
 =-=-=-=-=-=-=-= End File: 'src/main.py' =-=-=-=-=-=-=-=
-
 =-=-=-=-=-=-=-= Begin File: 'README.md' =-=-=-=-=-=-=-=
 # My Project
 This is a sample project.
@@ -162,33 +166,75 @@ prepdir looks for configuration in this order:
 
 ### Create Configuration
 ```bash
-# Initialize local config
+# Initialize local config at .prepdir/config.yaml
 prepdir --init
 
 # Or create manually
 mkdir .prepdir
 cat > .prepdir/config.yaml << EOF
+# Configuration file for prepdir
 EXCLUDE:
   DIRECTORIES:
-    - .git
-    - node_modules
     - __pycache__
+    - .applydir
+    - .cache
+    - .eggs
+    - .git
+    - .idea
+    - .mypy_cache
+    - .pdm-build
+    - .prepdir
+    - .pytest_cache
+    - .ruff_cache
+    - .tox
+    - .venv
+    - .vibedir
+    - '*.egg-info'
+    - build
+    - dist
+    - node_modules
+    - venv
   FILES:
+    - .gitignore
+    - .prepdir/config.yaml
+    - ~/.prepdir/config.yaml
+    - LICENSE
+    - .DS_Store
+    - Thumbs.db
+    - .env
+    - .env.production
+    - .coverage
+    - coverage.xml
+    - .pdm-python
+    - pdm.lock
     - "*.pyc"
+    - "*.pyo"
     - "*.log"
+    - "*.bak"
+    - "*.swp"
+    - "**/*.log"
 SCRUB_HYPHENATED_UUIDS: true
 SCRUB_HYPHENLESS_UUIDS: true
 REPLACEMENT_UUID: "00000000-0000-0000-0000-000000000000"
+DEFAULT_EXTENSIONS: []
+DEFAULT_OUTPUT_FILE: "prepped_dir.txt"
+USE_UNIQUE_PLACEHOLDERS: false
+INCLUDE_PREPDIR_FILES: false
+VERBOSE: false
 EOF
 ```
 
 ### Default Exclusions
 - **Version control**: `.git`
-- **Cache files**: `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`
-- **Build artifacts**: `dist`, `build`, `*.egg-info`
-- **IDE files**: `.idea`, `.vscode`
+- **Cache files**: `__pycache__`, `.cache`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`
+- **Build artifacts**: `build`, `dist`, `*.egg-info`, `.pdm-build`
+- **IDE files**: `.idea`
+- **Virtual environments**: `.venv`, `venv`
 - **Dependencies**: `node_modules`
-- **Temporary files**: `*.pyc`, `*.log`
+- **Configuration**: `.applydir`, `.prepdir`, `.vibedir`, `.tox`
+- **Temporary files**: `*.pyc`, `*.pyo`, `*.log`, `*.bak`, `*.swp`, `**/*.log`
+- **System files**: `.DS_Store`, `Thumbs.db`
+- **Project files**: `.gitignore`, `.env`, `.env.production`, `.coverage`, `coverage.xml`, `.pdm-python`, `pdm.lock`, `LICENSE`, `.prepdir/config.yaml`, `~/.prepdir/config.yaml`
 - **prepdir outputs**: `prepped_dir.txt` (unless `--include-prepdir-files`)
 
 ## 🔒 Privacy & Security
@@ -205,19 +251,18 @@ user_id = "00000000-0000-0000-0000-000000000000"
 ```
 
 **Control UUID scrubbing:**
-- CLI: `--no-scrub-uuids` or `--replacement-uuid <uuid>`
-- Python: `scrub_hyphenated_uuids=False` or `replacement_uuid="custom-uuid"`
-- Config: Set `SCRUB_HYPHENATED_UUIDS: false` or `REPLACEMENT_UUID: "custom-uuid"`
+- CLI: `--no-scrub-uuids`, `--no-scrub-hyphenated-uuids`, `--no-scrub-hyphenless-uuids`, or `--replacement-uuid <uuid>`
+- Python: `scrub_hyphenated_uuids=False`, `scrub_hyphenless_uuids=False`, or `replacement_uuid="custom-uuid"`
+- Config: Set `SCRUB_HYPHENATED_UUIDS: false`, `SCRUB_HYPHENLESS_UUIDS: false`, or `REPLACEMENT_UUID: "custom-uuid"`
 
-### Unique Placeholders (New in 0.14.0)
+### Unique Placeholders
 Generate unique placeholders for each UUID to maintain relationships:
 
 ```python
-content, uuid_mapping = run(
-    directory="/path/to/project", 
-    use_unique_placeholders=True
-)
-print("UUID Mapping:", uuid_mapping)
+from prepdir import run
+
+output = run(directory="/path/to/project", use_unique_placeholders=True)
+print("UUID Mapping:", output.uuid_mapping)
 # Output: {'PREPDIR_UUID_PLACEHOLDER_1': 'original-uuid-1', ...}
 ```
 
@@ -228,37 +273,46 @@ print("UUID Mapping:", uuid_mapping)
 prepdir --help
 
 # Key options:
--e, --extensions     File extensions to include
--o, --output         Output file name
---all               Include all files (ignore exclusions)
---include-prepdir-files    Include prepdir-generated files
---no-scrub-uuids    Disable UUID scrubbing
---replacement-uuid  Custom replacement UUID
---config            Custom config file
--v, --verbose       Verbose output
+-e, --extensions            File extensions to include
+-o, --output               Output file name
+--init                    Initialize local config at .prepdir/config.yaml
+--config                  Custom config file
+--force                   Overwrite existing config file with --init
+--all                     Include all files (ignore exclusions)
+--include-prepdir-files   Include prepdir-generated files (e.g., prepped_dir.txt)
+--no-scrub-uuids          Disable all UUID scrubbing
+--no-scrub-hyphenated-uuids  Disable hyphenated UUID scrubbing
+--no-scrub-hyphenless-uuids  Disable hyphen-less UUID scrubbing
+--replacement-uuid        Custom replacement UUID
+--use-unique-placeholders Replace UUIDs with unique placeholders
+-v, --verbose             Verbose output
+-q, --quiet               Suppress user-facing output
 ```
 
 ### Python API Reference
 ```python
-from prepdir import run, validate_output_file
+from prepdir import run, PrepdirProcessor
 
 # Full API
-content, uuid_mapping = run(
+output = run(
     directory="/path/to/project",           # Target directory
     extensions=["py", "js"],                # File extensions
+    specific_files=["file1.py"],            # Specific files
     output_file="output.txt",               # Save to file
-    scrub_hyphenated_uuids=True,            # Scrub (hyphenated) UUIDs
+    config_path="custom.yaml",              # Custom config
+    scrub_hyphenated_uuids=True,            # Scrub hyphenated UUIDs
     scrub_hyphenless_uuids=True,            # Scrub hyphenless UUIDs
     replacement_uuid="custom-uuid",         # Custom replacement
     use_unique_placeholders=False,          # Unique placeholders
-    include_all=False,                      # Ignore exclusions
+    ignore_exclusions=False,                # Ignore exclusions
     include_prepdir_files=False,            # Include prepdir outputs
-    verbose=False                           # Verbose logging
+    quiet=False                            # Suppress output
 )
 
 # Validate output
-result = validate_output_file("output.txt")
-# Returns: {"is_valid": bool, "errors": [], "warnings": [], "files": {}, "creation": {}}
+processor = PrepdirProcessor(directory="/path/to/project")
+output = processor.validate_output(file_path="output.txt")
+# Returns: PrepdirOutputFile object
 ```
 
 ## 📊 Logging & Debugging
@@ -289,22 +343,22 @@ A: Effective for small to moderate projects (thousands of files). Use file exten
 
 <details>
 <summary><strong>Q: Why are my prepdir output files missing?</strong></summary>
-A: prepdir excludes its own generated files by default. Use <code>--include-prepdir-files</code> to include them.
+A: prepdir excludes its own generated files (e.g., `prepped_dir.txt`) by default. Use `--include-prepdir-files` to include them.
 </details>
 
 <details>
 <summary><strong>Q: Why are UUIDs replaced in my output?</strong></summary>
-A: Privacy protection! prepdir scrubs UUIDs by default. Use <code>--no-scrub-uuids</code> to disable.
+A: Privacy protection! prepdir scrubs UUIDs by default. Use `--no-scrub-uuids` to disable.
 </details>
 
 <details>
 <summary><strong>Q: Can I use prepdir with non-code files?</strong></summary>
-A: Yes! It works with any text files. Use <code>-e txt md</code> for specific types.
+A: Yes! It works with any text files. Use `-e txt md` for specific types.
 </details>
 
 <details>
 <summary><strong>Q: How do I upgrade from older versions?</strong></summary>
-A: For versions <0.6.0, move <code>config.yaml</code> to <code>.prepdir/config.yaml</code>. Most upgrades are seamless.
+A: Configuration files are now loaded from `.prepdir/config.yaml` (local) or `~/.prepdir/config.yaml` (global) by default. Most upgrades are seamless.
 </details>
 
 ## 🛠️ Development
