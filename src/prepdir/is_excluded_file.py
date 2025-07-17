@@ -83,7 +83,7 @@ def is_excluded_file(
     excluded_file_patterns: List[str] = None,
     excluded_dir_regexes: List[re.Pattern] = None,
     excluded_file_regexes: List[re.Pattern] = None,
-    excluded_file_glob_regexes: List[re.Pattern] = None,
+    excluded_file_recursive_glob_regexes: List[re.Pattern] = None,
 ) -> bool:
     """
     Check if a file is excluded based on config patterns or precompiled regexes.
@@ -94,7 +94,7 @@ def is_excluded_file(
         excluded_file_patterns: List of glob patterns for excluded files.
         excluded_dir_regexes: List of precompiled regex objects for excluded directories.
         excluded_file_regexes: List of precompiled regex objects for excluded files.
-        excluded_file_glob_regexes: List of precompiled regex objects for excluded files that include a recursive glob (**).
+        excluded_file_recursive_glob_regexes: List of precompiled regex objects for excluded files that include a recursive glob (**).
 
     Returns:
         bool: True if the file is excluded, False otherwise.
@@ -114,25 +114,25 @@ def is_excluded_file(
         logger.debug(f"File '{path}' excluded due to parent directory {Path(path).parent}")
         return True
 
-    # Compile excluded_file_patterns into regexes and combine with excluded_file_regexes or excluded_file_glob_regexes
+    # Compile excluded_file_patterns into regexes and combine with excluded_file_regexes or excluded_file_recursive_glob_regexes
     regexes = excluded_file_regexes if excluded_file_regexes is not None else []
-    glob_regexes = excluded_file_glob_regexes if excluded_file_glob_regexes is not None else []
+    recursive_glob_regexes = excluded_file_recursive_glob_regexes if excluded_file_recursive_glob_regexes is not None else []
 
     if excluded_file_patterns:
         for pattern in excluded_file_patterns:
             compiled_pattern = re.compile(glob_translate(pattern, recursive=True, include_hidden=True))
             if "**" in pattern:
-                glob_regexes.append(compiled_pattern)
+                recursive_glob_regexes.append(compiled_pattern)
             else:
                 regexes.append(compiled_pattern)
 
     logger.debug(f"(file) regexes are {regexes}")
-    logger.debug(f"glob_regexes are {glob_regexes}")
+    logger.debug(f"recursive_glob_regexes are {recursive_glob_regexes}")
 
     # Log patterns for debugging
     logger.debug(f"Checking file: path='{path}'")
     logger.debug(f"File regexes: {[r.pattern for r in regexes]}")
-    logger.debug(f"Glob regexes: {[r.pattern for r in glob_regexes]}")
+    logger.debug(f"Glob regexes: {[r.pattern for r in recursive_glob_regexes]}")
 
     # Check file patterns
     filename = os.path.basename(path)
@@ -152,7 +152,7 @@ def is_excluded_file(
     for i in range(len(path_components)):
         path_to_check = os.sep.join(path_components[i:])
         logger.debug(f"checking {path_to_check}")
-        for regex in glob_regexes:
+        for regex in recursive_glob_regexes:
             if regex.search(path_to_check):
                 logger.debug(f"Path '{path_to_check}' in {path} matched exclusion pattern '{regex.pattern}'")
                 return True
