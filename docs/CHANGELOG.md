@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - [PyPI](https://pypi.org/project/prepdir/)
 - [Dynaconf Documentation](https://dynaconf.com)
 
-## [Unreleased]
+## [0.17.0]
 
 ### Added
 - Added `glob_translate.py` module to convert glob patterns to regex patterns, supporting recursive `**` patterns, hidden files, and custom separators, adapted from Python 3.14's `glob.translate()`.

@@ -1,6 +1,6 @@
 [project]
 name = "prepdir"
-version = "0.16.0"
+version = "0.17.0"
 description = "Directory traversal utility to prepare project contents for review"
 readme = "README.md"
 authors = [
@@ -11,6 +11,8 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Environment :: Console",

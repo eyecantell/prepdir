@@ -272,18 +272,8 @@ Valid levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 
 ## 📈 What's New
 
-### Version 0.14.1 (Latest)
-- Fixed typos in README and CHANGELOG
-
-### Version 0.14.0
-- ✨ **Unique UUID placeholders** - Maintain UUID relationships with unique placeholders
-- 🔧 **Enhanced validation** - Improved validation of prepdir-generated files
-- 🎯 **Lenient parsing** - More flexible delimiter parsing for edited files
-
-### Version 0.13.0
-- 🐍 **Python library support** - Use `from prepdir import run`
-- ✅ **File validation** - Validate prepdir output files
-- 🧪 **Testing improvements** - Better test isolation
+### Version 0.17.0 (Latest)
+- Improved performance and recursive glob handling
 
 [View complete changelog](docs/CHANGELOG.md)
 
