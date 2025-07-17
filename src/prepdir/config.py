@@ -1,11 +1,11 @@
 import logging
 import os
 import tempfile
-from pathlib import Path
-from typing import Optional
 import yaml
 from dynaconf import Dynaconf
 from importlib import resources
+from pathlib import Path
+from typing import Optional, Tuple
 
 __version__ = "0.0.0"
 
@@ -67,6 +67,19 @@ def check_config_format(content: str, config_name: str) -> None:
         logger.error(f"Invalid YAML in {config_name}: {e}", exc_info=True)
         raise ValueError(f"Invalid YAML in {config_name}: {e}")
 
+def home_and_local_config_path(namespace: str) -> Tuple[str, str]:
+    """Return paths for home and local configuration files.
+
+    Args:
+        namespace (str): The namespace for the configuration (e.g., 'prepdir').
+
+    Returns:
+        Tuple[str, str]: Paths to home (~/.{namespace}/config.yaml) and local (./.{namespace}/config.yaml) config files.
+    """
+    check_namespace_value(namespace)
+    home_config_path = Path.home() / f".{namespace}" / "config.yaml"
+    local_config_path = Path(f".{namespace}") / "config.yaml"
+    return (home_config_path, local_config_path)
 
 def get_bundled_config(namespace: str) -> str:
     """Retrieve and validate the bundled configuration content.
@@ -136,8 +149,7 @@ def load_config(namespace: str, config_path: Optional[str] = None, quiet: bool =
             print(f"Using custom config path: {config_path_obj.resolve()}")
 
     elif not skip_config_file_load:
-        home_config_path = Path.home() / f".{namespace}" / "config.yaml"
-        local_config_path = Path(f".{namespace}") / "config.yaml"
+        home_config_path, local_config_path = home_and_local_config_path(namespace)
 
         if home_config_path.is_file():
             with home_config_path.open("r", encoding="utf-8") as f:
@@ -211,7 +223,7 @@ def init_config(namespace: str, config_path: str, force: bool = False, quiet: bo
 
     Args:
         namespace (str): The namespace for the configuration (e.g., 'prepdir').
-        config_path (str): Path where the configuration file will be created.
+        config_path (str): Path where the configuration file will be created. If None or empty, defaults to ./{namespace}/config.yaml in the current directory.
         force (bool): If True, overwrite the config file if it exists. Defaults to False.
         quiet (bool): If True, suppresses console output. Defaults to False.
 
@@ -220,6 +232,11 @@ def init_config(namespace: str, config_path: str, force: bool = False, quiet: bo
                     or if the config file cannot be created.
     """
     check_namespace_value(namespace)
+    
+    if not config_path:
+        # Use default config path for this namespace
+        _, config_path = home_and_local_config_path(namespace)
+
     config_path_obj = Path(config_path)
     if config_path_obj.exists() and not force:
         msg = f"Config file '{config_path_obj}' already exists. Use force=True to overwrite"

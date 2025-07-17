@@ -499,6 +499,27 @@ def test_load_config_debug_log(clean_cwd, clean_logger):
             "Loading config with namespace='prepdir'" in record.message for record in clean_logger.handlers[-1].records
         )
 
+def test_init_config_default_path(clean_cwd, clean_logger):
+    """Test init_config uses default local path when config_path is empty or None."""
+    namespace = "prepdir"
+    default_config_path = clean_cwd / f".{namespace}" / "config.yaml"
+
+    # Test with empty string
+    init_config(namespace=namespace, config_path="", force=True, quiet=True)
+    assert default_config_path.is_file()
+    bundled_yaml = yaml.safe_load(get_bundled_config(namespace))
+    with default_config_path.open("r") as f:
+        new_config = yaml.safe_load(f)
+    assert new_config == bundled_yaml
+
+    # Reset and test with None
+    default_config_path.unlink()
+    init_config(namespace=namespace, config_path=None, force=True, quiet=True)
+    assert default_config_path.is_file()
+    with default_config_path.open("r") as f:
+        new_config = yaml.safe_load(f)
+    assert new_config == bundled_yaml
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
