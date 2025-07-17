@@ -272,7 +272,10 @@ Valid levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 
 ## 📈 What's New
 
-### Version 0.17.0 (Latest)
+### Version 0.17.1 (Latest)
+- Fixed issue that caused error when running `prepdir --init`
+
+### Version 0.17.0
 - Improved performance and recursive glob handling
 
 [View complete changelog](docs/CHANGELOG.md)

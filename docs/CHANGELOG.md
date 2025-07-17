@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - [PyPI](https://pypi.org/project/prepdir/)
 - [Dynaconf Documentation](https://dynaconf.com)
 
+## [0.17.1]
+
+### Added
+- Added default local path (`./.{namespace}/config.yaml`) for `init_config()` when `config_path` is `None` or empty. This allows initializing a configuration file without specifying a path, improving usability for default setups. Updated docstring and added test case to verify this behavior.
+
 ## [0.17.0]
 
 ### Added
