@@ -13,12 +13,14 @@ from .prepdir_output_file import PrepdirOutputFile
 from .prepdir_processor import PrepdirProcessor
 from .is_excluded_file import is_excluded_dir
 from .prepdir_logging import configure_logging
+from .glob_translate import glob_translate
 
 __all__ = [
     "__version__",
     "BINARY_CONTENT_PLACEHOLDER",
     "PREPDIR_DASHES",
     "configure_logging",
+    "glob_translate",
     "init_config",
     "is_excluded_dir",
     "is_valid_uuid",

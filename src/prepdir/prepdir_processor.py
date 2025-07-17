@@ -12,6 +12,7 @@ from prepdir.prepdir_file_entry import PrepdirFileEntry
 from prepdir.prepdir_output_file import PrepdirOutputFile
 from prepdir.scrub_uuids import HYPHENATED_UUID_PATTERN
 from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
+from prepdir.glob_translate import glob_translate
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,22 @@ class PrepdirProcessor:
                     f"Hyphen-less UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid.replace('-', '')}'."
                 )
 
+        self.excluded_dir_regexes = [
+            re.compile(glob_translate(p)) for p in self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
+        ]
+        logger.debug(f"{self.excluded_dir_regexes=}")
+
+        self.excluded_file_regexes = []
+        self.excluded_file_recursive_glob_regexes = []
+        for p in self.config.get("EXCLUDE", {}).get("FILES", []):
+            if "**" in p:
+                self.excluded_file_recursive_glob_regexes.append(re.compile(glob_translate(p)))
+            else:
+                self.excluded_file_regexes.append(re.compile(glob_translate(p)))
+
+        logger.debug(f"{self.excluded_file_regexes=}")
+        logger.debug(f"{self.excluded_file_recursive_glob_regexes=}")
+
     def _print_and_log(self, msg: str):
         """Helper routine to print a message and and log it at the INFO level"""
         self.logger.info(msg)
@@ -187,8 +204,9 @@ class PrepdirProcessor:
         """
         if self.ignore_exclusions:
             return False
-        excluded_dir_patterns = self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
-        return is_excluded_dir(dirname, root, self.directory, excluded_dir_patterns)
+
+        relative_path = os.path.relpath(os.path.join(root, dirname), self.directory)
+        return is_excluded_dir(relative_path, excluded_dir_regexes=self.excluded_dir_regexes)
 
     def is_excluded_file(self, filename: str, root: str) -> bool:
         """
@@ -203,9 +221,14 @@ class PrepdirProcessor:
         """
         if self.ignore_exclusions:
             return False
-        excluded_dir_patterns = self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
-        excluded_file_patterns = self.config.get("EXCLUDE", {}).get("FILES", [])
-        return is_excluded_file(filename, root, self.directory, excluded_dir_patterns, excluded_file_patterns)
+
+        relative_path = os.path.relpath(os.path.join(root, filename), self.directory)
+        return is_excluded_file(
+            relative_path,
+            excluded_dir_regexes=self.excluded_dir_regexes,
+            excluded_file_regexes=self.excluded_file_regexes,
+            excluded_file_recursive_glob_regexes=self.excluded_file_recursive_glob_regexes,
+        )
 
     def generate_output(self) -> PrepdirOutputFile:
         """
@@ -330,17 +353,22 @@ class PrepdirProcessor:
             yield path
 
     def _traverse_directory(self) -> Iterator[Path]:
-        """
-        Traverse the directory and yield paths to valid files.
-
-        Yields:
-            Path: Paths to valid files that pass exclusion and extension checks.
-        """
         self.logger.debug(f"traversing {self.directory}")
         try:
+            file_count_checked = 0
+            file_count_included = 0
             for root, dirnames, filenames in sorted(os.walk(self.directory)):
+                # Check if the current directory is excluded
+                relative_root = os.path.relpath(root, self.directory)
+                if self.is_excluded_dir(relative_root, root):
+                    self.logger.debug(f"Skipping directory: {root} (excluded in config)")
+                    dirnames[:] = []  # Prevent further recursion
+                    continue
+                # Filter subdirectories to avoid recursion into excluded ones
                 dirnames[:] = [d for d in dirnames if not self.is_excluded_dir(d, root)]
                 for filename in sorted(filenames):
+                    file_count_checked += 1
+                    #self.logger.debug(f"Processing file {file_count}: {filename}")
                     if self.extensions and not any(filename.endswith(f".{ext}") for ext in self.extensions):
                         self.logger.info(f"Skipping file: {filename} (extension not in {self.extensions})")
                         continue
@@ -350,16 +378,13 @@ class PrepdirProcessor:
                     if self.is_excluded_file(filename, root):
                         self.logger.info(f"Skipping file: {filename} (excluded in config)")
                         continue
-
                     path = Path(root) / filename
-
-                    self.logger.debug(f"Will include file at {path}")
+                    file_count_included += 1
+                    self.logger.debug(f"Will include file at {path} (included:{file_count_included}, checked:{file_count_checked})")
                     yield path
-
         except PermissionError as e:
             self.logger.warning(f"Permission denied traversing directory '{self.directory}': {str(e)}")
             return
-
         except Exception as e:
             logger.exception(f"Issue accessing '{self.directory}': {str(e)}")
             return

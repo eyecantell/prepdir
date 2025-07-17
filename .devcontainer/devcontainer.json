@@ -1,6 +1,6 @@
 {
     "name": "prepdir dev env",
-    "postCreateCommand": "cd /mounted/dev/prepdir && pip install -e .",
+    "postCreateCommand": "cd /mounted/dev/prepdir && pdm install",
     
     "build": {
       "dockerfile": "Dockerfile",

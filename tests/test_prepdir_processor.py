@@ -216,18 +216,21 @@ def test_traverse_directory_specific_extension(temp_dir, config_path, caplog):
     """Test directory traversal with a specific extension (.py) set."""
 
     prepdir_logging.configure_logging(logger, level=logging.INFO)
+    logging.getLogger("prepdir").setLevel(logging.DEBUG)
     processor = PrepdirProcessor(
         directory=str(temp_dir),
         extensions=["py"],
         config_path=config_path,
     )
-    with caplog.at_level(logging.INFO):
+    with caplog.at_level(logging.DEBUG):
         caplog.clear()
         files = list(processor._traverse_directory())
+    print(f"caplog.text is:\n{caplog.text}\n--")
     assert len(files) == 1
     assert files[0] == temp_dir / "file1.py"
     assert "Skipping file: file2.txt (extension not in ['py'])" in caplog.text
-    assert "Skipping file: app.log (extension not in ['py'])" in caplog.text
+    assert "Skipping file: output.txt (extension not in ['py'])" in caplog.text
+    assert "Directory component 'logs' in logs matched exclusion pattern" in caplog.text
 
 
 def test_traverse_directory_ignore_exclusions(temp_dir, config_path, caplog):
@@ -825,12 +828,13 @@ def test_traverse_specific_files(temp_dir, config_path, caplog):
 def test_traverse_specific_files_exclusions(temp_dir, config_path, caplog):
     """Test _traverse_specific_files with excluded files and directories."""
     prepdir_logging.configure_logging(logger, level=logging.INFO)
-    processor = PrepdirProcessor(
-        directory=str(temp_dir),
-        specific_files=["file2.txt", "logs/app.log"],
-        config_path=config_path,
-    )
-    with caplog.at_level(logging.INFO):
+
+    with caplog.at_level(logging.DEBUG):
+        processor = PrepdirProcessor(
+            directory=str(temp_dir),
+            specific_files=["file2.txt", "logs/app.log"],
+            config_path=config_path,
+        )
         caplog.clear()
         files = list(processor._traverse_specific_files())
     assert len(files) == 0

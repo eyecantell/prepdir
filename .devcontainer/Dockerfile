@@ -1,7 +1,7 @@
 # Development Dockerfile for simple_keystore with PostgreSQL
 # For use with VS Code Remote Development
 
-FROM python:3.9-slim AS base
+FROM python:3.13-slim AS base
 
 # Prevent apt from prompting for input
 ENV DEBIAN_FRONTEND=noninteractive
