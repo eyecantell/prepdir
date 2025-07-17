@@ -110,7 +110,7 @@ def is_excluded_file(
             for pattern in excluded_dir_patterns
         ]
 
-    if is_excluded_dir(str(Path(path).parent), excluded_dir_regexes=dir_regexes):
+    if dir_regexes and is_excluded_dir(str(Path(path).parent), excluded_dir_regexes=dir_regexes):
         logger.debug(f"File '{path}' excluded due to parent directory {Path(path).parent}")
         return True
 
@@ -129,9 +129,6 @@ def is_excluded_file(
     logger.debug(f"(file) regexes are {regexes}")
     logger.debug(f"glob_regexes are {glob_regexes}")
 
-    for regex in regexes:
-        logger.info(f"{regex.pattern}")
-
     # Log patterns for debugging
     logger.debug(f"Checking file: path='{path}'")
     logger.debug(f"File regexes: {[r.pattern for r in regexes]}")
@@ -142,6 +139,10 @@ def is_excluded_file(
     for regex in regexes:
         if regex.search(filename):
             logger.debug(f"Filename {filename} matched regex {regex.pattern}")
+            return True
+        
+        if regex.search(path):
+            logger.debug(f"Path {path} matched regex {regex.pattern}")
             return True
 
     for regex in glob_regexes:

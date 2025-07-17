@@ -5,6 +5,7 @@ from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
 from prepdir.prepdir_logging import configure_logging
 
 logger = logging.getLogger(__name__)
+configure_logging(logger, logging.DEBUG)
 logging.getLogger("prepdir").setLevel(logging.DEBUG)
 
 
@@ -320,6 +321,12 @@ def test_embedded_glob_patterns_file():
         "File '/base/path/other/b.txt' should not match 'a/**/b.txt'"
     )
 
+def test_tmp():
+    # Test src/**/test_*
+    src_test_patterns = ["src/**/test_*"]
+    assert is_excluded_file("/base/path/src/a/b/test_abc", excluded_file_patterns=src_test_patterns), (
+        "File '/base/path/src/a/b/test_abc' should match 'src/**/test_*'"
+    )
 
 def test_pattern_interactions(excluded_dir_patterns, excluded_file_patterns):
     """Test interactions between multiple patterns."""

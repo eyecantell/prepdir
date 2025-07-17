@@ -28,11 +28,11 @@ def glob_translate(pat, *, recursive=True, include_hidden=True, seps=None):
         return r"^\Z"
     
     home_dir = os.path.expanduser("~")
-    pat = re.sub(r"^~", home_dir, pat)
+    working_pattern = re.sub(r"^~", home_dir, pat)
 
-    pat = os.path.normpath(pat.rstrip(os.sep))
+    working_pattern = os.path.normpath(working_pattern.rstrip(os.sep))
     if os.altsep:
-        pat = os.path.normpath(pat.rstrip(os.altsep))
+        working_pattern = os.path.normpath(working_pattern.rstrip(os.altsep))
 
     if not seps:
         if os.path.altsep:
@@ -55,7 +55,7 @@ def glob_translate(pat, *, recursive=True, include_hidden=True, seps=None):
         any_last_segments = f"{any_segments}(?:{one_last_segment})?"
 
     results = []
-    parts = re.split(any_sep, pat)
+    parts = re.split(any_sep, working_pattern)
     last_part_idx = len(parts) - 1
     for idx, part in enumerate(parts):
         if part == "*":
