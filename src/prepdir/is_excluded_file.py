@@ -9,17 +9,18 @@ logger = logging.getLogger(__name__)
 
 
 def _path_as_str(path) -> str:
-    '''Make sure the given path is a string. If a Posix Path is given, convert it. If not str or Path type raise ValueError'''
+    """Make sure the given path is a string. If a Posix Path is given, convert it. If not str or Path type raise ValueError"""
     if isinstance(path, str):
         return path
-    
+
     if isinstance(path, Path):
         logger.warning(f"Got Path object - converted to string {path}")
         return str(path)
 
     if not isinstance(path, str):
         raise ValueError(f"path should be str but got {type(path)}")
-    
+
+
 def is_excluded_dir(
     path: str,
     excluded_dir_patterns: List[str] = None,
@@ -38,11 +39,11 @@ def is_excluded_dir(
     """
 
     path = _path_as_str(path)
-    
-    if not path or path == ".": 
+
+    if not path or path == ".":
         logger.debug(f"No path or '.' given ({path}) - returning False")
         return False
-    
+
     # Compile excluded_dir_patterns
     regexes = excluded_dir_regexes if excluded_dir_regexes is not None else []
     if excluded_dir_patterns:
@@ -54,7 +55,7 @@ def is_excluded_dir(
     if not regexes:
         logger.debug(f"No regexes - returning False")
         return False
-    
+
     # Split the relative path into components
     path_components = path.split(os.sep)
 
@@ -64,10 +65,10 @@ def is_excluded_dir(
             if regex.search(dirname):
                 logger.debug(f"Directory component '{dirname}' in {path} matched exclusion pattern '{regex.pattern}'")
                 return True
-            
+
     # Check each parent path and the path itself
     for i in range(len(path_components)):
-        path_to_check = os.sep.join(path_components[:i+1])
+        path_to_check = os.sep.join(path_components[: i + 1])
         logger.debug(f"checking {path_to_check}")
         for regex in regexes:
             if regex.search(path_to_check):
@@ -99,7 +100,7 @@ def is_excluded_file(
     Returns:
         bool: True if the file is excluded, False otherwise.
     """
-    
+
     path = _path_as_str(path)
 
     # Compile excluded_dir_patterns into regexes and combine with excluded_dir_regexes
@@ -116,7 +117,9 @@ def is_excluded_file(
 
     # Compile excluded_file_patterns into regexes and combine with excluded_file_regexes or excluded_file_recursive_glob_regexes
     regexes = excluded_file_regexes if excluded_file_regexes is not None else []
-    recursive_glob_regexes = excluded_file_recursive_glob_regexes if excluded_file_recursive_glob_regexes is not None else []
+    recursive_glob_regexes = (
+        excluded_file_recursive_glob_regexes if excluded_file_recursive_glob_regexes is not None else []
+    )
 
     if excluded_file_patterns:
         for pattern in excluded_file_patterns:
@@ -140,14 +143,14 @@ def is_excluded_file(
         if regex.search(filename):
             logger.debug(f"Filename {filename} matched regex {regex.pattern}")
             return True
-        
+
         if regex.search(path):
             logger.debug(f"Path {path} matched regex {regex.pattern}")
             return True
 
     # Split the relative path into components
     path_components = path.split(os.sep)
-            
+
     # Check the filename with each parent path
     for i in range(len(path_components)):
         path_to_check = os.sep.join(path_components[i:])
@@ -156,7 +159,6 @@ def is_excluded_file(
             if regex.search(path_to_check):
                 logger.debug(f"Path '{path_to_check}' in {path} matched exclusion pattern '{regex.pattern}'")
                 return True
-
 
     logger.debug(f"no regex matched path:{path}")
     return False

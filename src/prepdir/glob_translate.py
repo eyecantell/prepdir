@@ -1,4 +1,3 @@
-import fnmatch
 import functools
 import logging
 import os
@@ -26,7 +25,7 @@ def glob_translate(pat, *, recursive=True, include_hidden=True, seps=None):
 
     if not pat:
         return r"^\Z"
-    
+
     home_dir = os.path.expanduser("~")
     working_pattern = re.sub(r"^~", home_dir, pat)
 

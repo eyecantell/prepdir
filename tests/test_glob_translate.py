@@ -117,7 +117,10 @@ def test_glob_translate_consecutive_double_star():
     logger.debug(f"expected_regex: {expected_regex}")
     assert regex == expected_regex
 
+
 def test_tilde_for_home_dir():
     home_dir = os.path.expanduser("~")
-    assert glob_translate(f"~{os.sep}test.py") ==  rf"^{home_dir}{os.sep}test\.py\Z"  # starting tilde is replaced
-    assert glob_translate(f"{os.sep}~{os.sep}test.py") ==  rf"^{re.escape(os.sep)}\~/test\.py\Z" # other tilde is not replaced
+    assert glob_translate(f"~{os.sep}test.py") == rf"^{home_dir}{os.sep}test\.py\Z"  # starting tilde is replaced
+    assert (
+        glob_translate(f"{os.sep}~{os.sep}test.py") == rf"^{re.escape(os.sep)}\~/test\.py\Z"
+    )  # other tilde is not replaced

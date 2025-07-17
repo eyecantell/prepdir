@@ -128,21 +128,17 @@ class PrepdirProcessor:
             re.compile(glob_translate(p)) for p in self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
         ]
         logger.debug(f"{self.excluded_dir_regexes=}")
-        self.excluded_file_regexes = [
-            re.compile(glob_translate(p)) for p in self.config.get("EXCLUDE", {}).get("FILES", [])
-        ]
-        logger.debug(f"{self.excluded_dir_regexes=}")
 
         self.excluded_file_regexes = []
-        self.excluded_file_glob_regexes = []
+        self.excluded_file_recursive_glob_regexes = []
         for p in self.config.get("EXCLUDE", {}).get("FILES", []):
             if "**" in p:
-                self.excluded_file_glob_regexes.append(re.compile(glob_translate(p)))
+                self.excluded_file_recursive_glob_regexes.append(re.compile(glob_translate(p)))
             else:
                 self.excluded_file_regexes.append(re.compile(glob_translate(p)))
 
         logger.debug(f"{self.excluded_file_regexes=}")
-        logger.debug(f"{self.excluded_file_glob_regexes=}")
+        logger.debug(f"{self.excluded_file_recursive_glob_regexes=}")
 
     def _print_and_log(self, msg: str):
         """Helper routine to print a message and and log it at the INFO level"""
@@ -208,7 +204,7 @@ class PrepdirProcessor:
         """
         if self.ignore_exclusions:
             return False
-        
+
         relative_path = os.path.relpath(os.path.join(root, dirname), self.directory)
         return is_excluded_dir(relative_path, excluded_dir_regexes=self.excluded_dir_regexes)
 
@@ -225,9 +221,14 @@ class PrepdirProcessor:
         """
         if self.ignore_exclusions:
             return False
-        excluded_dir_patterns = self.config.get("EXCLUDE", {}).get("DIRECTORIES", [])
-        excluded_file_patterns = self.config.get("EXCLUDE", {}).get("FILES", [])
-        return is_excluded_file(filename, root, self.directory, excluded_dir_patterns, excluded_file_patterns)
+
+        relative_path = os.path.relpath(os.path.join(root, filename), self.directory)
+        return is_excluded_file(
+            relative_path,
+            excluded_dir_regexes=self.excluded_dir_regexes,
+            excluded_file_regexes=self.excluded_file_regexes,
+            excluded_file_recursive_glob_regexes=self.excluded_file_recursive_glob_regexes,
+        )
 
     def generate_output(self) -> PrepdirOutputFile:
         """

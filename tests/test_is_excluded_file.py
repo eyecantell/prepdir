@@ -86,8 +86,12 @@ def recursive_glob_patterns():
 def test_exact_match_directory():
     """Test exact match for directory name."""
     patterns = ["logs", ".git"]
-    assert is_excluded_dir("/base/path/logs", excluded_dir_patterns=patterns), "Directory '/base/path/logs' should be excluded"
-    assert is_excluded_dir("/base/path/.git", excluded_dir_patterns=patterns), "Directory '/base/path/.git' should be excluded"
+    assert is_excluded_dir("/base/path/logs", excluded_dir_patterns=patterns), (
+        "Directory '/base/path/logs' should be excluded"
+    )
+    assert is_excluded_dir("/base/path/.git", excluded_dir_patterns=patterns), (
+        "Directory '/base/path/.git' should be excluded"
+    )
 
 
 def test_glob_pattern_match():
@@ -131,14 +135,20 @@ def test_empty_relative_path():
 def test_single_component_path():
     """Test single-component paths."""
     patterns = ["build"]
-    assert is_excluded_dir("/base/path/build", excluded_dir_patterns=patterns), "Directory '/base/path/build' should be excluded"
-    assert not is_excluded_dir("/base/path/src", excluded_dir_patterns=patterns), "Directory '/base/path/src' should not be excluded"
+    assert is_excluded_dir("/base/path/build", excluded_dir_patterns=patterns), (
+        "Directory '/base/path/build' should be excluded"
+    )
+    assert not is_excluded_dir("/base/path/src", excluded_dir_patterns=patterns), (
+        "Directory '/base/path/src' should not be excluded"
+    )
 
 
 def test_special_characters_in_pattern():
     """Test patterns with special characters like '.' in '.git'."""
     patterns = [".git"]
-    assert is_excluded_dir("/base/path/.git", excluded_dir_patterns=patterns), "Directory '/base/path/.git' should be excluded"
+    assert is_excluded_dir("/base/path/.git", excluded_dir_patterns=patterns), (
+        "Directory '/base/path/.git' should be excluded"
+    )
     assert not is_excluded_dir("/base/path/dotgitlike", excluded_dir_patterns=patterns), (
         "Directory '/base/path/dotgitlike' should not match '.git'"
     )
@@ -154,7 +164,9 @@ def test_nested_glob_pattern():
 
 def test_empty_excluded_patterns():
     """Test behavior with empty excluded patterns list."""
-    assert not is_excluded_dir("/base/path/logs", excluded_dir_patterns=[]), "No patterns should result in no exclusions"
+    assert not is_excluded_dir("/base/path/logs", excluded_dir_patterns=[]), (
+        "No patterns should result in no exclusions"
+    )
 
 
 def test_trailing_slash_handling():
@@ -249,9 +261,7 @@ def test_home_directory_pattern():
     patterns = ["~/.prepdir/config.yaml"]
     home_dir = os.path.expanduser("~")
     config_path = os.path.join(home_dir, ".prepdir", "config.yaml")
-    assert is_excluded_file(config_path, excluded_file_patterns=patterns), (
-        f"File '{config_path}' should be excluded"
-    )
+    assert is_excluded_file(config_path, excluded_file_patterns=patterns), f"File '{config_path}' should be excluded"
     assert not is_excluded_file(os.path.join(home_dir, ".prepdir", "other.yaml"), excluded_file_patterns=patterns), (
         f"File '{os.path.join(home_dir, '.prepdir', 'other.yaml')}' should not be excluded"
     )
@@ -263,9 +273,9 @@ def test_empty_excluded_file_patterns():
     assert not is_excluded_file("/base/path/test.txt", excluded_dir_patterns=[], excluded_file_patterns=[]), (
         "No file patterns should not exclude '/base/path/test.txt' unless in excluded dir"
     )
-    assert is_excluded_file("/base/path/logs/test.txt", excluded_dir_patterns=dir_patterns, excluded_file_patterns=[]), (
-        "File '/base/path/logs/test.txt' should be excluded due to 'logs' directory"
-    )
+    assert is_excluded_file(
+        "/base/path/logs/test.txt", excluded_dir_patterns=dir_patterns, excluded_file_patterns=[]
+    ), "File '/base/path/logs/test.txt' should be excluded due to 'logs' directory"
 
 
 def test_case_sensitivity_file(exact_file_patterns, glob_file_patterns, recursive_glob_patterns):
