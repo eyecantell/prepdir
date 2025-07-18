@@ -64,7 +64,7 @@ def is_excluded_dir(
     for dirname in path_components:
         for regex in regexes:
             if regex.search(dirname):
-                logger.debug(f"Directory component '{dirname}' in {path} matched exclusion pattern '{regex.pattern}'")
+                logger.info(f"Directory component '{dirname}' in {path} matched exclusion pattern '{regex.pattern}'")
                 return True
 
     # Check each parent path and the path itself
@@ -73,7 +73,7 @@ def is_excluded_dir(
         logger.debug(f"checking {path_to_check}")
         for regex in regexes:
             if regex.search(path_to_check):
-                logger.debug(f"Path '{path_to_check}' in {path} matched exclusion pattern '{regex.pattern}'")
+                logger.info(f"Path '{path_to_check}' in {path} matched exclusion pattern '{regex.pattern}'")
                 return True
 
     return False
@@ -113,7 +113,7 @@ def is_excluded_file(
         ]
 
     if dir_regexes and is_excluded_dir(str(Path(path).parent), excluded_dir_regexes=dir_regexes):
-        logger.debug(f"File '{path}' excluded due to parent directory {Path(path).parent}")
+        logger.info(f"File '{path}' excluded due to parent directory {Path(path).parent}")
         return True
 
     # Compile excluded_file_patterns into regexes and combine with excluded_file_regexes or excluded_file_recursive_glob_regexes
@@ -142,11 +142,11 @@ def is_excluded_file(
     filename = os.path.basename(path)
     for regex in regexes:
         if regex.search(filename):
-            logger.debug(f"Filename {filename} matched regex {regex.pattern}")
+            logger.info(f"Filename {filename} matched exclusion regex {regex.pattern}")
             return True
 
         if regex.search(path):
-            logger.debug(f"Path {path} matched regex {regex.pattern}")
+            logger.info(f"Path {path} matched exclusion regex {regex.pattern}")
             return True
 
     # Split the relative path into components
@@ -158,7 +158,7 @@ def is_excluded_file(
         logger.debug(f"checking {path_to_check}")
         for regex in recursive_glob_regexes:
             if regex.search(path_to_check):
-                logger.debug(f"Path '{path_to_check}' in {path} matched exclusion pattern '{regex.pattern}'")
+                logger.info(f"Path '{path_to_check}' in {path} matched exclusion pattern '{regex.pattern}'")
                 return True
 
     logger.debug(f"no regex matched path:{path}")
