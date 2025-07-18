@@ -119,11 +119,12 @@ class PrepdirFileEntry(BaseModel):
                                 replacement_uuid=replacement_uuid,
                                 scrub_hyphenated_uuids=scrub_hyphenated_uuids,
                                 scrub_hyphenless_uuids=scrub_hyphenless_uuids,
-                                verbose=True,  # Enable verbose logging for UUID replacements
                                 placeholder_counter=placeholder_counter,
                                 uuid_mapping=uuid_mapping,
                             )
                             uuid_mapping.update(updated_uuid_mapping)
+                            if is_scrubbed:
+                                logger.info(f"Scrubbed UUIDs in {relative_path}")
                             if not quiet and is_scrubbed:
                                 print(f"Scrubbed UUIDs in {relative_path}", file=sys.stdout)
                     except UnicodeDecodeError:

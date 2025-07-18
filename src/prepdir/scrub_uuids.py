@@ -89,8 +89,11 @@ def scrub_uuids(
                     logger.debug(f"Setting new regular replacement mapping {placeholder} -> {original_uuid}")
                     uuid_mapping[placeholder] = original_uuid
                     reverse_uuid_mapping[original_uuid] = placeholder
+
+        logger.debug(f"Scrubbed UUID: {original_uuid} -> {placeholder}")
         if verbose:
-            logger.info(f"Scrubbed UUID: {original_uuid} -> {placeholder}")
+            print(f"Scrubbed UUID: {original_uuid} -> {placeholder}")
+
         return placeholder
 
     new_content = content

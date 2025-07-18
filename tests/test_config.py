@@ -73,7 +73,6 @@ def expected_bundled_config_content():
         "SCRUB_HYPHENLESS_UUIDS": True,
         "USE_UNIQUE_PLACEHOLDERS": False,
         "INCLUDE_PREPDIR_FILES": False,
-        "VERBOSE": False,
     }
 
 

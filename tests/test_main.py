@@ -95,26 +95,36 @@ def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_tes
     assert f"UUID: {REPLACEMENT_UUID}" in content
 
 
-def test_main_init_config(tmp_path, caplog):
+def test_main_init_config(tmp_path, caplog, capsys):
     """Test main() with --init creates a config file."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
-    with caplog.at_level(logging.INFO, logger="prepdir"):
+    with caplog.at_level(logging.INFO, logger="prepdir.config"):
         with patch.object(sys, "argv", ["prepdir", "--init", "--config", str(config_path)]):
             main()
+    captured = capsys.readouterr()
+    print(f"captured is:\n{captured}\n--")
+    print(f"caplog.text is:\n{caplog.text}\n--")
+    assert f"Created '{config_path}' with default configuration." in captured.out
     assert f"Created '{config_path}' with default configuration." in caplog.text
     assert config_path.exists()
     content = config_path.read_text()
     assert "EXCLUDE" in content
 
 
-def test_main_init_config_force(tmp_path, caplog):
+
+def test_main_init_config_force(tmp_path, caplog, capsys):
     """Test main() with --init and force=True overwrites existing config."""
     config_path = tmp_path / ".prepdir" / "config.yaml"
     config_path.parent.mkdir(exist_ok=True)
     config_path.write_text("existing: content")
-    with caplog.at_level(logging.INFO, logger="prepdir"):
+    with caplog.at_level(logging.INFO, logger="prepdir.config"):
         with patch.object(sys, "argv", ["prepdir", "--init", "--config", str(config_path), "--force"]):
             main()
+    
+    captured = capsys.readouterr()
+    print(f"captured is:\n{captured}\n--")
+    print(f"caplog.text is:\n{caplog.text}\n--")
+    assert f"Created '{config_path}' with default configuration." in captured.out
     assert f"Created '{config_path}' with default configuration." in caplog.text
     assert config_path.exists()
     content = config_path.read_text()
@@ -133,6 +143,7 @@ def test_main_init_config_exists(tmp_path, capsys, caplog):
                 main()
 
     captured = capsys.readouterr()
+    print(f"captured is:\n{captured}\n--")
     print(f"caplog.text is:\n{caplog.text}\n--")
 
     expected_message = f"Config file '{config_path}' already exists. Use force=True to overwrite"

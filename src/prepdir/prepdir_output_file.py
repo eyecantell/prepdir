@@ -184,7 +184,7 @@ class PrepdirOutputFile(BaseModel):
         output_file_header = "\n".join(output_file_header)
 
         if not begin_file_pattern_found:
-            logger.debug(f"No begin file patterns found! content:\n{content}")
+            logger.debug(f"No begin file patterns found in {path_obj}!")
             raise ValueError(f"No begin file patterns found!")
 
         # If metadata values were passed, use them. Otherwise try to pull them from the content.
@@ -245,7 +245,7 @@ class PrepdirOutputFile(BaseModel):
             uuid_mapping=uuid_mapping or {},
             use_unique_placeholders=use_unique_placeholders,
         )
-        logger.debug(f"{instance=}")
+        #logger.debug(f"{instance=}")
         instance.parse(new_metadata["base_directory"])
         return instance
 

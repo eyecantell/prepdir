@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Union, Tuple
 from .prepdir_processor import PrepdirProcessor
 from .prepdir_file_entry import PrepdirFileEntry
 from .prepdir_output_file import PrepdirOutputFile
-from .config import __version__
+from .config import __version__, load_config
 from prepdir import prepdir_logging
 
 logger = logging.getLogger(__name__)
@@ -173,18 +173,22 @@ def main():
 
     args = parser.parse_args()
 
-    # Set logger level based on verbosity
+    # Determine logging level: 
     LEVEL_MAP = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}
-    logging_level = LEVEL_MAP.get(args.verbose, logging.WARNING)
+    if args.verbose > 0:
+        logging_level = LEVEL_MAP.get(args.verbose, logging.WARNING)
+    else:
+        logging_level = logging.WARNING
 
-    # Configure logging
-    prepdir_logging.configure_logging(logger, level=logging_level)
+    # Configure logging for the 'prepdir' logger to ensure all child loggers inherit
+    prepdir_logger = logging.getLogger('prepdir')
+    prepdir_logging.configure_logging(prepdir_logger, level=logging_level)
     logging.getLogger("dynaconf").setLevel(logging.CRITICAL)  # Suppress dynaconf logging
     logger.debug("args are: %s", args)
 
     if args.init:
         try:
-            PrepdirProcessor.init_config(config_path=args.config, force=args.force)
+            PrepdirProcessor.init_config(config_path=args.config, force=args.force, quiet=args.quiet)
         except SystemExit as e:
             sys.exit(e.code)
         return

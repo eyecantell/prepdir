@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - [PyPI](https://pypi.org/project/prepdir/)
 - [Dynaconf Documentation](https://dynaconf.com)
 
+## [Unreleased]
+
+### Fixed
+- Ensured verbose logging works correctly by configuring the `prepdir` logger in `main.py`. The `-v` flag (for `INFO` level) and `-vv` flag (for `DEBUG` level) now properly display corresponding log messages. 
+
 ## [0.17.1]
 
 ### Added
