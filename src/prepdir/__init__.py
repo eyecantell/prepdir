@@ -4,6 +4,7 @@ prepdir - Directory traversal utility to prepare project contents for review
 
 from .config import (
     init_config,
+    load_config,
     __version__,
 )
 
@@ -24,6 +25,7 @@ __all__ = [
     "init_config",
     "is_excluded_dir",
     "is_valid_uuid",
+    "load_config",
     "PrepdirFileEntry",
     "PrepdirOutputFile",
     "PrepdirProcessor",

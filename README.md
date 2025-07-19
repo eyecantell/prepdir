@@ -326,6 +326,9 @@ Valid levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 
 ## 📈 What's New
 
+### Version 0.17.2 (Latest)
+- Fixed issue that caused running verbose to be no change. 
+
 ### Version 0.17.1 (Latest)
 - Fixed issue that caused error when running `prepdir --init`
 

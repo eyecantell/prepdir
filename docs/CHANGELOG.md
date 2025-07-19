@@ -4,15 +4,16 @@ All notable changes to `prepdir` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ### Links
 - [README](https://github.com/eyecantell/prepdir/blob/main/README.md)
 - [GitHub Repository](https://github.com/eyecantell/prepdir)
 - [PyPI](https://pypi.org/project/prepdir/)
 - [Dynaconf Documentation](https://dynaconf.com)
 
-## [Unreleased]
+## [0.17.2]
+
+### Added
+- The load_config() routine is now exposed
 
 ### Fixed
 - Ensured verbose logging works correctly by configuring the `prepdir` logger in `main.py`. The `-v` flag (for `INFO` level) and `-vv` flag (for `DEBUG` level) now properly display corresponding log messages. 
