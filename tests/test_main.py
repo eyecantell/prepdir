@@ -80,7 +80,8 @@ def test_main_no_scrub_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_te
         ],
     ):
         main()
-    content = output_file.read_text()
+    part_file = str(output_file).replace(".txt", "_part1of1.txt")
+    content = Path(part_file).read_text()
     assert f"Hyphenless: {UNHYPHENATED_UUID}" in content
     assert f"UUID: {REPLACEMENT_UUID}" in content
 
@@ -90,7 +91,8 @@ def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_tes
     output_file = tmp_path / "prepped_dir.txt"
     with patch.object(sys, "argv", ["prepdir", str(tmp_path), "-o", str(output_file), "--config", str(custom_config)]):
         main()
-    content = output_file.read_text()
+    part_file = str(output_file).replace(".txt", "_part1of1.txt")
+    content = Path(part_file).read_text()
     assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in content
     assert f"UUID: {REPLACEMENT_UUID}" in content
 
@@ -102,8 +104,6 @@ def test_main_init_config(tmp_path, caplog, capsys):
         with patch.object(sys, "argv", ["prepdir", "--init", "--config", str(config_path)]):
             main()
     captured = capsys.readouterr()
-    print(f"captured is:\n{captured}\n--")
-    print(f"caplog.text is:\n{caplog.text}\n--")
     assert f"Created '{config_path}' with default configuration." in captured.out
     assert f"Created '{config_path}' with default configuration." in caplog.text
     assert config_path.exists()
@@ -122,8 +122,6 @@ def test_main_init_config_force(tmp_path, caplog, capsys):
             main()
     
     captured = capsys.readouterr()
-    print(f"captured is:\n{captured}\n--")
-    print(f"caplog.text is:\n{caplog.text}\n--")
     assert f"Created '{config_path}' with default configuration." in captured.out
     assert f"Created '{config_path}' with default configuration." in caplog.text
     assert config_path.exists()
@@ -143,17 +141,9 @@ def test_main_init_config_exists(tmp_path, capsys, caplog):
                 main()
 
     captured = capsys.readouterr()
-    print(f"captured is:\n{captured}\n--")
-    print(f"caplog.text is:\n{caplog.text}\n--")
-
     expected_message = f"Config file '{config_path}' already exists. Use force=True to overwrite"
     assert expected_message in caplog.text
-    print(f"captured.out is:\n{captured.out}\n--")
-    # print(f"captured.err is:\n{captured.err}\n--")
     assert expected_message in captured.out
-
-    print(f"caplog.text is:\n{caplog.text}\n--")
-    assert f"Config file '{config_path}' already exists. Use force=True to overwrite" in caplog.text
 
 
 def test_main_init_config_invalid_path(tmp_path, capsys, caplog):
@@ -164,7 +154,6 @@ def test_main_init_config_invalid_path(tmp_path, capsys, caplog):
             with pytest.raises(SystemExit) as exc:
                 main()
             assert "Permission denied" in str(exc.value)
-    print(f"caplog.text is {caplog.text}")
     assert f"Failed to create config file '{invalid_path}'" in caplog.text
 
 
@@ -202,7 +191,8 @@ def test_main_custom_replacement_uuid(tmp_path, capsys, custom_config, uuid_test
         ],
     ):
         main()
-    content = output_file.read_text()
+    part_file = str(output_file).replace(".txt", "_part1of1.txt")
+    content = Path(part_file).read_text()
     assert replacement_uuid in content
     assert original_uuid not in content
 
@@ -216,56 +206,57 @@ def test_main_invalid_directory(tmp_path, capsys, caplog):
                 main()
             assert exc.value.code == 1
     captured = capsys.readouterr()
-    print(f"captured.err is:\n{captured.err}\n--")
-    print(f"captured.out is:\n{captured.out}\n--")
     assert f"Error: Directory '{invalid_dir}' does not exist" in captured.err
 
 
 def test_run_basic(tmp_path, uuid_test_file, custom_config):
     """Test run() with basic directory processing."""
-    output = run(
+    outputs, uuid_mapping, entries, metadata = run(
         directory=str(tmp_path),
         extensions=["txt"],
         config_path=str(custom_config),
         quiet=True,
     )
+    assert len(outputs) == 1
+    output = outputs[0]
     assert "test.txt" in output.content
     assert f"UUID: {REPLACEMENT_UUID}" in output.content
     assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in output.content
-    assert output.metadata["base_directory"] == str(tmp_path)
+    assert metadata["base_directory"] == str(tmp_path)
 
 
 def test_run_with_output_file(tmp_path, uuid_test_file, custom_config, tmp_path_factory):
     """Test run() with output file."""
     output_file = tmp_path_factory.mktemp("output") / "prepped_dir.txt"
-    output = run(
+    outputs, uuid_mapping, entries, metadata = run(
         directory=str(tmp_path),
         extensions=["txt"],
         output_file=str(output_file),
         config_path=str(custom_config),
         quiet=True,
     )
-    assert output_file.exists()
-    content = output_file.read_text()
-    assert "test.txt" in content
-    assert f"UUID: {REPLACEMENT_UUID}" in content
-    assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in content
+    assert len(outputs) == 1
+    output = outputs[0]
+    part_file = str(output_file).replace(".txt", "_part1of1.txt")
+    assert Path(part_file).exists()
+    assert "test.txt" in output.content
+    assert f"UUID: {REPLACEMENT_UUID}" in output.content
+    assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in output.content
 
 
 def test_run_quiet_no_output_file(tmp_path, uuid_test_file, custom_config, capsys, caplog):
     """Test run() with quiet=False and no output file prints to stdout."""
     with caplog.at_level(logging.DEBUG, logger="prepdir"):
         with patch("prepdir.config.load_config", return_value=MagicMock()):
-            output = run(
+            outputs, uuid_mapping, entries, metadata = run(
                 directory=str(tmp_path),
                 extensions=["txt"],
                 config_path=str(custom_config),
                 quiet=False,
             )
     captured = capsys.readouterr()
-    print(f"captured.err is:\n{captured.err}\n--")
-    print(f"captured.out is:\n{captured.out}\n--")
-    print(f"caplog.text is:\n{caplog.text}\n--")
+    assert len(outputs) == 1
+    output = outputs[0]
     assert "test.txt" in output.content
     assert f"UUID: {REPLACEMENT_UUID}" in output.content
     assert "Starting prepdir in" in captured.out
@@ -297,7 +288,8 @@ def test_main_no_scrub_uuids(tmp_path, capsys, custom_config, uuid_test_file):
         ],
     ):
         main()
-    content = output_file.read_text()
+    part_file = str(output_file).replace(".txt", "_part1of1.txt")
+    content = Path(part_file).read_text()
     assert f"UUID: {HYPHENATED_UUID}" in content
     assert f"Hyphenless: {UNHYPHENATED_UUID}" in content
 
@@ -321,7 +313,8 @@ def test_main_all_flag(tmp_path, capsys, custom_config, uuid_test_file):
         ],
     ):
         main()
-    content = output_file.read_text()
+    part_file = str(output_file).replace(".txt", "_part1of1.txt")
+    content = Path(part_file).read_text()
     assert "test.pyc" in content
     assert "compiled" in content
 
@@ -335,10 +328,7 @@ def test_main_quiet_suppresses_stdout(tmp_path, capsys, caplog, custom_config, u
         path_obj = args[0] if args and isinstance(args[0], (str, Path)) else None
         mode = kwargs.get("mode", "r") if not args or len(args) < 2 else args[1]
         path_resolved = Path(path_obj).resolve() if path_obj else None
-        print(f"open_side_effect: args={args}, kwargs={kwargs}")
-        print(f"open_side_effect: path={path_obj}, resolved={path_resolved}, mode={mode}")
         if path_resolved and path_resolved == invalid_file.resolve() and "r" in mode:
-            print(f"Raising PermissionError for {path_obj}")
             raise PermissionError(f"[Errno 13] Permission denied: '{invalid_file}'")
         read_data = ""
         if path_resolved and path_resolved == uuid_test_file.resolve():
@@ -371,12 +361,9 @@ def test_main_quiet_suppresses_stdout(tmp_path, capsys, caplog, custom_config, u
             ):
                 main()
     captured = capsys.readouterr()
-
-    print(f"captured.out is:\n{captured.out}\n--")
-    print(f"captured.err is:\n{captured.err}\n--")
     assert "Starting prepdir in" not in captured.out  # Suppressed by --quiet
     assert f"Failed to read {invalid_file}: [Errno 13] Permission denied: '{invalid_file}'" in caplog.text
-    output_file = tmp_path / "prepped_dir.txt"
+    output_file = tmp_path / "prepped_dir_part1of1.txt"
     assert output_file.exists()
     output_content = output_file.read_text()
     assert f"[Error reading file: [Errno 13] Permission denied: '{invalid_file}']" in output_content
@@ -401,6 +388,45 @@ def test_main_include_prepdir_files(tmp_path, capsys, custom_config):
         ],
     ):
         main()
-    content = output_file.read_text()
+    part_file = str(output_file).replace(".txt", "_part1of1.txt")
+    content = Path(part_file).read_text()
     assert "prepped_dir_previous.txt" in content
     assert "previous prepdir output" in content
+
+
+def test_main_with_max_chars(tmp_path, custom_config):
+    """Test main() with --max-chars splits output into multiple files."""
+    file1 = tmp_path / "file1.txt"
+    file1.write_text("Content for file1\n" * 5)  # Approx 85 chars
+    file2 = tmp_path / "file2.txt"
+    file2.write_text("Content for file2\n" * 5)
+    output_file = tmp_path / "prepped_dir.txt"
+    max_chars = 300  # Adjust to force split, considering header ~200 + entry headers
+    with patch.object(
+        sys,
+        "argv",
+        [
+            "prepdir",
+            str(tmp_path),
+            "-e",
+            "txt",
+            "-m",
+            str(max_chars),
+            "-o",
+            str(output_file),
+            "--config",
+            str(custom_config),
+            "-q",
+        ],
+    ):
+        main()
+    part1_file = str(output_file).replace(".txt", "_part1of2.txt")
+    part2_file = str(output_file).replace(".txt", "_part2of2.txt")
+    assert Path(part1_file).exists()
+    assert Path(part2_file).exists()
+    content1 = Path(part1_file).read_text()
+    content2 = Path(part2_file).read_text()
+    assert "file1.txt" in content1
+    assert "file2.txt" in content2
+    assert "Part 1 of 2" in content1
+    assert "Part 2 of 2" in content2

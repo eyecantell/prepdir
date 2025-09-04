@@ -4,8 +4,6 @@ import os
 import logging
 import re
 from datetime import datetime
-from io import StringIO
-from contextlib import redirect_stdout
 from dynaconf import Dynaconf
 from prepdir.config import load_config, __version__, init_config
 from prepdir.prepdir_file_entry import PrepdirFileEntry
@@ -15,7 +13,6 @@ from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
 from prepdir.glob_translate import glob_translate
 
 logger = logging.getLogger(__name__)
-
 
 class PrepdirProcessor:
     """Manages generation and parsing of prepdir output files."""
@@ -145,7 +142,7 @@ class PrepdirProcessor:
         logger.debug(f"{self.excluded_file_recursive_glob_regexes=}")
 
     def _print_and_log(self, msg: str):
-        """Helper routine to print a message and and log it at the INFO level"""
+        """Helper routine to print a message and log it at the INFO level"""
         self.logger.info(msg)
         if not self.quiet:
             print(msg)
@@ -234,7 +231,8 @@ class PrepdirProcessor:
             excluded_file_recursive_glob_regexes=self.excluded_file_recursive_glob_regexes,
         )
 
-    def _build_header(self, timestamp: str, part_num: Optional[int] = None, total_parts: Optional[int] = None) -> str:
+    def _build_header(self, timestamp: str, part_num: int, total_parts: int) -> str:
+        """Build the header for an output file."""
         header = f"File listing generated {timestamp} by prepdir version {__version__} (pip install prepdir)\n"
         header += f"Base directory is '{self.directory}'\n"
         if self.scrub_hyphenated_uuids:
@@ -247,32 +245,21 @@ class PrepdirProcessor:
                 header += "Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with unique placeholders (e.g., PREPDIR_UUID_PLACEHOLDER_n).\n"
             else:
                 header += f"Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid.replace('-', '')}'.\n"
-        if part_num and total_parts:
-            header += f"Part {part_num} of {total_parts}\n"
+        header += f"Part {part_num} of {total_parts}\n"
         return header
 
-    def generate_output(self) -> Tuple[List[PrepdirOutputFile], Dict[str, str], List[PrepdirFileEntry], Dict]:
+    def get_file_entries(self) -> Tuple[List[PrepdirFileEntry], Dict[str, str]]:
         """
-        Generate the prepdir output file content by traversing the directory or specific files.
+        Traverse directory or specific files to generate PrepdirFileEntry objects.
 
         Returns:
-            Tuple of (list of PrepdirOutputFile instances, UUID mapping, list of PrepdirFileEntry objects, metadata).
+            Tuple of (list of PrepdirFileEntry objects, UUID mapping).
 
         Raises:
             ValueError: If no valid files are found.
         """
         uuid_mapping: Dict[str, str] = {}
         placeholder_counter = 1
-        timestamp_to_use = datetime.now().isoformat()
-        metadata = {
-            "version": __version__,
-            "date": timestamp_to_use,
-            "base_directory": self.directory,
-            "creator": f"prepdir version {__version__} (pip install prepdir)",
-        }
-
-        # Collect all entry strings, files, and update mapping
-        entry_strs = []
         entry_files = []
         files_found = False
         file_iterator = self._traverse_specific_files() if self.specific_files else self._traverse_directory()
@@ -290,8 +277,6 @@ class PrepdirProcessor:
                 placeholder_counter=placeholder_counter,
                 uuid_mapping=uuid_mapping,
             )
-            entry_str = file_entry.to_output()
-            entry_strs.append(entry_str)
             entry_files.append(file_entry)
             uuid_mapping.update(updated_uuid_mapping)
 
@@ -304,64 +289,72 @@ class PrepdirProcessor:
                 self._print_and_log("No files found.")
             raise ValueError("No files found!")
 
-        # Build output files
-        outputs = []
-        header = self._build_header(timestamp_to_use)
-        full_content = header + ''.join(entry_strs)
-        full_size = len(full_content)
+        return entry_files, uuid_mapping
 
-        if self.max_chars is None or full_size <= self.max_chars:
-            # Single output file
+    def generate_output(self) -> Tuple[List[PrepdirOutputFile], Dict[str, str], List[PrepdirFileEntry], Dict]:
+        """
+        Generate the prepdir output file content by processing file entries.
+
+        Returns:
+            Tuple of (list of PrepdirOutputFile instances, UUID mapping, list of PrepdirFileEntry objects, metadata).
+
+        Raises:
+            ValueError: If no valid files are found.
+        """
+        timestamp = datetime.now().isoformat()
+        metadata = {
+            "version": __version__,
+            "date": timestamp,
+            "base_directory": self.directory,
+            "creator": f"prepdir version {__version__} (pip install prepdir)",
+        }
+
+        # Get file entries and UUID mapping
+        entry_files, uuid_mapping = self.get_file_entries()
+
+        # Initialize output parts
+        outputs = []
+        parts = []
+        current_part = []
+        current_files = []
+        current_size = len(self._build_header(timestamp, 1, 1))
+        base, ext = os.path.splitext(self.output_file)
+
+        # Split entries into parts based on max_chars
+        for file_entry in entry_files:
+            entry_str = file_entry.to_output()
+            entry_len = len(entry_str)
+            if self.max_chars and current_size + entry_len > self.max_chars and current_part:
+                parts.append((current_part, current_files))
+                current_part = []
+                current_files = []
+                current_size = len(self._build_header(timestamp, len(parts) + 1, len(parts) + 1))
+            current_part.append(entry_str)
+            current_files.append(file_entry)
+            current_size += entry_len
+        if current_part:
+            parts.append((current_part, current_files))
+
+        # Generate output files
+        total_parts = len(parts)
+        for i, (part_entries, part_files) in enumerate(parts, 1):
+            part_header = self._build_header(timestamp, i, total_parts)
+            part_content = part_header + ''.join(part_entries)
+            part_metadata = metadata.copy()
+            part_metadata["part"] = f"{i} of {total_parts}"
+            part_file = f"{base}_part{i}of{total_parts}{ext}"
             output = PrepdirOutputFile.from_content(
-                content=full_content,
-                path_obj=Path(self.output_file) if self.output_file else None,
+                content=part_content,
+                path_obj=Path(part_file) if self.output_file else None,
                 uuid_mapping=uuid_mapping,
-                metadata=metadata,
+                metadata=part_metadata,
                 use_unique_placeholders=self.use_unique_placeholders,
             )
             if self.output_file:
-                self.save_output(output, self.output_file)
-                if not self.quiet:
-                    print(f"Saved output to {self.output_file}")
-            outputs.append(output)
-        else:
-            # Split into parts
-            parts = []
-            current_part = []
-            current_files = []
-            current_size = len(self._build_header(timestamp_to_use, 1, 1))  # Approximate initial size
-            for i, (entry_str, entry_file) in enumerate(zip(entry_strs, entry_files)):
-                entry_len = len(entry_str)
-                if current_size + entry_len > self.max_chars and current_part:
-                    parts.append((current_part, current_files))
-                    current_part = []
-                    current_files = []
-                    current_size = len(self._build_header(timestamp_to_use, len(parts) + 1, len(parts) + 1))
-                current_part.append(entry_str)
-                current_files.append(entry_file)
-                current_size += entry_len
-            if current_part:
-                parts.append((current_part, current_files))
-
-            total_parts = len(parts)
-            base, ext = os.path.splitext(self.output_file)
-            for i, (part_entries, part_files) in enumerate(parts, 1):
-                part_header = self._build_header(timestamp_to_use, i, total_parts)
-                part_content = part_header + ''.join(part_entries)
-                part_metadata = metadata.copy()
-                part_metadata["part"] = f"{i} of {total_parts}"
-                part_file = f"{base}_part{i}of{total_parts}{ext}"
-                output = PrepdirOutputFile.from_content(
-                    content=part_content,
-                    path_obj=Path(part_file),
-                    uuid_mapping=uuid_mapping,  # Single UUID mapping across all parts
-                    metadata=part_metadata,
-                    use_unique_placeholders=self.use_unique_placeholders,
-                )
                 self.save_output(output, part_file)
                 if not self.quiet:
-                    print(f"Saved output to {part_file}")
-                outputs.append(output)
+                    self._print_and_log(f"Saved output to {part_file}")
+            outputs.append(output)
 
         return outputs, uuid_mapping, entry_files, metadata
 
@@ -398,7 +391,6 @@ class PrepdirProcessor:
 
             except PermissionError as e:
                 self.logger.warning(f"Permission denied accessing '{file_path}': {str(e)}")
-
             except Exception as e:
                 logger.exception(f"Issue accessing '{file_path}': {str(e)}")
                 continue
@@ -407,18 +399,22 @@ class PrepdirProcessor:
             yield path
 
     def _traverse_directory(self) -> Iterator[Path]:
+        """
+        Traverse directory to yield valid file paths.
+
+        Yields:
+            Path: Paths to valid files that pass exclusion checks.
+        """
         self.logger.debug(f"traversing {self.directory}")
         try:
             file_count_checked = 0
             file_count_included = 0
             for root, dirnames, filenames in sorted(os.walk(self.directory)):
-                # Check if the current directory is excluded
                 relative_root = os.path.relpath(root, self.directory)
                 if self.is_excluded_dir(relative_root, root):
                     self.logger.debug(f"Skipping directory: {root} (excluded in config)")
                     dirnames[:] = []  # Prevent further recursion
                     continue
-                # Filter subdirectories to avoid recursion into excluded ones
                 dirnames[:] = [d for d in dirnames if not self.is_excluded_dir(d, root)]
                 for filename in sorted(filenames):
                     file_count_checked += 1
@@ -437,10 +433,8 @@ class PrepdirProcessor:
                     yield path
         except PermissionError as e:
             self.logger.warning(f"Permission denied traversing directory '{self.directory}': {str(e)}")
-            return
         except Exception as e:
             logger.exception(f"Issue accessing '{self.directory}': {str(e)}")
-            return
 
     def save_output(self, output: PrepdirOutputFile, path: Optional[str] = None) -> None:
         """
