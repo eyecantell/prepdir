@@ -80,8 +80,7 @@ def test_main_no_scrub_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_te
         ],
     ):
         main()
-    part_file = str(output_file).replace(".txt", "_part1of1.txt")
-    content = Path(part_file).read_text()
+    content = Path(output_file).read_text()
     assert f"Hyphenless: {UNHYPHENATED_UUID}" in content
     assert f"UUID: {REPLACEMENT_UUID}" in content
 
@@ -91,8 +90,7 @@ def test_main_default_hyphenless_uuids(tmp_path, capsys, custom_config, uuid_tes
     output_file = tmp_path / "prepped_dir.txt"
     with patch.object(sys, "argv", ["prepdir", str(tmp_path), "-o", str(output_file), "--config", str(custom_config)]):
         main()
-    part_file = str(output_file).replace(".txt", "_part1of1.txt")
-    content = Path(part_file).read_text()
+    content = Path(output_file).read_text()
     assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in content
     assert f"UUID: {REPLACEMENT_UUID}" in content
 
@@ -191,8 +189,7 @@ def test_main_custom_replacement_uuid(tmp_path, capsys, custom_config, uuid_test
         ],
     ):
         main()
-    part_file = str(output_file).replace(".txt", "_part1of1.txt")
-    content = Path(part_file).read_text()
+    content = Path(output_file).read_text()
     assert replacement_uuid in content
     assert original_uuid not in content
 
@@ -211,7 +208,7 @@ def test_main_invalid_directory(tmp_path, capsys, caplog):
 
 def test_run_basic(tmp_path, uuid_test_file, custom_config):
     """Test run() with basic directory processing."""
-    outputs, uuid_mapping, entries, metadata = run(
+    outputs = run(
         directory=str(tmp_path),
         extensions=["txt"],
         config_path=str(custom_config),
@@ -222,13 +219,13 @@ def test_run_basic(tmp_path, uuid_test_file, custom_config):
     assert "test.txt" in output.content
     assert f"UUID: {REPLACEMENT_UUID}" in output.content
     assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in output.content
-    assert metadata["base_directory"] == str(tmp_path)
+    assert outputs[0].metadata["base_directory"] == str(tmp_path)
 
 
 def test_run_with_output_file(tmp_path, uuid_test_file, custom_config, tmp_path_factory):
     """Test run() with output file."""
     output_file = tmp_path_factory.mktemp("output") / "prepped_dir.txt"
-    outputs, uuid_mapping, entries, metadata = run(
+    outputs = run(
         directory=str(tmp_path),
         extensions=["txt"],
         output_file=str(output_file),
@@ -237,8 +234,7 @@ def test_run_with_output_file(tmp_path, uuid_test_file, custom_config, tmp_path_
     )
     assert len(outputs) == 1
     output = outputs[0]
-    part_file = str(output_file).replace(".txt", "_part1of1.txt")
-    assert Path(part_file).exists()
+    assert Path(output_file).exists()
     assert "test.txt" in output.content
     assert f"UUID: {REPLACEMENT_UUID}" in output.content
     assert f"Hyphenless: {str(REPLACEMENT_UUID).replace('-', '')}" in output.content
@@ -248,7 +244,7 @@ def test_run_quiet_no_output_file(tmp_path, uuid_test_file, custom_config, capsy
     """Test run() with quiet=False and no output file prints to stdout."""
     with caplog.at_level(logging.DEBUG, logger="prepdir"):
         with patch("prepdir.config.load_config", return_value=MagicMock()):
-            outputs, uuid_mapping, entries, metadata = run(
+            outputs = run(
                 directory=str(tmp_path),
                 extensions=["txt"],
                 config_path=str(custom_config),
@@ -288,8 +284,7 @@ def test_main_no_scrub_uuids(tmp_path, capsys, custom_config, uuid_test_file):
         ],
     ):
         main()
-    part_file = str(output_file).replace(".txt", "_part1of1.txt")
-    content = Path(part_file).read_text()
+    content = Path(output_file).read_text()
     assert f"UUID: {HYPHENATED_UUID}" in content
     assert f"Hyphenless: {UNHYPHENATED_UUID}" in content
 
@@ -313,8 +308,7 @@ def test_main_all_flag(tmp_path, capsys, custom_config, uuid_test_file):
         ],
     ):
         main()
-    part_file = str(output_file).replace(".txt", "_part1of1.txt")
-    content = Path(part_file).read_text()
+    content = Path(output_file).read_text()
     assert "test.pyc" in content
     assert "compiled" in content
 
@@ -363,7 +357,7 @@ def test_main_quiet_suppresses_stdout(tmp_path, capsys, caplog, custom_config, u
     captured = capsys.readouterr()
     assert "Starting prepdir in" not in captured.out  # Suppressed by --quiet
     assert f"Failed to read {invalid_file}: [Errno 13] Permission denied: '{invalid_file}'" in caplog.text
-    output_file = tmp_path / "prepped_dir_part1of1.txt"
+    output_file = tmp_path / "prepped_dir.txt"
     assert output_file.exists()
     output_content = output_file.read_text()
     assert f"[Error reading file: [Errno 13] Permission denied: '{invalid_file}']" in output_content
@@ -388,8 +382,7 @@ def test_main_include_prepdir_files(tmp_path, capsys, custom_config):
         ],
     ):
         main()
-    part_file = str(output_file).replace(".txt", "_part1of1.txt")
-    content = Path(part_file).read_text()
+    content = Path(output_file).read_text()
     assert "prepped_dir_previous.txt" in content
     assert "previous prepdir output" in content
 
