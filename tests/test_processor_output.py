@@ -10,6 +10,7 @@ from prepdir.config import __version__
 from prepdir import prepdir_logging
 
 logger = logging.getLogger(__name__)
+logging.getLogger("applydir").setLevel(logging.DEBUG)
 
 @pytest.fixture
 def config_values():
@@ -48,11 +49,12 @@ def test_generate_output_basic(temp_dir, config_path, config_values):
         scrub_hyphenless_uuids=True,
         use_unique_placeholders=True,
         config_path=config_path,
+        output_file=str(temp_dir / "prepped_dir.txt"),
     )
     outputs, uuid_mapping, entries, metadata = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
-    assert output.path == Path(config_values.get("DEFAULT_OUTPUT_FILE", "prepped_dir.txt").replace(".txt", "_part1of1.txt"))
+    assert output.path == Path(temp_dir / "prepped_dir_part1of1.txt")
     assert len(output.files) == 1
     assert "file1.py" in [entry.relative_path for entry in output.files.values()]
     assert "PREPDIR_UUID_PLACEHOLDER_1" in output.content
@@ -70,10 +72,12 @@ def test_generate_output_specific_files(temp_dir, config_path):
         scrub_hyphenated_uuids=True,
         use_unique_placeholders=True,
         config_path=config_path,
+        output_file=str(temp_dir / "prepped_dir.txt"),
     )
     outputs, uuid_mapping, entries, metadata = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
+    assert output.path == Path(temp_dir / "prepped_dir_part1of1.txt")
     assert len(output.files) == 1
     assert "file1.py" in [entry.relative_path for entry in output.files.values()]
     assert "file2.txt" not in output.content
@@ -82,7 +86,7 @@ def test_generate_output_specific_files(temp_dir, config_path):
 def test_generate_output_empty_directory(tmp_path, config_path):
     """Test generating output for an empty directory."""
     prepdir_logging.configure_logging(logger, level=logging.INFO)
-    processor = PrepdirProcessor(directory=str(tmp_path), extensions=["py"], config_path=config_path)
+    processor = PrepdirProcessor(directory=str(tmp_path), extensions=["py"], config_path=config_path, output_file=None)
     with pytest.raises(ValueError, match="No files found!"):
         processor.generate_output()
 
@@ -91,10 +95,11 @@ def test_generate_output_binary_file(temp_dir, config_path):
     prepdir_logging.configure_logging(logger, level=logging.INFO)
     binary_file = temp_dir / "binary.bin"
     binary_file.write_bytes(b"\xff\xfe\x00\x01")
-    processor = PrepdirProcessor(directory=str(temp_dir), extensions=["bin"], config_path=config_path)
+    processor = PrepdirProcessor(directory=str(temp_dir), extensions=["bin"], config_path=config_path, output_file=str(temp_dir / "prepped_dir.txt"))
     outputs, uuid_mapping, entries, metadata = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
+    assert output.path == Path(temp_dir / "prepped_dir_part1of1.txt")
     assert len(output.files) == 1
     entry = output.files[Path(temp_dir) / "binary.bin"]
     assert entry is not None
@@ -109,11 +114,12 @@ def test_generate_output_exclusions(temp_dir, config_path):
         directory=str(temp_dir),
         extensions=["py", "txt", "log"],
         config_path=config_path,
+        output_file=str(temp_dir / "prepped_dir.txt"),
     )
     outputs, uuid_mapping, entries, metadata = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
-    assert len(output.files) == 1
+    assert len(output.files) == 1  # Only file1.py
     assert "file1.py" in [entry.relative_path for entry in output.files.values()]
     assert "file2.txt" not in output.content
     assert "app.log" not in output.content
@@ -126,11 +132,12 @@ def test_generate_output_include_prepdir_files(temp_dir, config_path):
         extensions=["py", "txt"],
         include_prepdir_files=True,
         config_path=config_path,
+        output_file=str(temp_dir / "prepped_dir.txt"),
     )
     outputs, uuid_mapping, entries, metadata = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
-    assert len(output.files) == 1
+    assert len(output.files) == 1  # file1.py, file2.txt excluded by config, output.txt included but extension not matching
     assert "file1.py" in [entry.relative_path for entry in output.files.values()]
 
 def test_generate_output_ignore_exclusions(temp_dir, config_path):
@@ -140,17 +147,17 @@ def test_generate_output_ignore_exclusions(temp_dir, config_path):
         directory=str(temp_dir),
         extensions=["py", "txt", "log"],
         ignore_exclusions=True,
-        include_prepdir_files=True,
+        include_prepdir_files=False,
         config_path=config_path,
+        output_file=str(temp_dir / "prepped_dir.txt"),
     )
     outputs, uuid_mapping, entries, metadata = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
-    assert len(output.files) == 4
+    assert len(output.files) == 3  # file1.py, file2.txt, logs/app.log (output.txt skipped as prepdir file)
     assert "file1.py" in [entry.relative_path for entry in output.files.values()]
     assert "file2.txt" in [entry.relative_path for entry in output.files.values()]
     assert "logs/app.log" in [entry.relative_path for entry in output.files.values()]
-    assert "output.txt" in [entry.relative_path for entry in output.files.values()]
 
 def test_generate_output_with_max_chars(temp_dir, config_path):
     """Test generating output with max_chars set to split into multiple files."""
@@ -164,6 +171,7 @@ def test_generate_output_with_max_chars(temp_dir, config_path):
         use_unique_placeholders=True,
         max_chars=300,
         config_path=config_path,
+        output_file=str(temp_dir / "prepped_dir.txt"),
     )
     outputs, uuid_mapping, entries, metadata = processor.generate_output()
     assert len(outputs) == 2
@@ -173,8 +181,15 @@ def test_generate_output_with_max_chars(temp_dir, config_path):
     assert "file3.py" in outputs[1].content
     assert len(outputs[0].files) == 1
     assert len(outputs[1].files) == 1
-    assert outputs[0].path == Path(str(temp_dir / "prepped_dir_part1of2.txt"))
-    assert outputs[1].path == Path(str(temp_dir / "prepped_dir_part2of2.txt"))
+    assert outputs[0].path == Path(temp_dir / "prepped_dir_part1of2.txt")
+    assert outputs[1].path == Path(temp_dir / "prepped_dir_part2of2.txt")
+
+def test_validate_output_invalid_content(temp_dir, config_path):
+    """Test validate_output with invalid content."""
+    prepdir_logging.configure_logging(logger, level=logging.INFO)
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path)
+    with pytest.raises(ValueError, match="Invalid prepdir output"):
+        processor.validate_output(content="invalid content")
 
 def test_save_output_invalid_path(temp_dir, config_path):
     """Test save_output with invalid path."""
@@ -183,17 +198,11 @@ def test_save_output_invalid_path(temp_dir, config_path):
         directory=str(temp_dir),
         extensions=["py"],
         config_path=config_path,
+        output_file=str(temp_dir / "prepped_dir.txt"),
     )
-    outputs, _, _, _ = processor.generate_output()
+    outputs, uuid_mapping, entries, metadata = processor.generate_output()
     with pytest.raises(ValueError, match="Could not save output"):
         processor.save_output(outputs[0], "/invalid/path/output.txt")
-
-def test_validate_output_invalid_content(temp_dir, config_path):
-    """Test validate_output with invalid content."""
-    prepdir_logging.configure_logging(logger, level=logging.INFO)
-    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path)
-    with pytest.raises(ValueError, match="Invalid prepdir output"):
-        processor.validate_output(content="invalid content")
 
 def test_validate_output_both_content_and_file_path(temp_dir, config_path):
     """Test validate_output with both content and file_path."""

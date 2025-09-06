@@ -248,7 +248,7 @@ class PrepdirProcessor:
         header += f"Part {part_num} of {total_parts}\n"
         return header
 
-    def get_file_entries(self) -> Tuple[List[PrepdirFileEntry], Dict[str, str]]:
+    def generate_file_entries(self) -> Tuple[List[PrepdirFileEntry], Dict[str, str]]:
         """
         Traverse directory or specific files to generate PrepdirFileEntry objects.
 
@@ -293,7 +293,7 @@ class PrepdirProcessor:
 
     def generate_output(self) -> Tuple[List[PrepdirOutputFile], Dict[str, str], List[PrepdirFileEntry], Dict]:
         """
-        Generate the prepdir output file content by processing file entries.
+        Generate PrepdirOutputFile instances by processing the files
 
         Returns:
             Tuple of (list of PrepdirOutputFile instances, UUID mapping, list of PrepdirFileEntry objects, metadata).
@@ -310,7 +310,7 @@ class PrepdirProcessor:
         }
 
         # Get file entries and UUID mapping
-        entry_files, uuid_mapping = self.get_file_entries()
+        entry_files, uuid_mapping = self.generate_file_entries()
 
         # Initialize output parts
         outputs = []
@@ -391,6 +391,7 @@ class PrepdirProcessor:
 
             except PermissionError as e:
                 self.logger.warning(f"Permission denied accessing '{file_path}': {str(e)}")
+                continue
             except Exception as e:
                 logger.exception(f"Issue accessing '{file_path}': {str(e)}")
                 continue
@@ -410,14 +411,17 @@ class PrepdirProcessor:
             file_count_checked = 0
             file_count_included = 0
             for root, dirnames, filenames in sorted(os.walk(self.directory)):
+                # Check if the current directory is excluded
                 relative_root = os.path.relpath(root, self.directory)
                 if self.is_excluded_dir(relative_root, root):
                     self.logger.debug(f"Skipping directory: {root} (excluded in config)")
                     dirnames[:] = []  # Prevent further recursion
                     continue
+                # Filter subdirectories to avoid recursion into excluded ones
                 dirnames[:] = [d for d in dirnames if not self.is_excluded_dir(d, root)]
                 for filename in sorted(filenames):
                     file_count_checked += 1
+                    #self.logger.debug(f"Processing file {file_count}: {filename}")
                     if self.extensions and not any(filename.endswith(f".{ext}") for ext in self.extensions):
                         self.logger.info(f"Skipping file: {filename} (extension not in {self.extensions})")
                         continue
@@ -433,8 +437,10 @@ class PrepdirProcessor:
                     yield path
         except PermissionError as e:
             self.logger.warning(f"Permission denied traversing directory '{self.directory}': {str(e)}")
+            return
         except Exception as e:
             logger.exception(f"Issue accessing '{self.directory}': {str(e)}")
+            return
 
     def save_output(self, output: PrepdirOutputFile, path: Optional[str] = None) -> None:
         """
