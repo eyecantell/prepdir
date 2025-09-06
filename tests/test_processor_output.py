@@ -51,17 +51,17 @@ def test_generate_output_basic(temp_dir, config_path, config_values):
         config_path=config_path,
         output_file=str(temp_dir / "prepped_dir.txt"),
     )
-    outputs, uuid_mapping, entries, metadata = processor.generate_output()
+    outputs = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
-    assert output.path == Path(temp_dir / "prepped_dir_part1of1.txt")
+    assert output.path == Path(temp_dir / "prepped_dir.txt")
     assert len(output.files) == 1
     assert "file1.py" in [entry.relative_path for entry in output.files.values()]
     assert "PREPDIR_UUID_PLACEHOLDER_1" in output.content
     assert "file2.txt" not in output.content
-    assert metadata["version"] == __version__
-    assert metadata["base_directory"] == str(temp_dir)
-    assert uuid_mapping.get("PREPDIR_UUID_PLACEHOLDER_1") == "123e4567-e89b-12d3-a456-426614174000"
+    assert outputs[0].metadata["version"] == __version__
+    assert outputs[0].metadata["base_directory"] == str(temp_dir)
+    assert outputs[0].uuid_mapping.get("PREPDIR_UUID_PLACEHOLDER_1") == "123e4567-e89b-12d3-a456-426614174000"
 
 def test_generate_output_specific_files(temp_dir, config_path):
     """Test generating output with specific files."""
@@ -74,10 +74,10 @@ def test_generate_output_specific_files(temp_dir, config_path):
         config_path=config_path,
         output_file=str(temp_dir / "prepped_dir.txt"),
     )
-    outputs, uuid_mapping, entries, metadata = processor.generate_output()
+    outputs = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
-    assert output.path == Path(temp_dir / "prepped_dir_part1of1.txt")
+    assert output.path == Path(temp_dir / "prepped_dir.txt")
     assert len(output.files) == 1
     assert "file1.py" in [entry.relative_path for entry in output.files.values()]
     assert "file2.txt" not in output.content
@@ -96,10 +96,10 @@ def test_generate_output_binary_file(temp_dir, config_path):
     binary_file = temp_dir / "binary.bin"
     binary_file.write_bytes(b"\xff\xfe\x00\x01")
     processor = PrepdirProcessor(directory=str(temp_dir), extensions=["bin"], config_path=config_path, output_file=str(temp_dir / "prepped_dir.txt"))
-    outputs, uuid_mapping, entries, metadata = processor.generate_output()
+    outputs = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
-    assert output.path == Path(temp_dir / "prepped_dir_part1of1.txt")
+    assert output.path == Path(temp_dir / "prepped_dir.txt")
     assert len(output.files) == 1
     entry = output.files[Path(temp_dir) / "binary.bin"]
     assert entry is not None
@@ -116,7 +116,7 @@ def test_generate_output_exclusions(temp_dir, config_path):
         config_path=config_path,
         output_file=str(temp_dir / "prepped_dir.txt"),
     )
-    outputs, uuid_mapping, entries, metadata = processor.generate_output()
+    outputs = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
     assert len(output.files) == 1  # Only file1.py
@@ -134,7 +134,7 @@ def test_generate_output_include_prepdir_files(temp_dir, config_path):
         config_path=config_path,
         output_file=str(temp_dir / "prepped_dir.txt"),
     )
-    outputs, uuid_mapping, entries, metadata = processor.generate_output()
+    outputs = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
     assert len(output.files) == 1  # file1.py, file2.txt excluded by config, output.txt included but extension not matching
@@ -151,7 +151,10 @@ def test_generate_output_ignore_exclusions(temp_dir, config_path):
         config_path=config_path,
         output_file=str(temp_dir / "prepped_dir.txt"),
     )
-    outputs, uuid_mapping, entries, metadata = processor.generate_output()
+    with open(str(temp_dir / "file1.py"), "r") as f:  # Read as binary first
+        raw_content = f.read()
+        print(f"{raw_content=}")
+    outputs = processor.generate_output()
     assert len(outputs) == 1
     output = outputs[0]
     assert len(output.files) == 3  # file1.py, file2.txt, logs/app.log (output.txt skipped as prepdir file)
@@ -173,7 +176,7 @@ def test_generate_output_with_max_chars(temp_dir, config_path):
         config_path=config_path,
         output_file=str(temp_dir / "prepped_dir.txt"),
     )
-    outputs, uuid_mapping, entries, metadata = processor.generate_output()
+    outputs = processor.generate_output()
     assert len(outputs) == 2
     assert "Part 1 of 2" in outputs[0].content
     assert "Part 2 of 2" in outputs[1].content
@@ -200,7 +203,7 @@ def test_save_output_invalid_path(temp_dir, config_path):
         config_path=config_path,
         output_file=str(temp_dir / "prepped_dir.txt"),
     )
-    outputs, uuid_mapping, entries, metadata = processor.generate_output()
+    outputs = processor.generate_output()
     with pytest.raises(ValueError, match="Could not save output"):
         processor.save_output(outputs[0], "/invalid/path/output.txt")
 

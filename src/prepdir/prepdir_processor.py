@@ -13,6 +13,7 @@ from prepdir.is_excluded_file import is_excluded_dir, is_excluded_file
 from prepdir.glob_translate import glob_translate
 
 logger = logging.getLogger(__name__)
+logging.getLogger("applydir").setLevel(logging.DEBUG)
 
 class PrepdirProcessor:
     """Manages generation and parsing of prepdir output files."""
@@ -40,7 +41,7 @@ class PrepdirProcessor:
             directory: Starting directory path.
             extensions: List of file extensions to include (without the dot).
             specific_files: List of specific file paths to process.
-            output_file: Path to save the output file.
+            output_file: Path to save the output file; None for in-memory output.
             config_path: Path to custom config file.
             scrub_hyphenated_uuids: If True, scrub hyphenated UUIDs in file contents.
             scrub_hyphenless_uuids: If True, scrub hyphen-less UUIDs.
@@ -62,23 +63,19 @@ class PrepdirProcessor:
             raise ValueError(f"'{self.directory}' is not a directory")
 
         self.config = self._load_config(config_path, quiet=quiet)
-        self.extensions = extensions or self.config.get("DEFAULT_EXTENSIONS", [])
-        self.specific_files = specific_files or []
-        self.output_file = output_file or self.config.get("DEFAULT_OUTPUT_FILE", "prepped_dir.txt")
-        self.ignore_exclusions = ignore_exclusions or self.config.get("IGNORE_EXCLUSIONS", False)
-        self.include_prepdir_files = include_prepdir_files or self.config.get("INCLUDE_PREPDIR_FILES", False)
+        self.extensions = extensions if extensions is not None else self.config.get("DEFAULT_EXTENSIONS", [])
+        self.specific_files = specific_files if specific_files is not None else self.config.get("SPECIFIC_FILES", [])
+        self.output_file = output_file if output_file is not None else self.config.get("DEFAULT_OUTPUT_FILE", None)
+        self.ignore_exclusions = ignore_exclusions if ignore_exclusions is not None else self.config.get("IGNORE_EXCLUSIONS", False)
+        self.include_prepdir_files = include_prepdir_files if include_prepdir_files is not None else self.config.get("INCLUDE_PREPDIR_FILES", False)
         self.quiet = quiet
-        self.max_chars = max_chars or self.config.get("MAX_CHARS", None)
+        self.max_chars = max_chars if max_chars is not None else self.config.get("MAX_CHARS", None)
 
         self.scrub_hyphenated_uuids = (
-            scrub_hyphenated_uuids
-            if scrub_hyphenated_uuids is not None
-            else self.config.get("SCRUB_HYPHENATED_UUIDS", True)
+            scrub_hyphenated_uuids if scrub_hyphenated_uuids is not None else self.config.get("SCRUB_HYPHENATED_UUIDS", True)
         )
         self.scrub_hyphenless_uuids = (
-            scrub_hyphenless_uuids
-            if scrub_hyphenless_uuids is not None
-            else self.config.get("SCRUB_HYPHENLESS_UUIDS", True)
+            scrub_hyphenless_uuids if scrub_hyphenless_uuids is not None else self.config.get("SCRUB_HYPHENLESS_UUIDS", True)
         )
 
         if replacement_uuid is not None:
@@ -96,12 +93,14 @@ class PrepdirProcessor:
             if replacement_uuid is not None
             else self.config.get("REPLACEMENT_UUID", "00000000-0000-0000-0000-000000000000")
         )
-        self.use_unique_placeholders = use_unique_placeholders or self.config.get("USE_UNIQUE_PLACEHOLDERS", False)
+        self.use_unique_placeholders = (
+            use_unique_placeholders if use_unique_placeholders is not None else self.config.get("USE_UNIQUE_PLACEHOLDERS", False)
+        )
 
         self._print_and_log(f"Generated timestamp: {datetime.now().isoformat()}")
         self._print_and_log(f"Traversing directory: {self.directory}")
         self._print_and_log(f"Extensions filter: {self.extensions if self.extensions else 'None'}")
-        self._print_and_log(f"Output file: {self.output_file}")
+        self._print_and_log(f"Output file: {self.output_file if self.output_file else 'None (in-memory output)'}")
         self._print_and_log(f"Ignoring exclusions: {self.ignore_exclusions}")
         if self.max_chars:
             self._print_and_log(f"Max characters per file: {self.max_chars}")
@@ -245,7 +244,8 @@ class PrepdirProcessor:
                 header += "Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with unique placeholders (e.g., PREPDIR_UUID_PLACEHOLDER_n).\n"
             else:
                 header += f"Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '{self.replacement_uuid.replace('-', '')}'.\n"
-        header += f"Part {part_num} of {total_parts}\n"
+        if total_parts > 1:
+            header += f"Part {part_num} of {total_parts}\n"
         return header
 
     def generate_file_entries(self) -> Tuple[List[PrepdirFileEntry], Dict[str, str]]:
@@ -291,12 +291,12 @@ class PrepdirProcessor:
 
         return entry_files, uuid_mapping
 
-    def generate_output(self) -> Tuple[List[PrepdirOutputFile], Dict[str, str], List[PrepdirFileEntry], Dict]:
+    def generate_output(self) -> List[PrepdirOutputFile]:
         """
-        Generate PrepdirOutputFile instances by processing the files
+        Generate PrepdirOutputFile instances by processing the files.
 
         Returns:
-            Tuple of (list of PrepdirOutputFile instances, UUID mapping, list of PrepdirFileEntry objects, metadata).
+            List of PrepdirOutputFile instances (one per part if max_chars is set).
 
         Raises:
             ValueError: If no valid files are found.
@@ -316,47 +316,49 @@ class PrepdirProcessor:
         outputs = []
         parts = []
         current_part = []
-        current_files = []
-        current_size = len(self._build_header(timestamp, 1, 1))
-        base, ext = os.path.splitext(self.output_file)
+        current_size = 0
+        base, ext = os.path.splitext(self.output_file) if self.output_file else ("prepped_dir", ".txt")
+
+        # Estimate max header size for safety (assuming large part numbers)
+        max_header_size = len(self._build_header(timestamp, 999, 999))
 
         # Split entries into parts based on max_chars
         for file_entry in entry_files:
             entry_str = file_entry.to_output()
             entry_len = len(entry_str)
-            if self.max_chars and current_size + entry_len > self.max_chars and current_part:
-                parts.append((current_part, current_files))
+            if self.max_chars and entry_len > self.max_chars:
+                self._print_and_log(
+                    f"Warning: File entry for '{file_entry.relative_path}' exceeds max_chars ({entry_len} > {self.max_chars}); creating solo part."
+                )
+                part_header = self._build_header(timestamp, len(parts) + 1, len(parts) + 1)
+                parts.append(([entry_str], metadata.copy()))
+                continue
+            if self.max_chars and current_part and current_size + entry_len + max_header_size > self.max_chars:
+                parts.append((current_part, metadata.copy()))
                 current_part = []
-                current_files = []
-                current_size = len(self._build_header(timestamp, len(parts) + 1, len(parts) + 1))
+                current_size = 0
             current_part.append(entry_str)
-            current_files.append(file_entry)
             current_size += entry_len
         if current_part:
-            parts.append((current_part, current_files))
+            parts.append((current_part, metadata.copy()))
 
         # Generate output files
         total_parts = len(parts)
-        for i, (part_entries, part_files) in enumerate(parts, 1):
+        for i, (part_entries, part_metadata) in enumerate(parts, 1):
+            part_metadata["part"] = f"{i} of {total_parts}" if total_parts > 1 else "1 of 1"
             part_header = self._build_header(timestamp, i, total_parts)
-            part_content = part_header + ''.join(part_entries)
-            part_metadata = metadata.copy()
-            part_metadata["part"] = f"{i} of {total_parts}"
-            part_file = f"{base}_part{i}of{total_parts}{ext}"
+            part_content = part_header + '\n'.join(part_entries)
+            part_file = self.output_file if total_parts == 1 and self.output_file else f"{base}_part{i}of{total_parts}{ext}"
             output = PrepdirOutputFile.from_content(
                 content=part_content,
-                path_obj=Path(part_file) if self.output_file else None,
+                path_obj=Path(part_file) if part_file else None,
                 uuid_mapping=uuid_mapping,
                 metadata=part_metadata,
                 use_unique_placeholders=self.use_unique_placeholders,
             )
-            if self.output_file:
-                self.save_output(output, part_file)
-                if not self.quiet:
-                    self._print_and_log(f"Saved output to {part_file}")
             outputs.append(output)
 
-        return outputs, uuid_mapping, entry_files, metadata
+        return outputs
 
     def _traverse_specific_files(self) -> Iterator[Path]:
         """
@@ -421,7 +423,7 @@ class PrepdirProcessor:
                 dirnames[:] = [d for d in dirnames if not self.is_excluded_dir(d, root)]
                 for filename in sorted(filenames):
                     file_count_checked += 1
-                    #self.logger.debug(f"Processing file {file_count}: {filename}")
+                    self.logger.debug(f"Processing file {file_count_checked}: {filename}")
                     if self.extensions and not any(filename.endswith(f".{ext}") for ext in self.extensions):
                         self.logger.info(f"Skipping file: {filename} (extension not in {self.extensions})")
                         continue
