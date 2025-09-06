@@ -77,3 +77,8 @@ test = [
 Repository = "https://github.com/eyecantell/prepdir"
 Issues = "https://github.com/eyecantell/prepdir/issues"
 Documentation = "https://github.com/eyecantell/prepdir#readme"
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/prepdir --cov-report=term --cov-report=html"
+python_files = "test_*.py"
+testpaths = ["tests"]

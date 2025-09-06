@@ -73,7 +73,7 @@ def run(
 
     if output_file:
         for output in outputs:
-            processor.save_output(output)
+            processor.save_output(output, path=str(output.path))
             if not quiet:
                 print(f"Saved output to {output.path}")
     else:
