@@ -244,3 +244,41 @@ def test_validate_output_partial_file_existence(temp_dir, config_path, caplog):
         )
     assert len(output.files) == 2
     assert "File " + str(temp_dir / "nonexistent.py") + " does not exist in filesystem" in caplog.text
+
+def test_generate_output_large_single_file(temp_dir, config_path, caplog):
+    large_file = temp_dir / "large.py"
+    large_file.write_text("a" * 1000)  # > max_chars
+    processor = PrepdirProcessor(directory=str(temp_dir), extensions=["py"], max_chars=500, config_path=config_path)
+    with caplog.at_level(logging.INFO):
+        outputs = processor.generate_output()
+    assert len(outputs) == 2 # One for file.py and one for large.py
+    assert "exceeds max_chars" in caplog.text
+
+def test_validate_output_invalid_paths(temp_dir, config_path):
+    processor = PrepdirProcessor(directory=str(temp_dir), config_path=config_path)
+    with open(str(temp_dir / "output.txt"), "r") as f:
+        output_file_content = f.read()
+        print(f"{output_file_content=}")
+    with pytest.raises(ValueError, match="outside highest base directory"):
+        processor.validate_output(content=output_file_content, highest_base_directory="/invalid")
+    with pytest.raises(ValueError, match="Invalid prepdir output"):
+        processor.validate_output(content="invalid content")
+
+def test_generate_output_no_files(temp_dir, config_path):
+    processor = PrepdirProcessor(directory=str(temp_dir), extensions=["nonexistent_ext"], config_path=config_path)
+    with pytest.raises(ValueError, match="No files found!"):
+        processor.generate_output()
+
+def test_init_invalid_directory(tmp_path):
+    with pytest.raises(ValueError, match="does not exist"):
+        PrepdirProcessor(directory=str(tmp_path / "nonexistent"))
+    with pytest.raises(ValueError, match="does not exist"):
+        PrepdirProcessor(directory=str(tmp_path / "file.txt"))  # Create a file first
+
+def test_init_invalid_replacement_uuid(caplog):
+    with caplog.at_level(logging.ERROR):
+        processor = PrepdirProcessor(directory=".", replacement_uuid=123)  # Invalid type
+        assert "Invalid replacement UUID type" in caplog.text
+    with caplog.at_level(logging.ERROR):
+        processor = PrepdirProcessor(directory=".", replacement_uuid="invalid-uuid")
+        assert "Invalid replacement UUID" in caplog.text
