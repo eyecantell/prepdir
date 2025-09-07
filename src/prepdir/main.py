@@ -202,12 +202,18 @@ def main():
             sys.exit(e.code)
         return
 
+    # Initialize scrub variables to None to respect config defaults
+    scrub_hyphenated_uuids = None
+    scrub_hyphenless_uuids = None
+
+    # Override only if specific flags are provided
     if args.no_scrub_uuids:
         scrub_hyphenated_uuids = False
         scrub_hyphenless_uuids = False
-    else:
-        scrub_hyphenated_uuids = not args.no_scrub_hyphenated_uuids
-        scrub_hyphenless_uuids = not args.no_scrub_hyphenless_uuids
+    if args.no_scrub_hyphenated_uuids:
+        scrub_hyphenated_uuids = False
+    if args.no_scrub_hyphenless_uuids:
+        scrub_hyphenless_uuids = False
 
     try:
         outputs = run(
