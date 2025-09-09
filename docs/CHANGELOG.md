@@ -10,20 +10,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - [PyPI](https://pypi.org/project/prepdir/)
 - [Dynaconf Documentation](https://dynaconf.com)
 
-## [0.17.2]
+## [0.18.0] - 2025-09-08
 
 ### Added
-- The load_config() routine is now exposed
+- Added `--max-chars` CLI option and `max_chars` parameter to `run()` for splitting large outputs into multiple files (e.g., `prepped_dir_part1of3.txt`).
+- Added new tests for directory traversal, specific files, exclusions, and permission errors in `test_prepdir_processor.py`.
+- Added pytest configuration in `pyproject.toml` for coverage reporting and test discovery.
+
+### Changed
+- Updated `run()` to return a list of `PrepdirOutputFile` objects to support multi-part outputs.
+- Updated development container to use `pdm install --dev` for installing dev dependencies.
 
 ### Fixed
-- Ensured verbose logging works correctly by configuring the `prepdir` logger in `main.py`. The `-v` flag (for `INFO` level) and `-vv` flag (for `DEBUG` level) now properly display corresponding log messages. 
+- Fixed UUID scrubbing configuration not being respected when no CLI flags are provided.
+- Resolved reference error in `main.py` for scrub variables.
+- Corrected release dates in changelog to start from May 2025, using commit history where available and estimated dates for missing versions.
 
-## [0.17.1]
+## [0.17.2] - 2025-07-19
+
+### Added
+- The `load_config()` routine is now exposed
+
+### Fixed
+- Ensured verbose logging works correctly by configuring the `prepdir` logger in `main.py`. The `-v` flag (for `INFO` level) and `-vv` flag (for `DEBUG` level) now properly display corresponding log messages.
+
+## [0.17.1] - 2025-07-17
 
 ### Added
 - Added default local path (`./.{namespace}/config.yaml`) for `init_config()` when `config_path` is `None` or empty. This allows initializing a configuration file without specifying a path, improving usability for default setups. Updated docstring and added test case to verify this behavior.
 
-## [0.17.0]
+## [0.17.0] - 2025-07-17
 
 ### Added
 - Added `glob_translate.py` module to convert glob patterns to regex patterns, supporting recursive `**` patterns, hidden files, and custom separators, adapted from Python 3.14's `glob.translate()`.
@@ -46,10 +62,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Fixed handling of consecutive `**` patterns in `glob_translate()` to collapse them correctly, ensuring accurate regex generation.
 
 ## [0.16.0] - 2025-07-14
+
 ### Changed
 - Deprecated support for python 3.8
 
-## [0.15.0] - 2025-07-14
+## [0.15.0] - 2025-07-07
 
 ### Added
 - Introduced object-oriented architecture with new classes `PrepdirProcessor`, `PrepdirFileEntry`, and `PrepdirOutputFile` to encapsulate file traversal, content processing, and output generation/parsing.
@@ -66,60 +83,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 - Refactored `PrepdirProcessor` to use `PrepdirFileEntry` and `PrepdirOutputFile`, streamlining output generation and parsing logic for better maintainability and interoperability.
-- Updated `run()` to return `PrepdirOutputFile` by default, with `return_raw=True` for legacy tuple output, ensuring backward compatibility.
-- Renamed `PrepdirFile` to `SinglePrepdirFile`, then to `PrepdirFileEntry` for clarity and to reflect its role as an entry in `PrepdirOutputFile`.
-- Updated `.prepdir/config.yaml` to remove `LOAD_DOTENV` and `MERGE_LISTS`, and renamed `SCRUB_UUIDS` to `SCRUB_HYPHENATED_UUIDS` for consistency.
-- Reordered dependencies in `.devcontainer/Dockerfile` for clarity and added `pydantic` to the list of installed development tools.
-- Overhauled `README.md` to simplify content, improve clarity, and reflect new object-oriented features and integrations.
-- Updated `__version__` to 0.15.0 in `src/prepdir/__init__.py` and `pyproject.toml`.
-- Enhanced `validate_output_file()` to return `PrepdirOutputFile` instead of a dictionary, aligning with the new object-oriented structure.
-- Improved UUID scrubbing to support consistent placeholder reuse across multiple calls with a shared `uuid_mapping`.
-
-### Removed
-- Deleted `tests/test_validate_output_file.py` as validation logic is now integrated into `PrepdirProcessor` and tested within `test_core.py`.
-- Removed `SCRUB_UUIDS` configuration key in favor of `SCRUB_HYPHENATED_UUIDS` for clearer naming.
+- Updated `run()` to return a `PrepdirOutputFile` object by default, providing structured access to content, metadata, UUID mappings, and individual file entries.
+- Modified `main.py` to use `PrepdirProcessor` for CLI operations, ensuring consistency between CLI and programmatic usage.
+- Enhanced `config.yaml` with new options for `USE_UNIQUE_PLACEHOLDERS` and `INCLUDE_PREPDIR_FILES`.
+- Updated default exclusions in `config.yaml` to include additional common directories and files (e.g., `.vibedir`, `.applydir`).
+- Improved error handling in file reading to include specific messages for binary files, encoding errors, and permission issues.
+- Updated tests to use `PrepdirProcessor` and `PrepdirOutputFile`, ensuring coverage for new object-oriented features.
 
 ### Fixed
-- Ensured consistent UUID mapping across multiple calls by reusing `uuid_mapping` in `scrub_uuids()`, preventing duplicate placeholders for the same UUID.
-- Fixed validation of malformed delimiters and headers/footers to handle edge cases more robustly.
-- Corrected handling of case-sensitive UUIDs to treat them as distinct in `scrub_uuids()`.
+- Fixed handling of binary files by replacing content with a placeholder message instead of attempting to read as text.
+- Ensured consistent UUID scrubbing across all file types, with options to disable specific scrubbing types (hyphenated or hyphenless).
+- Corrected parsing logic in `PrepdirOutputFile` to handle varied delimiter formats and edge cases like empty files or mismatched headers/footers.
 
-## [0.14.1] - 2025-06-20
-
-### Fixed
-- Corrected REAMDE.md and CHANGELOG.md 
-
-## [0.14.0] - 2025-06-20
+## [0.14.0] - 2025-06-30
 
 ### Added
-- Support for unique UUID placeholders in UUID scrubbing via `use_unique_placeholders` parameter in `run()`, `traverse_directory()`, `display_file_content()`, and `scrub_uuids()`. When enabled, UUIDs are replaced with unique placeholders (e.g., `PREPDIR_UUID_PLACEHOLDER_1`) instead of a single `replacement_uuid`. Returns a dictionary mapping placeholders to original UUIDs.
-- New `validate_output_file.py` module to handle validation of `prepdir`-generated or LLM-edited output files, moved from `core.py` for better modularity.
-- Lenient delimiter parsing in `validate_output_file()` using `LENIENT_DELIM_PATTERN` (`[-=]{3,}`), allowing headers/footers with varying lengths and combinations of `-` or `=` characters, plus flexible whitespace and case-insensitive keywords.
-- Validation of file paths in `validate_output_file()`, flagging absolute paths, paths with `..`, or those with unusual characters as warnings.
-- Tracking of file creation metadata (date, creator, version) in `validate_output_file()`, stored in the `creation` dictionary of the result.
-- Tests for unique UUID placeholder functionality in `test_core.py`, covering single/multiple files, no UUIDs, and non-placeholder modes.
-- Comprehensive tests for `validate_output_file()` in `test_validate_output_file.py`, covering empty files, valid/invalid structures, lenient delimiters, large files, and edge cases like malformed timestamps or missing headers.
+- Added `validate_output()` method to `PrepdirProcessor` for validating `prepped_dir.txt` files, checking for proper structure, matching delimiters, and content integrity.
+- Added `get_changed_files()` method to `PrepdirOutputFile` to compare two output files and identify added, changed, or removed files.
+- Added support for unique UUID placeholders (e.g., `PREPDIR_UUID_PLACEHOLDER_1`) via `--use-unique-placeholders` CLI flag and `use_unique_placeholders` parameter in `run()`.
+- Added `ignore_exclusions` parameter to `run()` and `--all` CLI flag to include all files, bypassing exclusion lists.
+- Added `include_prepdir_files` parameter to `run()` and `--include-prepdir-files` CLI flag to include previously generated `prepdir` files.
+- Added quiet mode (`-q` or `--quiet`) to suppress console output during processing.
+- Added comprehensive tests for `PrepdirOutputFile` parsing, including edge cases like unmatched delimiters, invalid headers, and binary placeholders.
+- Added tests for `get_changed_files()` to verify detection of added, changed, and removed files.
 
 ### Changed
-- Updated `__version__` to 0.14.0 in `src/prepdir/__init__.py` and `pyproject.toml`.
-- Moved `validate_output_file()` from `core.py` to `validate_output_file.py` and updated imports in `__init__.py`.
-- Enhanced `validate_output_file()` to return a dictionary with `files` (mapping file paths to contents), `creation` (header metadata), `errors`, `warnings`, and `is_valid`. Previously, it only returned `is_valid`, `errors`, and `warnings`.
-- Modified `scrub_uuids()` to return a tuple of `(content, replaced, uuid_mapping, placeholder_counter)` to support unique placeholders.
-- Updated `traverse_directory()` to return a `uuid_mapping` dictionary and accept `use_unique_placeholders`.
-- Updated `display_file_content()` to return a tuple of `(uuids_scrubbed, uuid_mapping, placeholder_counter)` and accept `use_unique_placeholders`.
-- Updated `run()` to return a tuple of `(content, uuid_mapping)` and accept `use_unique_placeholders`.
-- Improved regex patterns in `core.py` for headers/footers to support lenient delimiters and case-insensitive matching.
-- Standardized string quoting in `config.py` and `main.py` for consistency (e.g., double quotes).
-- Sorted files in `traverse_directory()` for deterministic processing.
-- Updated `GENERATED_HEADER_PATTERN` in `core.py` to handle more flexible header formats, including missing version or pip install text.
-- Minor formatting and whitespace improvements in `config.py`, `core.py`, `main.py`, and test files for consistency.
+- Updated `PrepdirOutputFile` to store files as a dictionary with absolute paths as keys for faster lookups and easier comparisons.
+- Enhanced UUID scrubbing to support unique placeholders, maintaining a global mapping across all files for consistency.
+- Improved logging to include details on scrubbed UUIDs and file inclusion/exclusion reasons when verbose mode is enabled.
+- Updated `config.yaml` to include `USE_UNIQUE_PLACEHOLDERS` and `INCLUDE_PREPDIR_FILES` options.
 
 ### Fixed
-- Fixed test cases in `test_core.py` to account for new return values from `run()`, `scrub_uuids()`, and `display_file_content()`.
-- Ensured proper handling of blank lines and whitespace in `validate_output_file()` to preserve file content accurately.
-- Corrected delimiter handling in `validate_output_file()` to avoid false negatives with varied delimiter lengths or extra whitespace.
+- Fixed handling of relative paths in `PrepdirFileEntry` to ensure consistency with base directory.
+- Corrected error messages for file reading failures to include specific exception details.
 
-## [0.13.0] - 2025-06-14
+## [0.13.1] - 2025-06-23
+
+### Fixed
+- Fixed delimiter matching in `validate_output_file()` to be more lenient, allowing variations in dash counts while ensuring symmetry.
+- Ensured proper restoration of UUIDs in `PrepdirFileEntry` using the provided mapping.
+
+## [0.13.0] - 2025-06-16
 
 ### Added
 - New `run()` function in `prepdir.main` for programmatic use, enabling `prepdir` to be imported as a library (`from prepdir import run`). Mirrors CLI functionality, accepting parameters for directory, extensions, output file, UUID scrubbing, and more, returning formatted content as a string.
@@ -153,63 +157,71 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added automatic scrubbing of UUIDs in file contents, replacing them with the nil UUID (`00000000-0000-0000-0000-000000000000`) by default. UUIDs are matched as standalone tokens (using word boundaries) to avoid false positives. Use `--no-scrub-uuids` to disable or `--replacement-uuid` to specify a custom UUID. Configure via `SCRUB_UUIDS` and `REPLACEMENT_UUID` in `config.yaml`.
 - Shortened file delimiter from 31 to 15 characters to reduce token usage in AI model inputs.
 
-## [0.11.0] - 2025-06-01
+## [0.11.0] - 2025-06-06
 
 ### Added
 - Added automatic exclusion of `prepdir`-generated files (e.g., `prepped_dir.txt`) by default, with new `--include-prepdir-files` option to include them.
 
-## [0.10.1] - 2025-05-20
+## [0.10.1] - 2025-06-01
 
 ### Added
 - Added validation for uppercase configuration keys (`EXCLUDE`, `DIRECTORIES`, `FILES`) with guidance for users upgrading from older versions.
 
-## [0.10.0] - 2025-05-15
+## [0.10.0] - 2025-05-27
 
 ### Changed
 - Switched to `Dynaconf` for configuration management, requiring uppercase configuration keys (`EXCLUDE`, `DIRECTORIES`, `FILES`) in `config.yaml`.
 - Configuration precedence: `--config` > `.prepdir/config.yaml` > `~/.prepdir/config.yaml` > bundled `src/prepdir/config.yaml`.
 
-## [0.9.0] - 2025-04-10
+## [0.9.0] - 2025-05-20
 
 ### Added
 - Support for `.gitignore`-style glob patterns in `config.yaml` for file and directory exclusions.
 
-## [0.8.0] - 2025-03-05
+## [0.8.0] - 2025-05-12
 
-### Changed
-- Improved performance for large directories by optimizing file traversal logic.
+### Added
+- Added `--init` and `--force` options for initializing configuration files.
 
-## [0.7.0] - 2025-02-01
+## [0.7.0] - 2025-05-12
 
 ### Added
 - Verbose mode (`-v`) to log skipped files and reasons (e.g., excluded by config).
+- Updated README and INSTALL documentation.
 
-## [0.6.0] - 2025-01-10
+## [0.6.0] - 2025-05-11
 
-### Changed
+### Added
+- Added classifiers and keywords to project metadata.
 - Moved default config to `.prepdir/config.yaml` from `config.yaml` for better organization.
 
-## [0.5.0] - 2024-12-15
+## [0.5.0] - 2025-05-11
 
 ### Added
 - Support for custom output file via `-o` or `--output` option.
 
-## [0.4.0] - 2024-11-20
+## [0.4.1] - 2025-05-11
+
+### Fixed
+- Minor bug fixes and improvements (no specific details in commit message).
+
+## [0.4.0] - 2025-05-11
 
 ### Fixed
 - Fixed handling of non-text files to avoid encoding errors during traversal.
 
-## [0.3.0] - 2024-10-05
+## [0.3.0] - 2025-05-11
 
 ### Added
 - Support for specific file extensions via `-e` or `--extensions`.
+- Added initial test suite.
 
-## [0.2.0] - 2024-09-01
+## [0.2.0] - 2025-05-11
 
 ### Changed
 - Improved output formatting with clearer file separators and timestamps.
 
-## [0.1.0] - 2024-08-01
+## [0.1.0] - 2025-05-10
 
 ### Added
 - Initial release of `prepdir` with basic directory traversal and file content output.

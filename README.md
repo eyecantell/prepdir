@@ -32,8 +32,9 @@ That's it! You now have a `prepped_dir.txt` file containing all your project fil
 from prepdir import run
 
 # Generate content for Python files
-output = run(directory="/path/to/project", extensions=["py"])
-print(output.content)  # Use the content directly
+outputs = run(directory="/path/to/project", extensions=["py"])
+for output in outputs:
+    print(output.content)  # Use the content directly
 ```
 
 ## 🎯 Why Use prepdir?
@@ -88,6 +89,9 @@ prepdir --all
 # Disable UUID scrubbing
 prepdir --no-scrub-uuids
 
+# Split output if over 1M characters (useful for large projects)
+prepdir -m 1000000
+
 # Initialize default configuration
 prepdir --init
 ```
@@ -99,24 +103,23 @@ Use `prepdir` as a library to process directories programmatically:
 ```python
 from prepdir import run, PrepdirOutputFile, PrepdirProcessor
 
-# Run and get a PrepdirOutputFile object
-output: PrepdirOutputFile = run(directory="my_project", extensions=["py", "md"], use_unique_placeholders=True)
+# Run and get PrepdirOutputFile objects
+outputs: List[PrepdirOutputFile] = run(directory="my_project", extensions=["py", "md"], use_unique_placeholders=True, max_chars=1000000)
 
 # Access processed files
-for abs_path, file_entry in output.files.items():
-    print(f"File: {file_entry.relative_path}, Content: {file_entry.content}")
+for output in outputs:
+    for abs_path, file_entry in output.files.items():
+        print(f"File: {file_entry.relative_path}, Content: {file_entry.content}")
 
-# Save to file
-output.save("prepped_dir.txt")
-
-# For legacy use, get raw output
-content, uuid_mapping, files_list, metadata = run(directory="my_project")
+# Save to files
+for output in outputs:
+    output.save(output.path)
 ```
 
 ### Sample Output
 
 ```plaintext
-File listing generated 2025-07-17T19:50:21.946603 by prepdir version 0.17.1
+File listing generated 2025-09-08T12:00:00.000000 by prepdir version 0.18.0
 Base directory is '/path/to/project'
 Note: Valid (hyphenated) UUIDs in file contents will be scrubbed and replaced with '00000000-0000-0000-0000-000000000000'.
 Note: Valid hyphen-less UUIDs in file contents will be scrubbed and replaced with '00000000000000000000000000000000'.
@@ -128,6 +131,8 @@ print("Hello, World!")
 This is a sample project.
 =-=-=-=-=-=-=-= End File: 'README.md' =-=-=-=-=-=-=-=
 ```
+
+For large outputs with `--max-chars`, files are split (e.g., `prepped_dir_part1of3.txt`, `prepped_dir_part2of3.txt`, etc.), each with a "Part X of Y" note.
 
 ## 🔍 Common Use Cases
 
@@ -151,7 +156,7 @@ prepdir -e py md rst -o docs_context.txt
 
 ### 4. **Architecture Analysis**
 ```bash
-prepdir -e py js ts -o architecture.txt
+prepdir -e py js ts -o architecture.txt -m 1000000
 # Ask AI: "Analyze the architecture and suggest improvements"
 ```
 
@@ -220,7 +225,7 @@ DEFAULT_EXTENSIONS: []
 DEFAULT_OUTPUT_FILE: "prepped_dir.txt"
 USE_UNIQUE_PLACEHOLDERS: false
 INCLUDE_PREPDIR_FILES: false
-VERBOSE: false
+MAX_CHARS:  # Maximum characters per output file (optional, default: unlimited)
 EOF
 ```
 
@@ -261,8 +266,9 @@ Generate unique placeholders for each UUID to maintain relationships:
 ```python
 from prepdir import run
 
-output = run(directory="/path/to/project", use_unique_placeholders=True)
-print("UUID Mapping:", output.uuid_mapping)
+outputs = run(directory="/path/to/project", use_unique_placeholders=True)
+for output in outputs:
+    print("UUID Mapping:", output.uuid_mapping)
 # Output: {'PREPDIR_UUID_PLACEHOLDER_1': 'original-uuid-1', ...}
 ```
 
@@ -273,8 +279,9 @@ print("UUID Mapping:", output.uuid_mapping)
 prepdir --help
 
 # Key options:
--e, --extensions            File extensions to include
--o, --output               Output file name
+-e, --extensions          File extensions to include
+-o, --output              Output file name
+-m, --max-chars           Maximum characters per output file; split into parts if exceeded
 --init                    Initialize local config at .prepdir/config.yaml
 --config                  Custom config file
 --force                   Overwrite existing config file with --init
@@ -294,7 +301,7 @@ prepdir --help
 from prepdir import run, PrepdirProcessor
 
 # Full API
-output = run(
+outputs = run(
     directory="/path/to/project",           # Target directory
     extensions=["py", "js"],                # File extensions
     specific_files=["file1.py"],            # Specific files
@@ -306,7 +313,8 @@ output = run(
     use_unique_placeholders=False,          # Unique placeholders
     ignore_exclusions=False,                # Ignore exclusions
     include_prepdir_files=False,            # Include prepdir outputs
-    quiet=False                            # Suppress output
+    quiet=False,                           # Suppress output
+    max_chars=1000000                      # Max chars per file; split if exceeded
 )
 
 # Validate output
@@ -326,10 +334,17 @@ Valid levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 
 ## 📈 What's New
 
-### Version 0.17.2 (Latest)
+### Version 0.18.0 (Latest)
+- Added `--max-chars` option to split large outputs into multiple files for handling bigger projects.
+- Fixed UUID scrubbing configuration not being respected when no CLI flags are provided.
+- Updated Python `run()` API to return a list of `PrepdirOutputFile` objects to support split outputs.
+- Enhanced test coverage, including new traversal tests.
+- Minor development environment updates (e.g., `pdm install --dev`).
+
+### Version 0.17.2
 - Fixed issue that caused running verbose to be no change. 
 
-### Version 0.17.1 (Latest)
+### Version 0.17.1
 - Fixed issue that caused error when running `prepdir --init`
 
 ### Version 0.17.0
@@ -341,7 +356,7 @@ Valid levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 
 <details>
 <summary><strong>Q: What project sizes can prepdir handle?</strong></summary>
-A: Effective for small to moderate projects (thousands of files). Use file extension filters for larger projects. The limitation will more likely be what the LLM can handle. 
+A: Effective for small to moderate projects (thousands of files). Use file extension filters and `--max-chars` to split outputs for larger projects or LLM token limits.
 </details>
 
 <details>
@@ -351,7 +366,7 @@ A: prepdir excludes its own generated files (e.g., `prepped_dir.txt`) by default
 
 <details>
 <summary><strong>Q: Why are UUIDs replaced in my output?</strong></summary>
-A: Privacy protection! prepdir scrubs UUIDs by default. Use `--no-scrub-uuids` to disable.
+A: Privacy protection! prepdir scrubs UUIDs by default (configurable via CLI or config.yaml). Use `--no-scrub-uuids` or configure .prepdir/config.yaml (with prepdir --init and setting SCRUB_HYPHENATED_UUIDS and/or SCRUB_HYPHENLESS_UUIDS to false) to disable.
 </details>
 
 <details>
@@ -369,7 +384,7 @@ A: Configuration files are now loaded from `.prepdir/config.yaml` (local) or `~/
 ```bash
 git clone https://github.com/eyecantell/prepdir.git
 cd prepdir
-pdm install          # Install dependencies
+pdm install --dev     # Install dependencies with dev extras
 pdm run prepdir      # Run development version
 pdm run pytest       # Run tests
 pdm publish          # Publish to PyPI
