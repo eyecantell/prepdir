@@ -288,6 +288,40 @@ def test_main_no_scrub_uuids(tmp_path, capsys, custom_config, uuid_test_file):
     assert f"UUID: {HYPHENATED_UUID}" in content
     assert f"Hyphenless: {UNHYPHENATED_UUID}" in content
 
+def test_main_config_no_scrub_uuids(tmp_path, capsys, custom_config, uuid_test_file):
+    """Test main() with config disabling all UUID scrubbing and no CLI scrub flags."""
+    # Modify custom_config to disable UUID scrubbing
+    config_file = custom_config
+    config_content = {
+        "EXCLUDE": {
+            "DIRECTORIES": [],
+            "FILES": ["*.pyc"],
+        },
+        "SCRUB_HYPHENATED_UUIDS": False,
+        "SCRUB_HYPHENLESS_UUIDS": False,
+        "REPLACEMENT_UUID": REPLACEMENT_UUID,
+    }
+    config_file.write_text(yaml.safe_dump(config_content))
+
+    output_file = tmp_path / "prepped_dir.txt"
+    with patch.object(
+        sys,
+        "argv",
+        [
+            "prepdir",
+            str(tmp_path),
+            "-o",
+            str(output_file),
+            "--config",
+            str(config_file),
+        ],
+    ):
+        main()
+    content = Path(output_file).read_text()
+    assert f"UUID: {HYPHENATED_UUID}" in content
+    assert f"Hyphenless: {UNHYPHENATED_UUID}" in content
+    assert REPLACEMENT_UUID in content
+    assert UNHYPHENATED_UUID in content
 
 def test_main_all_flag(tmp_path, capsys, custom_config, uuid_test_file):
     """Test main() with --all ignores exclusions."""
